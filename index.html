@@ -275,52 +275,103 @@
             };
         }
 
-        // 환율 기준일수 최적화 로직
-        function findOptimalExchangeDays(prices) {
-            let bestR2 = -Infinity;
-            let bestDays = 20;
-            for (let d = 20; d <= 500; d += 10) {
-                if (prices.length < d * 2) continue;
-                let ss_res = 0, sum_price = 0, count = 0;
-                for (let i = d; i < prices.length; i++) {
-                    let slice = prices.slice(i - d + 1, i + 1);
-                    let ma = slice.reduce((a, b) => a + b, 0) / d;
-                    ss_res += Math.pow(prices[i] - ma, 2);
-                    sum_price += prices[i];
-                    count++;
-                }
-                let mean_price = sum_price / count;
-                let ss_tot = 0;
-                for (let i = d; i < prices.length; i++) {
-                    ss_tot += Math.pow(prices[i] - mean_price, 2);
-                }
-                let r2 = 1 - (ss_res / ss_tot);
-                if (r2 > bestR2) {
-                    bestR2 = r2;
-                    bestDays = d;
+        // 환율 기준일수(R²) 최적화용 물림일수 기반 회귀 로직
+        function getFastR2ForPeriod(prices, rawMulrimData, maxMulrim, period) {
+            const N = prices.length;
+            let validX = [], validY = [], sum = 0;
+            for (let i = 0; i < N; i++) {
+                sum += prices[i];
+                if (i >= period) sum -= prices[i - period];
+                if (i >= period - 1) {
+                    let avg = sum / period;
+                    if (avg > 0) {
+                        let disparity = prices[i] / avg;
+                        if ((N - 1) - i >= maxMulrim && Number.isFinite(disparity)) {
+                            validX.push(disparity); validY.push(rawMulrimData[i]);
+                        }
+                    }
                 }
             }
-            return bestDays;
+            if (validX.length < 30) return 0;
+            let sumX = 0, sumY = 0;
+            for (let i = 0; i < validX.length; i++) { sumX += validX[i]; sumY += validY[i]; }
+            let meanX = sumX / validX.length, meanY = sumY / validY.length;
+            let covXY = 0, varX = 0, varY = 0;
+            for (let i = 0; i < validX.length; i++) {
+                let dx = validX[i] - meanX, dy = validY[i] - meanY;
+                covXY += dx * dy; varX += dx * dx; varY += dy * dy;
+            }
+            if (varX > 0 && varY > 0) return (covXY / Math.sqrt(varX * varY)) ** 2;
+            return 0;
         }
 
+        // 환율 상태 계산 (물림일수-이격도 R² 최적화 반영)
         function calculateExchangeState(data) {
             const prices = data.map(d => d.close);
-            if (prices.length < 500) {
-                return { status: `데이터 부족`, currentPrice: prices.length > 0 ? prices[prices.length - 1] : null };
+            const N = prices.length;
+            if (N < 100) return { status: '데이터 부족', currentPrice: null, bestPeriod: 0, historyLog: [] };
+
+            // 1. 환율 가격 기반 물림일수 계산
+            let rawMulrimData = new Array(N).fill(0);
+            let maxMulrim = 0;
+            for (let i = 0; i < N; i++) {
+                let count = 0;
+                let currentPrice = prices[i];
+                for (let j = i + 1; j < N; j++) { if (prices[j] < currentPrice) count++; }
+                rawMulrimData[i] = count;
+                if (count > maxMulrim) maxMulrim = count;
             }
-            const optDays = findOptimalExchangeDays(prices);
-            const slice = prices.slice(prices.length - optDays);
-            const ma = slice.reduce((a, b) => a + b, 0) / optDays;
-            const currentPrice = prices[prices.length - 1];
-            
-            const ratio = currentPrice / ma;
-            const status = ratio < 1.11 ? '달러로 환전!' : '지켜보기';
-            return { status, currentPrice };
+
+            // 2. 1일부터 최대 테스트 가능 기간까지 R² 계산하여 최적 일수 도출
+            const maxTestPeriod = Math.min(3000, N - maxMulrim - 30);
+            let bestR2 = -1;
+            let bestPeriod = 20; // fallback
+            if (maxTestPeriod >= 1) {
+                for (let p = 1; p <= maxTestPeriod; p++) {
+                    let r2 = getFastR2ForPeriod(prices, rawMulrimData, maxMulrim, p);
+                    if (r2 > bestR2) {
+                        bestR2 = r2;
+                        bestPeriod = p;
+                    }
+                }
+            }
+
+            // 3. 도출된 최적 기준일수로 이격도 및 구간 평가
+            const historyLog = [];
+            for (let i = bestPeriod - 1; i < N; i++) {
+                const slice = prices.slice(i - bestPeriod + 1, i + 1);
+                const ma = slice.reduce((a, b) => a + b, 0) / bestPeriod;
+                const disparity = prices[i] / ma;
+                
+                let state = '관망';
+                if (disparity <= 0.9831) state = '달러 환전 적극 권장!';
+                else if (disparity <= 1.0206) state = '달러 환전 권장';
+                else if (disparity <= 1.0594) state = '달러 환전 장려';
+                else if (disparity <= 1.1042) state = '달러 환전 고려';
+                else state = '관망';
+
+                historyLog.push({
+                    date: data[i].date,
+                    close: prices[i],
+                    disp: disparity,
+                    state: state
+                });
+            }
+
+            const currentState = historyLog[historyLog.length - 1];
+            return { 
+                status: currentState.state, 
+                currentPrice: currentState.close,
+                bestPeriod: bestPeriod,
+                historyLog: historyLog
+            };
         }
 
-        // CSV 다운로드 함수
-        function downloadCSV(stockResults) {
+        // CSV 다운로드 함수 (환율 데이터 추가)
+        function downloadCSV(stockResults, exState) {
             const dateMap = {};
+            
+            // 1. 주식 이력 매핑
             stockResults.forEach(stock => {
                 if (!stock.historyLog) return;
                 stock.historyLog.forEach(record => {
@@ -331,10 +382,20 @@
                 });
             });
 
+            // 2. 환율 이력 매핑
+            if (exState && exState.historyLog) {
+                exState.historyLog.forEach(record => {
+                    if (!dateMap[record.date]) dateMap[record.date] = { date: record.date };
+                    dateMap[record.date][`Exchange_Price`] = record.close;
+                    dateMap[record.date][`Exchange_Disp`] = record.disp;
+                    dateMap[record.date][`Exchange_State`] = record.state;
+                });
+            }
+
             const dates = Object.keys(dateMap).sort();
             if (dates.length === 0) return alert("다운로드할 데이터가 없습니다.");
 
-            let csvContent = "Date,";
+            let csvContent = "Date,환율 Price,환율 이격도,환율 상태,";
             const headers = [];
             stockResults.forEach(s => {
                 headers.push(`${s.symbol} Price`, `${s.symbol} 이격도`, `${s.symbol} State`);
@@ -345,8 +406,15 @@
             for (let i = dates.length - 1; i >= 0; i--) {
                 const date = dates[i];
                 const row = [date];
+                const data = dateMap[date];
+
+                // 환율 열 추가
+                row.push(data[`Exchange_Price`] !== undefined ? data[`Exchange_Price`].toFixed(2) : "");
+                row.push(data[`Exchange_Disp`] !== undefined ? data[`Exchange_Disp`].toFixed(4) : "");
+                row.push(data[`Exchange_State`] || "");
+
+                // 주식 열 추가
                 stockResults.forEach(s => {
-                    const data = dateMap[date];
                     row.push(data[`${s.symbol}_Price`] !== undefined ? data[`${s.symbol}_Price`].toFixed(2) : "");
                     row.push(data[`${s.symbol}_Disp`] !== undefined ? data[`${s.symbol}_Disp`].toFixed(4) : "");
                     row.push(data[`${s.symbol}_State`] || "");
@@ -365,7 +433,7 @@
         }
 
         async function initApp() {
-            const exchangePrices = await fetchHistory('KRW=X');
+            const exchangePrices = await fetchHistory('USDKRW=X');
             const exState = calculateExchangeState(exchangePrices);
 
             const stockResults = [];
@@ -375,10 +443,17 @@
                 stockResults.push({ symbol: s.symbol, ...state });
             }
 
+            // 환율 상태 텍스트 색상 처리
+            let exStatusText = exState.status;
+            if (exStatusText.includes('적극 권장')) exStatusText = `<span class="buy">${exStatusText}</span>`;
+            else if (exStatusText.includes('권장')) exStatusText = `<span class="highlight">${exStatusText}</span>`;
+            else if (exStatusText.includes('장려') || exStatusText.includes('고려')) exStatusText = `<span style="color:#f39c12; font-weight:600;">${exStatusText}</span>`;
+            else exStatusText = `<span class="wait">${exStatusText}</span>`;
+
             let html = `
             <div class="row">
                 <div class="col-title">환전여부:</div>
-                <div class="col-status ${exState.status === '달러로 환전!' ? 'highlight' : ''}">${exState.status}</div>
+                <div class="col-status">${exStatusText} <span style="font-size:11px; color:#666; font-weight:normal;">(최적 ${exState.bestPeriod}일)</span></div>
                 <div class="col-price">현재 환율: ${formatPrice(exState.currentPrice, true)}</div>
             </div>`;
 
@@ -406,7 +481,7 @@
 
             const downloadBtn = document.getElementById('downloadBtn');
             downloadBtn.style.display = 'block';
-            downloadBtn.addEventListener('click', () => downloadCSV(stockResults));
+            downloadBtn.addEventListener('click', () => downloadCSV(stockResults, exState));
         }
 
         initApp();
