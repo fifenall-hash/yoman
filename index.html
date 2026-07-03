@@ -134,35 +134,44 @@
         // Yahoo Finance에서 데이터 가져오기 (period1, period2 명시적 지정 방식)
         async function fetchHistory(symbol) {
             const currentUnixTime = Math.floor(Date.now() / 1000); 
-            const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?period1=0&period2=${currentUnixTime}&interval=1d`;
-            // CORS 우회를 위해 allorigins 사용 (캐시 방지를 위해 timestamp 추가)
-            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl + '&t=' + Date.now())}`;
+            const period1 = currentUnixTime - (15 * 365 * 24 * 60 * 60); // 15년 전 타임스탬프
+            const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?period1=${period1}&period2=${currentUnixTime}&interval=1d`;
             
-            try {
-                const res = await fetch(proxyUrl);
-                const data = await res.json();
-                
-                if (!data.chart || !data.chart.result || !data.chart.result[0]) {
-                    throw new Error("올바른 데이터 형식이 아닙니다.");
-                }
+            // 안정성을 위해 여러 프록시를 순차적으로 시도합니다. (하나가 막히면 다음 프록시 사용)
+            const proxies = [
+                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl + '&t=' + Date.now())}`
+            ];
 
-                const result = data.chart.result[0];
-                const timestamps = result.timestamp;
-                const closes = result.indicators.quote[0].close;
-                
-                // 날짜(Date)와 종가(Close)를 함께 저장 (CSV 추출용)
-                const history = [];
-                for (let i = 0; i < closes.length; i++) {
-                    if (closes[i] !== null && timestamps[i]) {
-                        const date = new Date(timestamps[i] * 1000).toISOString().split('T')[0];
-                        history.push({ date, close: closes[i] });
+            let history = [];
+            for (let proxyUrl of proxies) {
+                try {
+                    const res = await fetch(proxyUrl);
+                    if (!res.ok) continue; // 응답이 정상이 아니면 다음 프록시 시도
+                    
+                    const data = await res.json();
+                    
+                    if (!data.chart || !data.chart.result || !data.chart.result[0]) {
+                        continue;
                     }
+
+                    const result = data.chart.result[0];
+                    const timestamps = result.timestamp;
+                    const closes = result.indicators.quote[0].close;
+                    
+                    for (let i = 0; i < closes.length; i++) {
+                        if (closes[i] !== null && timestamps[i]) {
+                            const date = new Date(timestamps[i] * 1000).toISOString().split('T')[0];
+                            history.push({ date, close: closes[i] });
+                        }
+                    }
+                    
+                    if (history.length > 0) break; // 데이터를 성공적으로 가져오면 루프 종료
+                } catch (e) {
+                    console.error(`${symbol} 데이터 로드 실패 (${proxyUrl}):`, e);
                 }
-                return history;
-            } catch (e) {
-                console.error(symbol + " 데이터를 불러오는 중 오류 발생:", e);
-                return [];
             }
+            return history;
         }
 
         // 1500일 고정 주식 매매 상태 계산
@@ -172,7 +181,15 @@
             let days = 0;
             const historyLog = []; // CSV용 기록
 
-            if (data.length < period) return { state: '데이터 부족', days: 0, currentPrice: data[data.length - 1]?.close, historyLog };
+            // 에러 디버깅을 위해 몇 일치 데이터를 가져왔는지 표시합니다.
+            if (data.length < period) {
+                return { 
+                    state: `데이터 부족 (현재: ${data.length}일)`, 
+                    days: 0, 
+                    currentPrice: data.length > 0 ? data[data.length - 1].close : null, 
+                    historyLog 
+                };
+            }
 
             const prices = data.map(d => d.close);
 
@@ -248,7 +265,12 @@
         // 환율 상태 계산 (최적화된 이동평균 대비 이격 비율 확인)
         function calculateExchangeState(data) {
             const prices = data.map(d => d.close);
-            if (prices.length < 500) return { status: '데이터 부족', currentPrice: prices[prices.length - 1] };
+            if (prices.length < 500) {
+                return { 
+                    status: `데이터 부족 (현재: ${prices.length}일)`, 
+                    currentPrice: prices.length > 0 ? prices[prices.length - 1] : null 
+                };
+            }
             
             const optDays = findOptimalExchangeDays(prices);
             const slice = prices.slice(prices.length - optDays);
