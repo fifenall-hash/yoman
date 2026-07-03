@@ -139,7 +139,7 @@
             <!-- 미니게임 영역 -->
             <div id="game-container">
                 <canvas id="gameCanvas" width="300" height="150"></canvas>
-                <div id="scoreBoard">터치/클릭하여 점프! | Score: 0</div>
+                <div id="scoreBoard">터치/클릭 점프 (더블 점프!) | 수익률: +0%</div>
             </div>
         </div>
         
@@ -168,13 +168,12 @@
             }
         }
 
-        // Yahoo Finance 데이터 패치 (래퍼런스 코드와 완벽히 동일한 로직 적용)
+        // Yahoo Finance 데이터 패치
         async function fetchHistory(ticker) {
             const currentUnixTime = Math.floor(Date.now() / 1000); 
             const targetUrl1 = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?period1=0&period2=${currentUnixTime}&interval=1d&events=history`;
             const targetUrl2 = `https://query2.finance.yahoo.com/v8/finance/chart/${ticker}?period1=0&period2=${currentUnixTime}&interval=1d&events=history`;
 
-            // 래퍼런스 코드와 동일한 프록시 목록 및 순서
             const proxyList = [
                 `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl1)}`,
                 `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl1)}`,
@@ -194,7 +193,7 @@
                         try {
                             data = JSON.parse(textData);
                         } catch (parseError) {
-                            continue; // JSON 파싱 실패 시 다음 프록시 시도
+                            continue; 
                         }
 
                         if (data && data.chart && data.chart.result) { 
@@ -202,17 +201,14 @@
                             const timestamps = result.timestamp;
                             const quotes = result.indicators.quote[0];
                             
-                            // 수정종가(adjclose) 우선 적용
                             const adjcloses = result.indicators.adjclose ? result.indicators.adjclose[0].adjclose : null;
 
                             if (timestamps && timestamps.length > 0) {
                                 for (let i = 0; i < timestamps.length; i++) {
                                     let p = adjcloses ? adjcloses[i] : quotes.close[i];
                                     
-                                    // 래퍼런스 코드와 동일한 결측치 필터링
                                     if (!p || p <= 0 || !Number.isFinite(p)) continue;
 
-                                    // UTC 기준 YYYY-MM-DD 파싱
                                     const dateObj = new Date(timestamps[i] * 1000);
                                     const yyyy = dateObj.getUTCFullYear();
                                     const mm = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
@@ -221,7 +217,7 @@
                                     history.push({ date: `${yyyy}-${mm}-${dd}`, close: p });
                                 }
                             }
-                            if (history.length > 0) break; // 데이터 확보 성공 시 루프 종료
+                            if (history.length > 0) break; 
                         }
                     }
                 } catch (error) {
@@ -231,7 +227,7 @@
             return history;
         }
 
-        // 1500일 고정 주식 매매 상태 계산 (레퍼런스와 동일 로직)
+        // 1500일 고정 주식 매매 상태 계산
         function calculateStockState(data, buyTarget, sellTarget, symbol) {
             const period = 1500;
             const historyLog = [];
@@ -246,18 +242,15 @@
 
             const prices = data.map(d => d.close);
             
-            // 시뮬레이션 상태 변수
             let isHolding = true; 
             let lastActionDateObj = new Date(data[period - 1].date);
             let lastActionType = "매수";
             let currentStateStr = "초기 보유 시작";
 
             for (let i = period - 1; i < data.length; i++) {
-                // 이전 1500일 이평선 계산
                 const slice = prices.slice(i - period + 1, i + 1);
                 const ma = slice.reduce((a, b) => a + b, 0) / period;
                 
-                // 이격 비율 (현재가 / 이평선) 
                 const disparity = prices[i] / ma;
                 let actionOccurred = false;
 
@@ -266,7 +259,6 @@
                     currentStateStr = "초기 보유 시작";
                     lastActionDateObj = new Date(data[i].date);
                 } else {
-                    // 매도 조건
                     if (isHolding && disparity >= sellTarget) {
                         isHolding = false;
                         lastActionType = "매도";
@@ -274,7 +266,6 @@
                         currentStateStr = "매도 (Sell)";
                         actionOccurred = true;
                     } 
-                    // 매수 조건
                     else if (!isHolding && disparity <= buyTarget) {
                         isHolding = true;
                         lastActionType = "매수";
@@ -284,7 +275,6 @@
                     }
                 }
 
-                // 매수/매도 액션이 일어나지 않은 날짜는 달력 날짜 기준으로 관망일수 계산
                 if (!actionOccurred) {
                     const currentDt = new Date(data[i].date);
                     const diffTime = Math.abs(currentDt - lastActionDateObj);
@@ -298,7 +288,6 @@
                     }
                 }
 
-                // 이격도 기반 평가 상태 계산
                 let evalState = '중립';
                 if (symbol === 'TQQQ') {
                     if (disparity <= 1.6093) evalState = '심한 저평가';
@@ -337,7 +326,6 @@
             };
         }
 
-        // 환율 기준일수(R²) 최적화용 물림일수 기반 회귀 로직
         function getFastR2ForPeriod(prices, rawMulrimData, maxMulrim, period) {
             const N = prices.length;
             let validX = [], validY = [], sum = 0;
@@ -367,13 +355,11 @@
             return 0;
         }
 
-        // 환율 상태 계산 (물림일수-이격도 R² 최적화 반영)
         function calculateExchangeState(data) {
             const prices = data.map(d => d.close);
             const N = prices.length;
             if (N < 100) return { status: '데이터 부족', currentPrice: null, bestPeriod: 0, historyLog: [] };
 
-            // 1. 환율 가격 기반 물림일수 계산
             let rawMulrimData = new Array(N).fill(0);
             let maxMulrim = 0;
             for (let i = 0; i < N; i++) {
@@ -384,10 +370,9 @@
                 if (count > maxMulrim) maxMulrim = count;
             }
 
-            // 2. 1일부터 최대 테스트 가능 기간까지 R² 계산하여 최적 일수 도출
             const maxTestPeriod = Math.min(3000, N - maxMulrim - 30);
             let bestR2 = -1;
-            let bestPeriod = 20; // fallback
+            let bestPeriod = 20; 
             if (maxTestPeriod >= 1) {
                 for (let p = 1; p <= maxTestPeriod; p++) {
                     let r2 = getFastR2ForPeriod(prices, rawMulrimData, maxMulrim, p);
@@ -398,7 +383,6 @@
                 }
             }
 
-            // 3. 도출된 최적 기준일수로 이격도 및 구간 평가
             const historyLog = [];
             for (let i = bestPeriod - 1; i < N; i++) {
                 const slice = prices.slice(i - bestPeriod + 1, i + 1);
@@ -435,11 +419,9 @@
             };
         }
 
-        // CSV 다운로드 함수 (환율 데이터 추가)
         function downloadCSV(stockResults, exState) {
             const dateMap = {};
             
-            // 1. 주식 이력 매핑
             stockResults.forEach(stock => {
                 if (!stock.historyLog) return;
                 stock.historyLog.forEach(record => {
@@ -451,7 +433,6 @@
                 });
             });
 
-            // 2. 환율 이력 매핑
             if (exState && exState.historyLog) {
                 exState.historyLog.forEach(record => {
                     if (!dateMap[record.date]) dateMap[record.date] = { date: record.date };
@@ -472,19 +453,16 @@
             });
             csvContent += headers.join(",") + "\n";
 
-            // 최신 날짜가 위로 오게 역순 정렬
             for (let i = dates.length - 1; i >= 0; i--) {
                 const date = dates[i];
                 const row = [date];
                 const data = dateMap[date];
 
-                // 환율 열 추가
                 row.push(data[`Exchange_Price`] !== undefined ? data[`Exchange_Price`].toFixed(2) : "");
                 row.push(data[`Exchange_Disp`] !== undefined ? data[`Exchange_Disp`].toFixed(4) : "");
                 row.push(data[`Exchange_State`] || "");
                 row.push(data[`Exchange_Eval`] || "");
 
-                // 주식 열 추가
                 stockResults.forEach(s => {
                     row.push(data[`${s.symbol}_Price`] !== undefined ? data[`${s.symbol}_Price`].toFixed(2) : "");
                     row.push(data[`${s.symbol}_Disp`] !== undefined ? data[`${s.symbol}_Disp`].toFixed(4) : "");
@@ -504,31 +482,55 @@
             document.body.removeChild(link);
         }
 
-        // --- 미니게임 (하락장 피하기) 로직 ---
+        // --- 미니게임 (하락장 피하기 & 보스전) 로직 ---
         let gameLoopId;
         function startMiniGame() {
             const canvas = document.getElementById('gameCanvas');
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
-            let score = 0;
+            let score = 0; // 이제 수익률(%)로 표기됩니다.
+            let nextBossScore = 100; // 100단위마다 보스 등장
             let isGameOver = false;
             let frame = 0;
+            let nextSpawnFrame = 50; 
 
-            const player = { x: 30, y: 100, w: 20, h: 20, dy: 0, gravity: 0.6, jumpPow: -9, grounded: false };
+            const player = { x: 30, y: 100, w: 20, h: 20, dy: 0, gravity: 0.6, jumpPow: -8.5, grounded: false, jumps: 0, maxJumps: 2 };
             let obstacles = [];
 
+            // 보스 (거대 폭락장) 객체
+            let boss = {
+                active: false,
+                x: 300, y: 30, w: 45, h: 50,
+                speedY: 2, level: 1,
+                fireCooldown: 0, fired: 0, maxFire: 0,
+                state: 'entering' // entering, fighting, leaving
+            };
+
+            function updateScoreBoard() {
+                const board = document.getElementById('scoreBoard');
+                if (boss.active) {
+                    board.innerHTML = `<span style="color:#ff5252;">⚠️ [Lv.${boss.level} 거대 하락장 등장!] ⚠️</span> | 수익률: +${score}%`;
+                } else {
+                    board.innerText = `터치/클릭 점프 (더블 점프!) | 수익률: +${score}%`;
+                }
+            }
+
             function jump(e) {
-                if (e) e.preventDefault(); // 스크롤 등 기본 이벤트 방지
-                if (player.grounded && !isGameOver) {
-                    player.dy = player.jumpPow;
-                    player.grounded = false;
-                } else if (isGameOver) {
-                    // 게임 오버 시 재시작
+                if (e) e.preventDefault();
+                
+                if (isGameOver) {
                     obstacles = [];
                     score = 0;
+                    nextBossScore = 100;
                     frame = 0;
+                    nextSpawnFrame = 50;
                     isGameOver = false;
-                    document.getElementById('scoreBoard').innerText = '터치/클릭하여 점프! | Score: 0';
+                    boss.active = false;
+                    updateScoreBoard();
+                } else if (player.jumps < player.maxJumps) {
+                    player.dy = player.jumpPow;
+                    player.grounded = false;
+                    player.jumps++;
                 }
             }
 
@@ -541,17 +543,95 @@
                 player.dy += player.gravity;
                 player.y += player.dy;
                 
-                // 바닥 충돌
                 if (player.y + player.h >= 130) {
                     player.y = 130 - player.h;
                     player.dy = 0;
                     player.grounded = true;
+                    player.jumps = 0;
                 }
 
                 frame++;
-                // 장애물 생성 (점수가 오를수록 간격이 좁아집니다)
-                if (frame % Math.max(40, 90 - Math.floor(score/50)) === 0) {
-                    obstacles.push({ x: 300, y: 110, w: 20, h: 20, speed: 4 + (score/200) });
+                
+                // 보스전 진입 판정 (수익률이 nextBossScore 이상 도달 시)
+                if (score >= nextBossScore && !boss.active) {
+                    // 화면에 남은 일반 장애물이 모두 사라지면 보스 등장
+                    if (obstacles.length === 0) {
+                        boss.active = true;
+                        boss.x = 300;
+                        boss.y = 40;
+                        boss.level = Math.floor(score / 100);
+                        boss.speedY = 1.5 + (boss.level * 0.5); // 레벨별 속도 상승
+                        boss.fired = 0;
+                        boss.maxFire = 5 + (boss.level * 3); // 레벨별 패턴 횟수 상승
+                        boss.fireCooldown = 30;
+                        boss.state = 'entering';
+                        updateScoreBoard();
+                    }
+                }
+
+                // 보스 행동 패턴
+                if (boss.active) {
+                    if (boss.state === 'entering') {
+                        boss.x -= 2;
+                        if (boss.x <= 230) boss.state = 'fighting';
+                    } else if (boss.state === 'fighting') {
+                        // 위아래 바운스 이동
+                        boss.y += boss.speedY;
+                        if (boss.y < 10 || boss.y + boss.h > 115) boss.speedY *= -1;
+
+                        boss.fireCooldown--;
+                        if (boss.fireCooldown <= 0 && boss.fired < boss.maxFire) {
+                            // 보스가 쏘는 악재(Projectiles)
+                            let pSpeed = 4 + boss.level + Math.random() * 2;
+                            let pSize = 12 + Math.random() * 8;
+                            
+                            // 하단 공격 패턴 추가: 60% 확률로 바닥으로 굴러가고, 40%는 보스 높이에서 날아감
+                            let projY = Math.random() < 0.6 ? 130 - pSize : boss.y + Math.random() * 20;
+
+                            // passed:true 처리하여 보스의 투사체는 피할 때마다 점수가 오르지 않게 함
+                            obstacles.push({ x: boss.x, y: projY, w: pSize, h: pSize, speed: pSpeed, color: '#e74c3c', passed: true, isBossProj: true });
+                            boss.fired++;
+                            boss.fireCooldown = Math.max(15, 50 - (boss.level * 5)); // 고레벨일수록 연사력 증가
+                        }
+
+                        // 패턴을 다 쏘고 투사체가 사라지면 퇴장
+                        if (boss.fired >= boss.maxFire && obstacles.length === 0) {
+                            boss.state = 'leaving';
+                        }
+                    } else if (boss.state === 'leaving') {
+                        boss.x += 3;
+                        if (boss.x > 300) {
+                            boss.active = false;
+                            score += 20; // 보스 처치 대량 보너스 수익률
+                            nextBossScore = score - (score % 100) + 100; // 다음 100단위 목표 설정
+                            updateScoreBoard();
+                        }
+                    }
+                } 
+                // 일반 장애물 생성 (보스전이 아닐 때만)
+                else {
+                    if (score < nextBossScore && frame >= nextSpawnFrame) {
+                        let baseSpeed = 4 + (score / 200);
+                        let obsType = Math.random();
+                        let obsW, obsH, obsSpeed;
+                        let color = '#448aff'; 
+
+                        if (obsType < 0.2) {
+                            obsW = 15; obsH = 15; obsSpeed = baseSpeed + 3; color = '#8e44ad'; // 급락장
+                        } else if (obsType < 0.4) {
+                            obsW = 40 + Math.random() * 20; obsH = 20; obsSpeed = baseSpeed - 1; // 장기 침체
+                        } else if (obsType < 0.6) {
+                            obsW = 20; obsH = 35 + Math.random() * 10; obsSpeed = baseSpeed; // 깊은 하락
+                        } else {
+                            obsW = 15 + Math.random() * 10; obsH = 15 + Math.random() * 10; obsSpeed = baseSpeed + (Math.random() * 2 - 1); // 일반
+                        }
+
+                        obstacles.push({ x: 300, y: 130 - obsH, w: obsW, h: obsH, speed: obsSpeed, color: color, passed: false });
+
+                        let minDelay = Math.max(30, 70 - Math.floor(score/30)); 
+                        let maxDelay = minDelay + 40 + Math.random() * 40;
+                        nextSpawnFrame = frame + minDelay + Math.floor(Math.random() * (maxDelay - minDelay));
+                    }
                 }
 
                 // 장애물 이동 및 충돌 판정
@@ -559,14 +639,17 @@
                     let obs = obstacles[i];
                     obs.x -= obs.speed;
                     
-                    // 장애물 회피 성공
+                    // 일반 장애물 회피 성공 시 수익률(+10%) 증가
+                    if (!obs.passed && player.x > obs.x + obs.w) {
+                        obs.passed = true;
+                        score += 10;
+                        updateScoreBoard();
+                    }
+
                     if (obs.x + obs.w < 0) {
                         obstacles.splice(i, 1);
-                        score += 10;
-                        document.getElementById('scoreBoard').innerText = '터치/클릭하여 점프! | Score: ' + score;
                     }
                     
-                    // 충돌 체크 (충돌 박스를 살짝 작게 만들어 억울하게 죽는 일 방지)
                     if (player.x + 4 < obs.x + obs.w && player.x + player.w - 4 > obs.x &&
                         player.y + 4 < obs.y + obs.h && player.y + player.h - 4 > obs.y) {
                         isGameOver = true;
@@ -581,13 +664,34 @@
                 ctx.fillStyle = '#333';
                 ctx.fillRect(0, 130, 300, 2);
 
-                // 플레이어 (상승장/수익을 의미하는 빨간 블록)
+                // 플레이어 (상승장/개미)
                 ctx.fillStyle = '#ff5252';
                 ctx.fillRect(player.x, player.y, player.w, player.h);
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(player.x + 12, player.y + 4, 4, 4);
 
-                // 장애물 (하락장/손실을 의미하는 파란 블록)
-                ctx.fillStyle = '#448aff';
+                // 보스 렌더링
+                if (boss.active) {
+                    ctx.fillStyle = '#000000'; // 검은색 폭락장 보스
+                    ctx.fillRect(boss.x, boss.y, boss.w, boss.h);
+                    // 보스의 화난 눈
+                    ctx.fillStyle = '#ff5252';
+                    ctx.fillRect(boss.x + 8, boss.y + 12, 10, 6);
+                    ctx.fillRect(boss.x + 28, boss.y + 12, 10, 6);
+                    // 보스의 입
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(boss.x + 12, boss.y + 35, 22, 4);
+                    
+                    // 레벨 텍스트
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = '10px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(`Lv.${boss.level}`, boss.x + boss.w/2, boss.y - 5);
+                }
+
+                // 장애물 렌더링
                 for (let obs of obstacles) {
+                    ctx.fillStyle = obs.color;
                     ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
                 }
 
@@ -597,7 +701,7 @@
                     ctx.fillStyle = '#fff';
                     ctx.font = '16px sans-serif';
                     ctx.textAlign = 'center';
-                    ctx.fillText('하락장에 물렸습니다!', 150, 70);
+                    ctx.fillText('마이너스 수익률! (게임오버)', 150, 70);
                     ctx.font = '12px sans-serif';
                     ctx.fillText('다시 하려면 터치하세요', 150, 95);
                 }
@@ -608,6 +712,8 @@
                 draw();
                 gameLoopId = requestAnimationFrame(loop);
             }
+            
+            updateScoreBoard();
             loop();
         }
 
@@ -616,7 +722,6 @@
         }
 
         async function initApp() {
-            // 백그라운드 데이터 분석 중 미니게임 시작
             startMiniGame();
 
             const exchangePrices = await fetchHistory('USDKRW=X');
@@ -625,11 +730,10 @@
             const stockResults = [];
             for (let s of STOCKS) {
                 const prices = await fetchHistory(s.symbol);
-                const state = calculateStockState(prices, s.buy, s.sell, s.symbol); // symbol 파라미터 추가
+                const state = calculateStockState(prices, s.buy, s.sell, s.symbol); 
                 stockResults.push({ symbol: s.symbol, ...state });
             }
 
-            // 평가 텍스트 색상 결정 함수
             function getEvalColor(evalText) {
                 if (!evalText) return '#aaaaaa';
                 if (evalText.includes('심한 저평가') || evalText === '저환율') return '#ff5252';
@@ -640,7 +744,6 @@
                 return '#aaaaaa';
             }
 
-            // 환율 상태 텍스트 색상 처리
             let exStatusText = exState.status;
             if (exStatusText.includes('적극 권장')) exStatusText = `<span class="buy">${exStatusText}</span>`;
             else if (exStatusText.includes('권장')) exStatusText = `<span class="highlight">${exStatusText}</span>`;
@@ -662,7 +765,6 @@
                 } else if (r.state === '매도 (Sell)') {
                     statusText = `<span class="sell">${r.state}</span>`;
                 } else {
-                    // 관망 텍스트
                     statusText = `<span class="wait">${r.state}</span>`;
                 }
 
@@ -675,7 +777,6 @@
                 </div>`;
             });
 
-            // 데이터 로딩이 완료되면 미니게임 중지
             stopMiniGame();
 
             document.getElementById('content').innerHTML = html;
