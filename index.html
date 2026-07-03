@@ -75,6 +75,25 @@
             color: #aaaaaa;
             margin-top: 50px;
         }
+
+        /* CSV 다운로드 버튼 스타일 (눈에 띄지 않게 하단 배치) */
+        .btn-download {
+            display: none;
+            width: 100%;
+            padding: 12px;
+            margin-top: 30px;
+            background-color: #1e1e1e;
+            color: #666;
+            border: 1px solid #333;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+        .btn-download:hover {
+            background-color: #2a2a2a;
+            color: #aaa;
+        }
     </style>
 </head>
 <body>
@@ -84,6 +103,9 @@
             <h1>지금 사요?</h1>
         </header>
         <div id="content" class="loading">주식 및 환율 데이터를 분석 중입니다...</div>
+        
+        <!-- 다운로드 버튼 (데이터 로딩 완료 시 표시됨) -->
+        <button id="downloadBtn" class="btn-download">📊 데이터 확인용 CSV 다운로드</button>
     </div>
 
     <script>
@@ -116,8 +138,18 @@
             try {
                 const res = await fetch(proxyUrl);
                 const data = await res.json();
+                const timestamps = data.chart.result[0].timestamp;
                 const closes = data.chart.result[0].indicators.quote[0].close;
-                return closes.filter(c => c !== null); // 빈 데이터 제거
+                
+                // 날짜(Date)와 종가(Close)를 함께 저장 (CSV 추출용)
+                const history = [];
+                for (let i = 0; i < closes.length; i++) {
+                    if (closes[i] !== null && timestamps[i]) {
+                        const date = new Date(timestamps[i] * 1000).toISOString().split('T')[0];
+                        history.push({ date, close: closes[i] });
+                    }
+                }
+                return history;
             } catch (e) {
                 console.error(symbol + " 데이터를 불러오는 중 오류 발생:", e);
                 return [];
@@ -125,12 +157,15 @@
         }
 
         // 1500일 고정 주식 매매 상태 계산
-        function calculateStockState(prices, buyTarget, sellTarget) {
+        function calculateStockState(data, buyTarget, sellTarget) {
             const period = 1500;
             let state = '관망';
             let days = 0;
+            const historyLog = []; // CSV용 기록
 
-            if (prices.length < period) return { state: '데이터 부족', days: 0, currentPrice: prices[prices.length - 1] };
+            if (data.length < period) return { state: '데이터 부족', days: 0, currentPrice: data[data.length - 1]?.close, historyLog };
+
+            const prices = data.map(d => d.close);
 
             for (let i = period; i < prices.length; i++) {
                 // 이전 1500일 추출
@@ -156,8 +191,16 @@
                     else if (state === '매도 후 관망') days++;
                     else days++; // 초기 관망 상태
                 }
+
+                // 매일의 계산 기록 저장
+                historyLog.push({
+                    date: data[i].date,
+                    close: prices[i],
+                    z: currentZ,
+                    state: state
+                });
             }
-            return { state, days, currentPrice: prices[prices.length - 1] };
+            return { state, days, currentPrice: prices[prices.length - 1], historyLog };
         }
 
         // 환율 기준일수(R²) 최적화 로직
@@ -194,7 +237,8 @@
         }
 
         // 환율 상태 계산 (최적화된 이동평균 대비 이격 비율 확인)
-        function calculateExchangeState(prices) {
+        function calculateExchangeState(data) {
+            const prices = data.map(d => d.close);
             if (prices.length < 500) return { status: '데이터 부족', currentPrice: prices[prices.length - 1] };
             
             const optDays = findOptimalExchangeDays(prices);
@@ -207,6 +251,58 @@
             const status = ratio < 1.11 ? '달러로 환전!' : '지켜보기';
             
             return { status, currentPrice };
+        }
+
+        // CSV 생성 및 다운로드 함수
+        function downloadCSV(stockResults) {
+            const dateMap = {};
+            
+            // 모든 종목의 히스토리 데이터를 날짜별로 병합
+            stockResults.forEach(stock => {
+                if (!stock.historyLog) return;
+                stock.historyLog.forEach(record => {
+                    if (!dateMap[record.date]) dateMap[record.date] = { date: record.date };
+                    dateMap[record.date][`${stock.symbol}_Price`] = record.close;
+                    dateMap[record.date][`${stock.symbol}_Z`] = record.z;
+                    dateMap[record.date][`${stock.symbol}_State`] = record.state;
+                });
+            });
+
+            const dates = Object.keys(dateMap).sort();
+            if (dates.length === 0) {
+                alert("다운로드할 데이터가 충분하지 않습니다.");
+                return;
+            }
+
+            let csvContent = "Date,";
+            const headers = [];
+            stockResults.forEach(s => {
+                headers.push(`${s.symbol} Price`, `${s.symbol} Z-Score`, `${s.symbol} State`);
+            });
+            csvContent += headers.join(",") + "\n";
+
+            dates.forEach(date => {
+                const row = [date];
+                stockResults.forEach(s => {
+                    const data = dateMap[date];
+                    row.push(data[`${s.symbol}_Price`] !== undefined ? data[`${s.symbol}_Price`].toFixed(2) : "");
+                    row.push(data[`${s.symbol}_Z`] !== undefined ? data[`${s.symbol}_Z`].toFixed(4) : "");
+                    row.push(data[`${s.symbol}_State`] || "");
+                });
+                csvContent += row.join(",") + "\n";
+            });
+
+            // Excel에서 한글이 깨지지 않도록 BOM 추가
+            const bom = "\uFEFF"; 
+            const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `Data_Check_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
 
         // 화면 렌더링
@@ -252,6 +348,11 @@
 
             document.getElementById('content').innerHTML = html;
             document.getElementById('content').classList.remove('loading');
+
+            // CSV 다운로드 버튼 활성화 및 이벤트 바인딩
+            const downloadBtn = document.getElementById('downloadBtn');
+            downloadBtn.style.display = 'block';
+            downloadBtn.addEventListener('click', () => downloadCSV(stockResults));
         }
 
         // 앱 실행
