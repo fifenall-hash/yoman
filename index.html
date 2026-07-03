@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>지금 사요?</title>
+    <!-- PWA 및 아이콘 설정 -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="icon.ico" sizes="any">
+    <link rel="apple-touch-icon" href="icon.png">
+    <meta name="theme-color" content="#121212">
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #121212; /* 다크 모드 배경 */
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        #app {
+            width: 100%;
+            max-width: 500px;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        h1 {
+            font-size: 28px;
+            font-weight: 800;
+            margin: 0;
+            color: #ffffff;
+        }
+        .row {
+            display: flex;
+            align-items: center;
+            padding: 16px 0;
+            border-bottom: 1px solid #333;
+            font-size: 15px;
+        }
+        .row:last-child {
+            border-bottom: none;
+        }
+        .col-title {
+            flex: 0 0 75px;
+            font-weight: 600;
+            color: #aaaaaa;
+            text-align: left;
+        }
+        .col-status {
+            flex: 1;
+            padding-left: 10px;
+            font-weight: 500;
+        }
+        .col-price {
+            flex: 0 0 145px;
+            text-align: right;
+            color: #dddddd;
+            font-variant-numeric: tabular-nums;
+        }
+        /* 상태별 색상 강조 */
+        .buy { color: #ff5252; font-weight: 700; }
+        .sell { color: #448aff; font-weight: 700; }
+        .highlight { color: #ffd740; font-weight: 700; }
+        
+        .loading {
+            text-align: center;
+            color: #aaaaaa;
+            margin-top: 50px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app">
+        <header>
+            <h1>지금 사요?</h1>
+        </header>
+        <div id="content" class="loading">주식 및 환율 데이터를 분석 중입니다...</div>
+    </div>
+
+    <script>
+        // PWA 서비스 워커 등록
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(err => console.error("SW 등록 실패:", err));
+        }
+
+        // 종목 및 매수/매도 Z-score 타점 고정값
+        const STOCKS = [
+            { symbol: 'TQQQ', buy: 1.5, sell: 3.0 },
+            { symbol: 'TECL', buy: 1.5, sell: 3.5 },
+            { symbol: 'SOXL', buy: 1.0, sell: 5.0 }
+        ];
+
+        // 숫자 포맷팅 (원화는 콤마, 달러는 소수점 2자리)
+        function formatPrice(price, isKrw = false) {
+            if (!price) return '데이터 없음';
+            if (isKrw) {
+                return Math.round(price).toLocaleString('ko-KR') + '원';
+            } else {
+                return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+        }
+
+        // Yahoo Finance에서 10년치 데이터 가져오기 (CORS 우회를 위해 allorigins 사용)
+        async function fetchHistory(symbol) {
+            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=10y`;
+            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url + '&t=' + Date.now())}`;
+            try {
+                const res = await fetch(proxyUrl);
+                const data = await res.json();
+                const closes = data.chart.result[0].indicators.quote[0].close;
+                return closes.filter(c => c !== null); // 빈 데이터 제거
+            } catch (e) {
+                console.error(symbol + " 데이터를 불러오는 중 오류 발생:", e);
+                return [];
+            }
+        }
+
+        // 1500일 고정 주식 매매 상태 계산
+        function calculateStockState(prices, buyTarget, sellTarget) {
+            const period = 1500;
+            let state = '관망';
+            let days = 0;
+
+            if (prices.length < period) return { state: '데이터 부족', days: 0, currentPrice: prices[prices.length - 1] };
+
+            for (let i = period; i < prices.length; i++) {
+                // 이전 1500일 추출
+                const slice = prices.slice(i - period + 1, i + 1);
+                const ma = slice.reduce((a, b) => a + b, 0) / period;
+                const variance = slice.reduce((a, b) => a + Math.pow(b - ma, 2), 0) / period;
+                const std = Math.sqrt(variance);
+                
+                // Z-score(이격도) 계산
+                const currentZ = (prices[i] - ma) / std;
+
+                // 타점 비교
+                if (currentZ <= -buyTarget) {
+                    state = '매수';
+                    days = 0;
+                } else if (currentZ >= sellTarget) {
+                    state = '매도';
+                    days = 0;
+                } else {
+                    if (state === '매수') { state = '매수 후 관망'; days = 1; }
+                    else if (state === '매수 후 관망') days++;
+                    else if (state === '매도') { state = '매도 후 관망'; days = 1; }
+                    else if (state === '매도 후 관망') days++;
+                    else days++; // 초기 관망 상태
+                }
+            }
+            return { state, days, currentPrice: prices[prices.length - 1] };
+        }
+
+        // 환율 기준일수(R²) 최적화 로직
+        function findOptimalExchangeDays(prices) {
+            let bestR2 = -Infinity;
+            let bestDays = 20;
+
+            // 20일부터 500일까지 10일 단위로 테스트하여 최고 R² 찾기
+            for (let d = 20; d <= 500; d += 10) {
+                if (prices.length < d * 2) continue;
+                let ss_res = 0, sum_price = 0, count = 0;
+
+                for (let i = d; i < prices.length; i++) {
+                    let slice = prices.slice(i - d + 1, i + 1);
+                    let ma = slice.reduce((a, b) => a + b, 0) / d;
+                    ss_res += Math.pow(prices[i] - ma, 2);
+                    sum_price += prices[i];
+                    count++;
+                }
+
+                let mean_price = sum_price / count;
+                let ss_tot = 0;
+                for (let i = d; i < prices.length; i++) {
+                    ss_tot += Math.pow(prices[i] - mean_price, 2);
+                }
+
+                let r2 = 1 - (ss_res / ss_tot);
+                if (r2 > bestR2) {
+                    bestR2 = r2;
+                    bestDays = d;
+                }
+            }
+            return bestDays;
+        }
+
+        // 환율 상태 계산 (최적화된 이동평균 대비 이격 비율 확인)
+        function calculateExchangeState(prices) {
+            if (prices.length < 500) return { status: '데이터 부족', currentPrice: prices[prices.length - 1] };
+            
+            const optDays = findOptimalExchangeDays(prices);
+            const slice = prices.slice(prices.length - optDays);
+            const ma = slice.reduce((a, b) => a + b, 0) / optDays;
+            const currentPrice = prices[prices.length - 1];
+            
+            // 현재가 / 이동평균 이 1.11보다 작으면 달러 환전
+            const ratio = currentPrice / ma;
+            const status = ratio < 1.11 ? '달러로 환전!' : '지켜보기';
+            
+            return { status, currentPrice };
+        }
+
+        // 화면 렌더링
+        async function initApp() {
+            // 1. 환율 데이터 분석
+            const exchangePrices = await fetchHistory('KRW=X');
+            const exState = calculateExchangeState(exchangePrices);
+
+            // 2. 3가지 종목 데이터 분석
+            const stockResults = [];
+            for (let s of STOCKS) {
+                const prices = await fetchHistory(s.symbol);
+                const state = calculateStockState(prices, s.buy, s.sell);
+                stockResults.push({ symbol: s.symbol, ...state });
+            }
+
+            // 3. UI 그리기
+            let html = ``;
+            
+            // 환율 렌더링
+            html += `
+            <div class="row">
+                <div class="col-title">환전여부:</div>
+                <div class="col-status ${exState.status === '달러로 환전!' ? 'highlight' : ''}">${exState.status}</div>
+                <div class="col-price">현재 환율: ${formatPrice(exState.currentPrice, true)}</div>
+            </div>`;
+
+            // 종목 렌더링
+            stockResults.forEach(r => {
+                let statusText = r.state;
+                if (r.state === '매수') statusText = `<span class="buy">매수 (Buy)</span>`;
+                else if (r.state === '매도') statusText = `<span class="sell">매도 (Sell)</span>`;
+                else if (r.state === '매수 후 관망') statusText = `매수 후 관망 (${r.days}일차)`;
+                else if (r.state === '매도 후 관망') statusText = `매도 후 관망 (${r.days}일차)`;
+
+                html += `
+                <div class="row">
+                    <div class="col-title">${r.symbol}:</div>
+                    <div class="col-status">${statusText}</div>
+                    <div class="col-price">현재가: ${formatPrice(r.currentPrice, false)}</div>
+                </div>`;
+            });
+
+            document.getElementById('content').innerHTML = html;
+            document.getElementById('content').classList.remove('loading');
+        }
+
+        // 앱 실행
+        initApp();
+    </script>
+</body>
+</html>
