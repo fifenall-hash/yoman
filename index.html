@@ -65,10 +65,11 @@
             color: #dddddd;
             font-variant-numeric: tabular-nums;
         }
-        /* 상태별 색상 강조 */
+        /* 한국 주식 기준 색상: 매수(빨강), 매도(파랑) */
         .buy { color: #ff5252; font-weight: 700; }
         .sell { color: #448aff; font-weight: 700; }
         .highlight { color: #ffd740; font-weight: 700; }
+        .wait { color: #9e9e9e; }
         
         .loading {
             text-align: center;
@@ -76,7 +77,7 @@
             margin-top: 50px;
         }
 
-        /* CSV 다운로드 버튼 스타일 (눈에 띄지 않게 하단 배치) */
+        /* CSV 다운로드 버튼 스타일 */
         .btn-download {
             display: none;
             width: 100%;
@@ -102,9 +103,8 @@
         <header>
             <h1>지금 사요?</h1>
         </header>
-        <div id="content" class="loading">주식 및 환율 데이터를 분석 중입니다...</div>
+        <div id="content" class="loading">주식 및 환율 데이터를 분석 중입니다...<br><span style="font-size: 12px; color: #666;">(야후 파이낸스 접속 중)</span></div>
         
-        <!-- 다운로드 버튼 (데이터 로딩 완료 시 표시됨) -->
         <button id="downloadBtn" class="btn-download">📊 데이터 확인용 CSV 다운로드</button>
     </div>
 
@@ -114,14 +114,13 @@
             navigator.serviceWorker.register('sw.js').catch(err => console.error("SW 등록 실패:", err));
         }
 
-        // 종목 및 매수/매도 Z-score 타점 고정값
+        // 종목 및 매수(이하)/매도(이상) 이격 비율 고정값
         const STOCKS = [
             { symbol: 'TQQQ', buy: 1.5, sell: 3.0 },
             { symbol: 'TECL', buy: 1.5, sell: 3.5 },
             { symbol: 'SOXL', buy: 1.0, sell: 5.0 }
         ];
 
-        // 숫자 포맷팅 (원화는 콤마, 달러는 소수점 2자리)
         function formatPrice(price, isKrw = false) {
             if (!price) return '데이터 없음';
             if (isKrw) {
@@ -131,129 +130,158 @@
             }
         }
 
-        // Yahoo Finance에서 데이터 가져오기 (강력한 다중 CORS 프록시 적용)
-        async function fetchHistory(symbol) {
+        // Yahoo Finance 데이터 패치 (래퍼런스 코드와 완벽히 동일한 로직 적용)
+        async function fetchHistory(ticker) {
             const currentUnixTime = Math.floor(Date.now() / 1000); 
-            const period1 = currentUnixTime - (15 * 365 * 24 * 60 * 60); // 15년 전 타임스탬프
-            const targetUrl = `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?period1=${period1}&period2=${currentUnixTime}&interval=1d`;
-            
-            // 안정성을 위해 여러 프록시를 순차적으로 시도합니다. (야후의 봇 차단 우회용)
-            const proxies = [
-                `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
-                `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`,
-                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
-                `https://thingproxy.freeboard.io/fetch/${targetUrl}`
+            const targetUrl1 = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?period1=0&period2=${currentUnixTime}&interval=1d&events=history`;
+            const targetUrl2 = `https://query2.finance.yahoo.com/v8/finance/chart/${ticker}?period1=0&period2=${currentUnixTime}&interval=1d&events=history`;
+
+            // 래퍼런스 코드와 동일한 프록시 목록 및 순서
+            const proxyList = [
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl1)}`,
+                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl1)}`,
+                `https://corsproxy.io/?${encodeURIComponent(targetUrl1)}`,
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl2)}`,
+                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl2)}`,
+                `https://thingproxy.freeboard.io/fetch/${targetUrl1}`
             ];
 
             let history = [];
-            for (let proxyUrl of proxies) {
+            for (let proxy of proxyList) {
                 try {
-                    const res = await fetch(proxyUrl);
-                    if (!res.ok) continue; 
-                    
-                    let data = await res.json();
-                    
-                    // allorigins의 /get 방식은 data.contents 안에 문자열 형태의 JSON을 반환함
-                    if (data.contents) {
+                    const response = await fetch(proxy, { method: 'GET', headers: { 'Accept': 'application/json' }});
+                    if (response.ok) {
+                        const textData = await response.text();
+                        let data;
                         try {
-                            data = JSON.parse(data.contents);
-                        } catch (e) {
-                            continue;
+                            data = JSON.parse(textData);
+                        } catch (parseError) {
+                            continue; // JSON 파싱 실패 시 다음 프록시 시도
                         }
-                    }
-                    
-                    if (!data.chart || !data.chart.result || !data.chart.result[0]) {
-                        continue;
-                    }
 
-                    const result = data.chart.result[0];
-                    const timestamps = result.timestamp;
-                    const closes = result.indicators.quote[0].close;
-                    
-                    for (let i = 0; i < closes.length; i++) {
-                        if (closes[i] !== null && timestamps[i]) {
-                            const date = new Date(timestamps[i] * 1000).toISOString().split('T')[0];
-                            history.push({ date, close: closes[i] });
+                        if (data && data.chart && data.chart.result) { 
+                            const result = data.chart.result[0];
+                            const timestamps = result.timestamp;
+                            const quotes = result.indicators.quote[0];
+                            
+                            // 수정종가(adjclose) 우선 적용
+                            const adjcloses = result.indicators.adjclose ? result.indicators.adjclose[0].adjclose : null;
+
+                            if (timestamps && timestamps.length > 0) {
+                                for (let i = 0; i < timestamps.length; i++) {
+                                    let p = adjcloses ? adjcloses[i] : quotes.close[i];
+                                    
+                                    // 래퍼런스 코드와 동일한 결측치 필터링
+                                    if (!p || p <= 0 || !Number.isFinite(p)) continue;
+
+                                    // UTC 기준 YYYY-MM-DD 파싱
+                                    const dateObj = new Date(timestamps[i] * 1000);
+                                    const yyyy = dateObj.getUTCFullYear();
+                                    const mm = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+                                    const dd = String(dateObj.getUTCDate()).padStart(2, '0');
+
+                                    history.push({ date: `${yyyy}-${mm}-${dd}`, close: p });
+                                }
+                            }
+                            if (history.length > 0) break; // 데이터 확보 성공 시 루프 종료
                         }
                     }
-                    
-                    if (history.length > 0) break; 
-                } catch (e) {
-                    console.error(`${symbol} 데이터 로드 실패 (${proxyUrl}):`, e);
+                } catch (error) {
+                    console.warn(`Proxy fail:`, proxy, error);
                 }
             }
             return history;
         }
 
-        // 1500일 고정 주식 매매 상태 계산
+        // 1500일 고정 주식 매매 상태 계산 (레퍼런스와 동일 로직)
         function calculateStockState(data, buyTarget, sellTarget) {
             const period = 1500;
-            let state = '관망';
-            let days = 0;
-            const historyLog = []; // CSV용 기록
+            const historyLog = [];
 
-            // 에러 디버깅을 위해 몇 일치 데이터를 가져왔는지 표시합니다.
             if (data.length < period) {
                 return { 
                     state: `데이터 부족 (현재: ${data.length}일)`, 
-                    days: 0, 
                     currentPrice: data.length > 0 ? data[data.length - 1].close : null, 
                     historyLog 
                 };
             }
 
             const prices = data.map(d => d.close);
+            
+            // 시뮬레이션 상태 변수
+            let isHolding = true; 
+            let lastActionDateObj = new Date(data[period - 1].date);
+            let lastActionType = "매수";
+            let currentStateStr = "초기 보유 시작";
 
-            for (let i = period; i < prices.length; i++) {
-                // 이전 1500일 추출
+            for (let i = period - 1; i < data.length; i++) {
+                // 이전 1500일 이평선 계산
                 const slice = prices.slice(i - period + 1, i + 1);
                 const ma = slice.reduce((a, b) => a + b, 0) / period;
-                const variance = slice.reduce((a, b) => a + Math.pow(b - ma, 2), 0) / period;
-                const std = Math.sqrt(variance);
                 
-                // Z-score(이격도) 계산
-                const currentZ = (prices[i] - ma) / std;
+                // 이격 비율 (현재가 / 이평선) 
+                const disparity = prices[i] / ma;
+                let actionOccurred = false;
 
-                // 타점 비교
-                if (currentZ <= -buyTarget) {
-                    state = '매수';
-                    days = 0;
-                } else if (currentZ >= sellTarget) {
-                    state = '매도';
-                    days = 0;
+                if (i === period - 1) {
+                    actionOccurred = true;
+                    currentStateStr = "초기 보유 시작";
+                    lastActionDateObj = new Date(data[i].date);
                 } else {
-                    if (state === '매수' || state === '매수 후 관망') { 
-                        state = '매수 후 관망'; 
-                        days++; 
-                    } else if (state === '매도' || state === '매도 후 관망') { 
-                        state = '매도 후 관망'; 
-                        days++; 
-                    } else {
-                        days++; // 초기 타점 미도달 관망 상태
+                    // 매도 조건
+                    if (isHolding && disparity >= sellTarget) {
+                        isHolding = false;
+                        lastActionType = "매도";
+                        lastActionDateObj = new Date(data[i].date);
+                        currentStateStr = "매도 (Sell)";
+                        actionOccurred = true;
+                    } 
+                    // 매수 조건
+                    else if (!isHolding && disparity <= buyTarget) {
+                        isHolding = true;
+                        lastActionType = "매수";
+                        lastActionDateObj = new Date(data[i].date);
+                        currentStateStr = "매수 (Buy)";
+                        actionOccurred = true;
                     }
                 }
 
-                // 매일의 계산 기록 저장 (여기에 days 추가됨!)
+                // 매수/매도 액션이 일어나지 않은 날짜는 달력 날짜 기준으로 관망일수 계산
+                if (!actionOccurred) {
+                    const currentDt = new Date(data[i].date);
+                    const diffTime = Math.abs(currentDt - lastActionDateObj);
+                    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+                    
+                    if (diffDays >= 365) {
+                        const diffYears = (diffDays / 365.2425).toFixed(2);
+                        currentStateStr = `${lastActionType} 후 관망 (${diffYears}년차)`;
+                    } else {
+                        currentStateStr = `${lastActionType} 후 관망 (${diffDays}일차)`;
+                    }
+                }
+
                 historyLog.push({
                     date: data[i].date,
                     close: prices[i],
-                    z: currentZ,
-                    state: state,
-                    days: days
+                    disp: disparity,
+                    state: currentStateStr
                 });
             }
-            return { state, days, currentPrice: prices[prices.length - 1], historyLog };
+            
+            return { 
+                state: historyLog[historyLog.length - 1].state, 
+                currentPrice: prices[prices.length - 1], 
+                historyLog 
+            };
         }
 
-        // 환율 기준일수(R²) 최적화 로직
+        // 환율 기준일수 최적화 로직
         function findOptimalExchangeDays(prices) {
             let bestR2 = -Infinity;
             let bestDays = 20;
-
             for (let d = 20; d <= 500; d += 10) {
                 if (prices.length < d * 2) continue;
                 let ss_res = 0, sum_price = 0, count = 0;
-
                 for (let i = d; i < prices.length; i++) {
                     let slice = prices.slice(i - d + 1, i + 1);
                     let ma = slice.reduce((a, b) => a + b, 0) / d;
@@ -261,13 +289,11 @@
                     sum_price += prices[i];
                     count++;
                 }
-
                 let mean_price = sum_price / count;
                 let ss_tot = 0;
                 for (let i = d; i < prices.length; i++) {
                     ss_tot += Math.pow(prices[i] - mean_price, 2);
                 }
-
                 let r2 = 1 - (ss_res / ss_tot);
                 if (r2 > bestR2) {
                     bestR2 = r2;
@@ -277,16 +303,11 @@
             return bestDays;
         }
 
-        // 환율 상태 계산 (최적화된 이동평균 대비 이격 비율 확인)
         function calculateExchangeState(data) {
             const prices = data.map(d => d.close);
             if (prices.length < 500) {
-                return { 
-                    status: `데이터 부족 (현재: ${prices.length}일)`, 
-                    currentPrice: prices.length > 0 ? prices[prices.length - 1] : null 
-                };
+                return { status: `데이터 부족`, currentPrice: prices.length > 0 ? prices[prices.length - 1] : null };
             }
-            
             const optDays = findOptimalExchangeDays(prices);
             const slice = prices.slice(prices.length - optDays);
             const ma = slice.reduce((a, b) => a + b, 0) / optDays;
@@ -294,74 +315,59 @@
             
             const ratio = currentPrice / ma;
             const status = ratio < 1.11 ? '달러로 환전!' : '지켜보기';
-            
             return { status, currentPrice };
         }
 
-        // CSV 생성 및 다운로드 함수
+        // CSV 다운로드 함수
         function downloadCSV(stockResults) {
             const dateMap = {};
-            
-            // 모든 종목의 히스토리 데이터를 날짜별로 병합
             stockResults.forEach(stock => {
                 if (!stock.historyLog) return;
                 stock.historyLog.forEach(record => {
                     if (!dateMap[record.date]) dateMap[record.date] = { date: record.date };
                     dateMap[record.date][`${stock.symbol}_Price`] = record.close;
-                    dateMap[record.date][`${stock.symbol}_Z`] = record.z;
-                    
-                    // CSV에서도 "매수 후 관망 (27일차)" 형태로 출력되게 조합
-                    let stateText = record.state;
-                    if (record.state === '매수 후 관망' || record.state === '매도 후 관망') {
-                        stateText += ` (${record.days}일차)`;
-                    }
-                    dateMap[record.date][`${stock.symbol}_State`] = stateText;
+                    dateMap[record.date][`${stock.symbol}_Disp`] = record.disp;
+                    dateMap[record.date][`${stock.symbol}_State`] = record.state;
                 });
             });
 
             const dates = Object.keys(dateMap).sort();
-            if (dates.length === 0) {
-                alert("다운로드할 데이터가 충분하지 않습니다.");
-                return;
-            }
+            if (dates.length === 0) return alert("다운로드할 데이터가 없습니다.");
 
             let csvContent = "Date,";
             const headers = [];
             stockResults.forEach(s => {
-                headers.push(`${s.symbol} Price`, `${s.symbol} Z-Score`, `${s.symbol} State`);
+                headers.push(`${s.symbol} Price`, `${s.symbol} 이격도`, `${s.symbol} State`);
             });
             csvContent += headers.join(",") + "\n";
 
-            dates.forEach(date => {
+            // 최신 날짜가 위로 오게 역순 정렬
+            for (let i = dates.length - 1; i >= 0; i--) {
+                const date = dates[i];
                 const row = [date];
                 stockResults.forEach(s => {
                     const data = dateMap[date];
                     row.push(data[`${s.symbol}_Price`] !== undefined ? data[`${s.symbol}_Price`].toFixed(2) : "");
-                    row.push(data[`${s.symbol}_Z`] !== undefined ? data[`${s.symbol}_Z`].toFixed(4) : "");
+                    row.push(data[`${s.symbol}_Disp`] !== undefined ? data[`${s.symbol}_Disp`].toFixed(4) : "");
                     row.push(data[`${s.symbol}_State`] || "");
                 });
                 csvContent += row.join(",") + "\n";
-            });
+            }
 
             const bom = "\uFEFF"; 
             const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
-            const url = URL.createObjectURL(blob);
-            link.setAttribute("href", url);
-            link.setAttribute("download", `Data_Check_${new Date().toISOString().split('T')[0]}.csv`);
-            link.style.visibility = 'hidden';
+            link.href = URL.createObjectURL(blob);
+            link.download = `Data_Check_${new Date().toISOString().split('T')[0]}.csv`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
         }
 
-        // 화면 렌더링
         async function initApp() {
-            // 1. 환율 데이터 분석
             const exchangePrices = await fetchHistory('KRW=X');
             const exState = calculateExchangeState(exchangePrices);
 
-            // 2. 3가지 종목 데이터 분석
             const stockResults = [];
             for (let s of STOCKS) {
                 const prices = await fetchHistory(s.symbol);
@@ -369,26 +375,23 @@
                 stockResults.push({ symbol: s.symbol, ...state });
             }
 
-            // 3. UI 그리기
-            let html = ``;
-            
-            // 환율 렌더링
-            html += `
+            let html = `
             <div class="row">
                 <div class="col-title">환전여부:</div>
                 <div class="col-status ${exState.status === '달러로 환전!' ? 'highlight' : ''}">${exState.status}</div>
                 <div class="col-price">현재 환율: ${formatPrice(exState.currentPrice, true)}</div>
             </div>`;
 
-            // 종목 렌더링
             stockResults.forEach(r => {
                 let statusText = r.state;
-                
-                if (r.state === '매수') statusText = `<span class="buy">매수 (Buy)</span>`;
-                else if (r.state === '매도') statusText = `<span class="sell">매도 (Sell)</span>`;
-                else if (r.state === '매수 후 관망') statusText = `매수 후 관망 (${r.days}일차)`;
-                else if (r.state === '매도 후 관망') statusText = `매도 후 관망 (${r.days}일차)`;
-                else if (r.state === '관망') statusText = `관망 (타점 대기중)`;
+                if (r.state === '매수 (Buy)' || r.state === '초기 보유 시작') {
+                    statusText = `<span class="buy">${r.state}</span>`;
+                } else if (r.state === '매도 (Sell)') {
+                    statusText = `<span class="sell">${r.state}</span>`;
+                } else {
+                    // 관망 텍스트
+                    statusText = `<span class="wait">${r.state}</span>`;
+                }
 
                 html += `
                 <div class="row">
@@ -401,13 +404,11 @@
             document.getElementById('content').innerHTML = html;
             document.getElementById('content').classList.remove('loading');
 
-            // CSV 다운로드 버튼 활성화 및 이벤트 바인딩
             const downloadBtn = document.getElementById('downloadBtn');
             downloadBtn.style.display = 'block';
             downloadBtn.addEventListener('click', () => downloadCSV(stockResults));
         }
 
-        // 앱 실행
         initApp();
     </script>
 </body>
