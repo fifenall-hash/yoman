@@ -104,6 +104,27 @@
             background-color: #2a2a2a;
             color: #aaa;
         }
+
+        /* 미니게임 스타일 */
+        #game-container {
+            text-align: center;
+            margin-top: 20px;
+        }
+        #gameCanvas {
+            background-color: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 8px;
+            display: block;
+            margin: 0 auto;
+            touch-action: none; /* 모바일 터치 스크롤 방지 */
+            cursor: pointer;
+        }
+        #scoreBoard {
+            margin-top: 10px;
+            font-size: 13px;
+            color: #ffd740;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -112,7 +133,15 @@
         <header>
             <h1>지금 사요?</h1>
         </header>
-        <div id="content" class="loading">주식 및 환율 데이터를 분석 중입니다...<br><span style="font-size: 12px; color: #666;">(야후 파이낸스 접속 중)</span></div>
+        <div id="content" class="loading">
+            <div style="margin-bottom: 15px;">주식 및 환율 데이터를 분석 중입니다...<br><span style="font-size: 12px; color: #666;">(야후 파이낸스 접속 중)</span></div>
+            
+            <!-- 미니게임 영역 -->
+            <div id="game-container">
+                <canvas id="gameCanvas" width="300" height="150"></canvas>
+                <div id="scoreBoard">터치/클릭하여 점프! | Score: 0</div>
+            </div>
+        </div>
         
         <button id="downloadBtn" class="btn-download">📊 데이터 확인용 CSV 다운로드</button>
     </div>
@@ -475,7 +504,121 @@
             document.body.removeChild(link);
         }
 
+        // --- 미니게임 (하락장 피하기) 로직 ---
+        let gameLoopId;
+        function startMiniGame() {
+            const canvas = document.getElementById('gameCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            let score = 0;
+            let isGameOver = false;
+            let frame = 0;
+
+            const player = { x: 30, y: 100, w: 20, h: 20, dy: 0, gravity: 0.6, jumpPow: -9, grounded: false };
+            let obstacles = [];
+
+            function jump(e) {
+                if (e) e.preventDefault(); // 스크롤 등 기본 이벤트 방지
+                if (player.grounded && !isGameOver) {
+                    player.dy = player.jumpPow;
+                    player.grounded = false;
+                } else if (isGameOver) {
+                    // 게임 오버 시 재시작
+                    obstacles = [];
+                    score = 0;
+                    frame = 0;
+                    isGameOver = false;
+                    document.getElementById('scoreBoard').innerText = '터치/클릭하여 점프! | Score: 0';
+                }
+            }
+
+            canvas.addEventListener('mousedown', jump);
+            canvas.addEventListener('touchstart', jump, {passive: false});
+
+            function update() {
+                if (isGameOver) return;
+                
+                player.dy += player.gravity;
+                player.y += player.dy;
+                
+                // 바닥 충돌
+                if (player.y + player.h >= 130) {
+                    player.y = 130 - player.h;
+                    player.dy = 0;
+                    player.grounded = true;
+                }
+
+                frame++;
+                // 장애물 생성 (점수가 오를수록 간격이 좁아집니다)
+                if (frame % Math.max(40, 90 - Math.floor(score/50)) === 0) {
+                    obstacles.push({ x: 300, y: 110, w: 20, h: 20, speed: 4 + (score/200) });
+                }
+
+                // 장애물 이동 및 충돌 판정
+                for (let i = obstacles.length - 1; i >= 0; i--) {
+                    let obs = obstacles[i];
+                    obs.x -= obs.speed;
+                    
+                    // 장애물 회피 성공
+                    if (obs.x + obs.w < 0) {
+                        obstacles.splice(i, 1);
+                        score += 10;
+                        document.getElementById('scoreBoard').innerText = '터치/클릭하여 점프! | Score: ' + score;
+                    }
+                    
+                    // 충돌 체크 (충돌 박스를 살짝 작게 만들어 억울하게 죽는 일 방지)
+                    if (player.x + 4 < obs.x + obs.w && player.x + player.w - 4 > obs.x &&
+                        player.y + 4 < obs.y + obs.h && player.y + player.h - 4 > obs.y) {
+                        isGameOver = true;
+                    }
+                }
+            }
+
+            function draw() {
+                ctx.clearRect(0, 0, 300, 150);
+                
+                // 바닥 선
+                ctx.fillStyle = '#333';
+                ctx.fillRect(0, 130, 300, 2);
+
+                // 플레이어 (상승장/수익을 의미하는 빨간 블록)
+                ctx.fillStyle = '#ff5252';
+                ctx.fillRect(player.x, player.y, player.w, player.h);
+
+                // 장애물 (하락장/손실을 의미하는 파란 블록)
+                ctx.fillStyle = '#448aff';
+                for (let obs of obstacles) {
+                    ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+                }
+
+                if (isGameOver) {
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                    ctx.fillRect(0, 0, 300, 150);
+                    ctx.fillStyle = '#fff';
+                    ctx.font = '16px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('하락장에 물렸습니다!', 150, 70);
+                    ctx.font = '12px sans-serif';
+                    ctx.fillText('다시 하려면 터치하세요', 150, 95);
+                }
+            }
+
+            function loop() {
+                update();
+                draw();
+                gameLoopId = requestAnimationFrame(loop);
+            }
+            loop();
+        }
+
+        function stopMiniGame() {
+            if (gameLoopId) cancelAnimationFrame(gameLoopId);
+        }
+
         async function initApp() {
+            // 백그라운드 데이터 분석 중 미니게임 시작
+            startMiniGame();
+
             const exchangePrices = await fetchHistory('USDKRW=X');
             const exState = calculateExchangeState(exchangePrices);
 
@@ -531,6 +674,9 @@
                     <div class="col-price">현재가: ${formatPrice(r.currentPrice, false)}</div>
                 </div>`;
             });
+
+            // 데이터 로딩이 완료되면 미니게임 중지
+            stopMiniGame();
 
             document.getElementById('content').innerHTML = html;
             document.getElementById('content').classList.remove('loading');
