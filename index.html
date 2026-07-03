@@ -131,15 +131,24 @@
             }
         }
 
-        // Yahoo Finance에서 10년치 데이터 가져오기 (CORS 우회를 위해 allorigins 사용)
+        // Yahoo Finance에서 데이터 가져오기 (period1, period2 명시적 지정 방식)
         async function fetchHistory(symbol) {
-            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=10y`;
-            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url + '&t=' + Date.now())}`;
+            const currentUnixTime = Math.floor(Date.now() / 1000); 
+            const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?period1=0&period2=${currentUnixTime}&interval=1d`;
+            // CORS 우회를 위해 allorigins 사용 (캐시 방지를 위해 timestamp 추가)
+            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl + '&t=' + Date.now())}`;
+            
             try {
                 const res = await fetch(proxyUrl);
                 const data = await res.json();
-                const timestamps = data.chart.result[0].timestamp;
-                const closes = data.chart.result[0].indicators.quote[0].close;
+                
+                if (!data.chart || !data.chart.result || !data.chart.result[0]) {
+                    throw new Error("올바른 데이터 형식이 아닙니다.");
+                }
+
+                const result = data.chart.result[0];
+                const timestamps = result.timestamp;
+                const closes = result.indicators.quote[0].close;
                 
                 // 날짜(Date)와 종가(Close)를 함께 저장 (CSV 추출용)
                 const history = [];
