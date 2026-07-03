@@ -149,7 +149,7 @@
             for (let proxyUrl of proxies) {
                 try {
                     const res = await fetch(proxyUrl);
-                    if (!res.ok) continue; // 응답이 200 OK가 아니면 다음 프록시로 넘어감
+                    if (!res.ok) continue; 
                     
                     let data = await res.json();
                     
@@ -177,7 +177,7 @@
                         }
                     }
                     
-                    if (history.length > 0) break; // 데이터를 하나라도 성공적으로 가져오면 루프 탈출!
+                    if (history.length > 0) break; 
                 } catch (e) {
                     console.error(`${symbol} 데이터 로드 실패 (${proxyUrl}):`, e);
                 }
@@ -222,19 +222,24 @@
                     state = '매도';
                     days = 0;
                 } else {
-                    if (state === '매수') { state = '매수 후 관망'; days = 1; }
-                    else if (state === '매수 후 관망') days++;
-                    else if (state === '매도') { state = '매도 후 관망'; days = 1; }
-                    else if (state === '매도 후 관망') days++;
-                    else days++; // 초기 관망 상태
+                    if (state === '매수' || state === '매수 후 관망') { 
+                        state = '매수 후 관망'; 
+                        days++; 
+                    } else if (state === '매도' || state === '매도 후 관망') { 
+                        state = '매도 후 관망'; 
+                        days++; 
+                    } else {
+                        days++; // 초기 타점 미도달 관망 상태
+                    }
                 }
 
-                // 매일의 계산 기록 저장
+                // 매일의 계산 기록 저장 (여기에 days 추가됨!)
                 historyLog.push({
                     date: data[i].date,
                     close: prices[i],
                     z: currentZ,
-                    state: state
+                    state: state,
+                    days: days
                 });
             }
             return { state, days, currentPrice: prices[prices.length - 1], historyLog };
@@ -245,7 +250,6 @@
             let bestR2 = -Infinity;
             let bestDays = 20;
 
-            // 20일부터 500일까지 10일 단위로 테스트하여 최고 R² 찾기
             for (let d = 20; d <= 500; d += 10) {
                 if (prices.length < d * 2) continue;
                 let ss_res = 0, sum_price = 0, count = 0;
@@ -288,7 +292,6 @@
             const ma = slice.reduce((a, b) => a + b, 0) / optDays;
             const currentPrice = prices[prices.length - 1];
             
-            // 현재가 / 이동평균 이 1.11보다 작으면 달러 환전
             const ratio = currentPrice / ma;
             const status = ratio < 1.11 ? '달러로 환전!' : '지켜보기';
             
@@ -306,7 +309,13 @@
                     if (!dateMap[record.date]) dateMap[record.date] = { date: record.date };
                     dateMap[record.date][`${stock.symbol}_Price`] = record.close;
                     dateMap[record.date][`${stock.symbol}_Z`] = record.z;
-                    dateMap[record.date][`${stock.symbol}_State`] = record.state;
+                    
+                    // CSV에서도 "매수 후 관망 (27일차)" 형태로 출력되게 조합
+                    let stateText = record.state;
+                    if (record.state === '매수 후 관망' || record.state === '매도 후 관망') {
+                        stateText += ` (${record.days}일차)`;
+                    }
+                    dateMap[record.date][`${stock.symbol}_State`] = stateText;
                 });
             });
 
@@ -334,7 +343,6 @@
                 csvContent += row.join(",") + "\n";
             });
 
-            // Excel에서 한글이 깨지지 않도록 BOM 추가
             const bom = "\uFEFF"; 
             const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
@@ -375,10 +383,12 @@
             // 종목 렌더링
             stockResults.forEach(r => {
                 let statusText = r.state;
+                
                 if (r.state === '매수') statusText = `<span class="buy">매수 (Buy)</span>`;
                 else if (r.state === '매도') statusText = `<span class="sell">매도 (Sell)</span>`;
                 else if (r.state === '매수 후 관망') statusText = `매수 후 관망 (${r.days}일차)`;
                 else if (r.state === '매도 후 관망') statusText = `매도 후 관망 (${r.days}일차)`;
+                else if (r.state === '관망') statusText = `관망 (타점 대기중)`;
 
                 html += `
                 <div class="row">
