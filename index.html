@@ -49,20 +49,29 @@
             border-bottom: none;
         }
         .col-title {
-            flex: 0 0 75px;
+            flex: 0 0 60px;
             font-weight: 600;
             color: #aaaaaa;
             text-align: left;
+            font-size: 13px;
         }
         .col-status {
             flex: 1;
-            padding-left: 10px;
+            padding-left: 5px;
             font-weight: 500;
+            font-size: 13px;
+        }
+        .col-eval {
+            flex: 0 0 70px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 12px;
         }
         .col-price {
-            flex: 0 0 145px;
+            flex: 0 0 110px;
             text-align: right;
             color: #dddddd;
+            font-size: 13px;
             font-variant-numeric: tabular-nums;
         }
         /* 한국 주식 기준 색상: 매수(빨강), 매도(파랑) */
@@ -194,7 +203,7 @@
         }
 
         // 1500일 고정 주식 매매 상태 계산 (레퍼런스와 동일 로직)
-        function calculateStockState(data, buyTarget, sellTarget) {
+        function calculateStockState(data, buyTarget, sellTarget, symbol) {
             const period = 1500;
             const historyLog = [];
 
@@ -260,16 +269,40 @@
                     }
                 }
 
+                // 이격도 기반 평가 상태 계산
+                let evalState = '중립';
+                if (symbol === 'TQQQ') {
+                    if (disparity <= 1.6093) evalState = '심한 저평가';
+                    else if (disparity <= 1.9971) evalState = '저평가';
+                    else if (disparity <= 2.2958) evalState = '중립';
+                    else if (disparity <= 2.9607) evalState = '과열';
+                    else evalState = '심한 과열';
+                } else if (symbol === 'TECL') {
+                    if (disparity <= 1.7314) evalState = '심한 저평가';
+                    else if (disparity <= 2.1225) evalState = '저평가';
+                    else if (disparity <= 2.4379) evalState = '중립';
+                    else if (disparity <= 3.0115) evalState = '과열';
+                    else evalState = '심한 과열';
+                } else if (symbol === 'SOXL') {
+                    if (disparity <= 1.1588) evalState = '심한 저평가';
+                    else if (disparity <= 1.7736) evalState = '저평가';
+                    else if (disparity <= 2.5217) evalState = '중립';
+                    else if (disparity <= 3.6264) evalState = '과열';
+                    else evalState = '심한 과열';
+                }
+
                 historyLog.push({
                     date: data[i].date,
                     close: prices[i],
                     disp: disparity,
-                    state: currentStateStr
+                    state: currentStateStr,
+                    eval: evalState
                 });
             }
             
             return { 
                 state: historyLog[historyLog.length - 1].state, 
+                evalState: historyLog[historyLog.length - 1].eval,
                 currentPrice: prices[prices.length - 1], 
                 historyLog 
             };
@@ -350,17 +383,23 @@
                 else if (disparity <= 1.1042) state = '달러 환전 고려';
                 else state = '관망';
 
+                let evalState = '적정';
+                if (disparity <= 0.9831) evalState = '저환율';
+                else if (disparity > 1.1042) evalState = '고환율';
+
                 historyLog.push({
                     date: data[i].date,
                     close: prices[i],
                     disp: disparity,
-                    state: state
+                    state: state,
+                    eval: evalState
                 });
             }
 
             const currentState = historyLog[historyLog.length - 1];
             return { 
                 status: currentState.state, 
+                evalState: currentState.eval,
                 currentPrice: currentState.close,
                 bestPeriod: bestPeriod,
                 historyLog: historyLog
@@ -379,6 +418,7 @@
                     dateMap[record.date][`${stock.symbol}_Price`] = record.close;
                     dateMap[record.date][`${stock.symbol}_Disp`] = record.disp;
                     dateMap[record.date][`${stock.symbol}_State`] = record.state;
+                    dateMap[record.date][`${stock.symbol}_Eval`] = record.eval;
                 });
             });
 
@@ -389,16 +429,17 @@
                     dateMap[record.date][`Exchange_Price`] = record.close;
                     dateMap[record.date][`Exchange_Disp`] = record.disp;
                     dateMap[record.date][`Exchange_State`] = record.state;
+                    dateMap[record.date][`Exchange_Eval`] = record.eval;
                 });
             }
 
             const dates = Object.keys(dateMap).sort();
             if (dates.length === 0) return alert("다운로드할 데이터가 없습니다.");
 
-            let csvContent = "Date,환율 Price,환율 이격도,환율 상태,";
+            let csvContent = "Date,환율 Price,환율 이격도,환율 상태,환율 평가,";
             const headers = [];
             stockResults.forEach(s => {
-                headers.push(`${s.symbol} Price`, `${s.symbol} 이격도`, `${s.symbol} State`);
+                headers.push(`${s.symbol} Price`, `${s.symbol} 이격도`, `${s.symbol} 상태`, `${s.symbol} 평가`);
             });
             csvContent += headers.join(",") + "\n";
 
@@ -412,12 +453,14 @@
                 row.push(data[`Exchange_Price`] !== undefined ? data[`Exchange_Price`].toFixed(2) : "");
                 row.push(data[`Exchange_Disp`] !== undefined ? data[`Exchange_Disp`].toFixed(4) : "");
                 row.push(data[`Exchange_State`] || "");
+                row.push(data[`Exchange_Eval`] || "");
 
                 // 주식 열 추가
                 stockResults.forEach(s => {
                     row.push(data[`${s.symbol}_Price`] !== undefined ? data[`${s.symbol}_Price`].toFixed(2) : "");
                     row.push(data[`${s.symbol}_Disp`] !== undefined ? data[`${s.symbol}_Disp`].toFixed(4) : "");
                     row.push(data[`${s.symbol}_State`] || "");
+                    row.push(data[`${s.symbol}_Eval`] || "");
                 });
                 csvContent += row.join(",") + "\n";
             }
@@ -439,8 +482,19 @@
             const stockResults = [];
             for (let s of STOCKS) {
                 const prices = await fetchHistory(s.symbol);
-                const state = calculateStockState(prices, s.buy, s.sell);
+                const state = calculateStockState(prices, s.buy, s.sell, s.symbol); // symbol 파라미터 추가
                 stockResults.push({ symbol: s.symbol, ...state });
+            }
+
+            // 평가 텍스트 색상 결정 함수
+            function getEvalColor(evalText) {
+                if (!evalText) return '#aaaaaa';
+                if (evalText.includes('심한 저평가') || evalText === '저환율') return '#ff5252';
+                if (evalText === '저평가') return '#ff8a65';
+                if (evalText === '중립' || evalText === '적정') return '#9e9e9e';
+                if (evalText === '과열') return '#64b5f6';
+                if (evalText.includes('심한 과열') || evalText === '고환율') return '#448aff';
+                return '#aaaaaa';
             }
 
             // 환율 상태 텍스트 색상 처리
@@ -454,6 +508,7 @@
             <div class="row">
                 <div class="col-title">환전여부:</div>
                 <div class="col-status">${exStatusText}</div>
+                <div class="col-eval" style="color: ${getEvalColor(exState.evalState)}">${exState.evalState}</div>
                 <div class="col-price">현재 환율: ${formatPrice(exState.currentPrice, true)}</div>
             </div>`;
 
@@ -472,6 +527,7 @@
                 <div class="row">
                     <div class="col-title">${r.symbol}:</div>
                     <div class="col-status">${statusText}</div>
+                    <div class="col-eval" style="color: ${getEvalColor(r.evalState)}">${r.evalState}</div>
                     <div class="col-price">현재가: ${formatPrice(r.currentPrice, false)}</div>
                 </div>`;
             });
