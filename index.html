@@ -131,25 +131,36 @@
             }
         }
 
-        // Yahoo Finance에서 데이터 가져오기 (period1, period2 명시적 지정 방식)
+        // Yahoo Finance에서 데이터 가져오기 (강력한 다중 CORS 프록시 적용)
         async function fetchHistory(symbol) {
             const currentUnixTime = Math.floor(Date.now() / 1000); 
             const period1 = currentUnixTime - (15 * 365 * 24 * 60 * 60); // 15년 전 타임스탬프
-            const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?period1=${period1}&period2=${currentUnixTime}&interval=1d`;
+            const targetUrl = `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?period1=${period1}&period2=${currentUnixTime}&interval=1d`;
             
-            // 안정성을 위해 여러 프록시를 순차적으로 시도합니다. (하나가 막히면 다음 프록시 사용)
+            // 안정성을 위해 여러 프록시를 순차적으로 시도합니다. (야후의 봇 차단 우회용)
             const proxies = [
+                `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
+                `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`,
                 `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
-                `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl + '&t=' + Date.now())}`
+                `https://thingproxy.freeboard.io/fetch/${targetUrl}`
             ];
 
             let history = [];
             for (let proxyUrl of proxies) {
                 try {
                     const res = await fetch(proxyUrl);
-                    if (!res.ok) continue; // 응답이 정상이 아니면 다음 프록시 시도
+                    if (!res.ok) continue; // 응답이 200 OK가 아니면 다음 프록시로 넘어감
                     
-                    const data = await res.json();
+                    let data = await res.json();
+                    
+                    // allorigins의 /get 방식은 data.contents 안에 문자열 형태의 JSON을 반환함
+                    if (data.contents) {
+                        try {
+                            data = JSON.parse(data.contents);
+                        } catch (e) {
+                            continue;
+                        }
+                    }
                     
                     if (!data.chart || !data.chart.result || !data.chart.result[0]) {
                         continue;
@@ -166,7 +177,7 @@
                         }
                     }
                     
-                    if (history.length > 0) break; // 데이터를 성공적으로 가져오면 루프 종료
+                    if (history.length > 0) break; // 데이터를 하나라도 성공적으로 가져오면 루프 탈출!
                 } catch (e) {
                     console.error(`${symbol} 데이터 로드 실패 (${proxyUrl}):`, e);
                 }
