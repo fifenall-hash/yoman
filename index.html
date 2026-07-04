@@ -107,15 +107,16 @@
 
         /* 미니게임 스타일 */
         #game-container {
+            position: relative; /* 모달창 위치를 잡기 위해 필요 */
+            width: 300px;
+            margin: 20px auto 0 auto;
             text-align: center;
-            margin-top: 20px;
         }
         #gameCanvas {
             background-color: #1e1e1e;
             border: 1px solid #333;
             border-radius: 8px;
             display: block;
-            margin: 0 auto;
             touch-action: none; /* 모바일 터치 스크롤 방지 */
             cursor: pointer;
         }
@@ -125,6 +126,35 @@
             color: #ffd740;
             font-weight: 600;
         }
+
+        /* 데이터 준비 완료 모달 스타일 */
+        #dataReadyModal {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 300px; height: 150px;
+            background: rgba(0, 0, 0, 0.85);
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 8px;
+            z-index: 10;
+        }
+        .modal-btn {
+            font-family: inherit;
+            font-size: 12px;
+            margin-bottom: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+            width: 80%;
+            transition: background-color 0.2s;
+        }
+        .btn-cont { background: #3498db; color: white; }
+        .btn-cont:hover { background: #2980b9; }
+        .btn-stop { background: #e74c3c; color: white; }
+        .btn-stop:hover { background: #c0392b; }
     </style>
 </head>
 <body>
@@ -142,6 +172,16 @@
             <!-- 미니게임 영역 -->
             <div id="game-container">
                 <canvas id="gameCanvas" width="300" height="150"></canvas>
+                
+                <!-- 데이터 준비 완료 선택창 -->
+                <div id="dataReadyModal">
+                    <p style="font-size: 13px; color: white; margin: 0 0 12px 0; text-align: center; line-height: 1.4;">
+                        데이터 준비가 완료되었습니다.<br>게임을 계속 하시겠습니까?
+                    </p>
+                    <button id="btn-continue-game" class="modal-btn btn-cont">이번판만 하고 데이터 보러 가기.</button>
+                    <button id="btn-show-data" class="modal-btn btn-stop">바로 데이터 보러 가기.</button>
+                </div>
+                
                 <div id="scoreBoard">터치/클릭 점프 (더블 점프!) | 수익률: +0%</div>
             </div>
         </div>
@@ -519,8 +559,8 @@
             }
         }
 
-        // 각각의 효과음 지정 (점프 볼륨 증가 및 파형 변경)
-        function playJump() { initAudio(); playSound(350, 600, 'square', 0.15, 0.25); } // 볼륨 상향 및 확실한 8비트 사각파(square) 적용
+        // 점프 소리: 삼각파(triangle) 사용으로 사인파보다 명확하고 사각파보다 덜 날카롭게 조정
+        function playJump() { initAudio(); playSound(320, 600, 'triangle', 0.15, 0.15); } 
         function playHit() { initAudio(); playSound(150, 40, 'sawtooth', 0.4, 0.2); }
         function playBoss() { 
             initAudio(); 
@@ -530,42 +570,79 @@
 
         // --- 미니게임 (하락장 피하기 & 보스전) 로직 ---
         let gameLoopId;
+        let finalDataPayload = null; // 렌더링 함수 저장용
+        let isWaitingForDataChoice = false; // 모달 활성화 여부
+        let continueGameAfterData = false; // "이번판만 하기" 선택 여부
+
+        // 데이터를 성공적으로 가져왔을 때 호출됨
+        function triggerDataReady(renderCallback) {
+            finalDataPayload = renderCallback;
+            if (isGameOver) {
+                // 이미 죽어있다면 바로 데이터 화면 렌더링
+                finishGameAndShowData();
+            } else {
+                // 살아있다면 게임 일시정지 후 모달 띄움
+                isWaitingForDataChoice = true;
+                document.getElementById('dataReadyModal').style.display = 'flex';
+            }
+        }
+
+        function finishGameAndShowData() {
+            stopMiniGame();
+            if (finalDataPayload) finalDataPayload();
+        }
+
+        // 모달창 버튼 이벤트 할당
+        document.getElementById('btn-continue-game').addEventListener('click', (e) => {
+            e.stopPropagation(); // 캔버스 점프 이벤트 방지
+            isWaitingForDataChoice = false;
+            continueGameAfterData = true; // 죽으면 렌더링하도록 설정
+            document.getElementById('dataReadyModal').style.display = 'none';
+        });
+
+        document.getElementById('btn-show-data').addEventListener('click', (e) => {
+            e.stopPropagation();
+            isWaitingForDataChoice = false;
+            document.getElementById('dataReadyModal').style.display = 'none';
+            finishGameAndShowData();
+        });
+
+        // 게임 변수
+        let score = 0; 
+        let nextBossScore = 100; 
+        let isGameOver = false;
+        let frame = 0;
+        let nextSpawnFrame = 50; 
+        let obstacles = [];
+
+        const player = { x: 30, y: 100, w: 20, h: 20, dy: 0, gravity: 0.6, jumpPow: -8.5, grounded: false, jumps: 0, maxJumps: 2 };
+        let boss = { active: false, x: 300, y: 30, w: 45, h: 50, speedY: 2, level: 1, fireCooldown: 0, fired: 0, maxFire: 0, state: 'entering' };
+
+        function updateScoreBoard() {
+            const board = document.getElementById('scoreBoard');
+            if (boss.active) {
+                board.innerHTML = `<span style="color:#ff5252;">⚠️ [Lv.${boss.level} 거대 하락장 등장!] ⚠️</span> | 수익률: +${score}%`;
+            } else {
+                board.innerText = `터치/클릭 점프 (더블 점프!) | 수익률: +${score}%`;
+            }
+        }
+
         function startMiniGame() {
             const canvas = document.getElementById('gameCanvas');
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
-            let score = 0; // 수익률(%)
-            let nextBossScore = 100; // 100단위마다 보스 등장
-            let isGameOver = false;
-            let frame = 0;
-            let nextSpawnFrame = 50; 
-
-            const player = { x: 30, y: 100, w: 20, h: 20, dy: 0, gravity: 0.6, jumpPow: -8.5, grounded: false, jumps: 0, maxJumps: 2 };
-            let obstacles = [];
-
-            // 보스 객체
-            let boss = {
-                active: false,
-                x: 300, y: 30, w: 45, h: 50,
-                speedY: 2, level: 1,
-                fireCooldown: 0, fired: 0, maxFire: 0,
-                state: 'entering' 
-            };
-
-            function updateScoreBoard() {
-                const board = document.getElementById('scoreBoard');
-                if (boss.active) {
-                    board.innerHTML = `<span style="color:#ff5252;">⚠️ [Lv.${boss.level} 거대 하락장 등장!] ⚠️</span> | 수익률: +${score}%`;
-                } else {
-                    board.innerText = `터치/클릭 점프 (더블 점프!) | 수익률: +${score}%`;
-                }
-            }
 
             function jump(e) {
                 if (e) e.preventDefault();
                 initAudio(); // 브라우저 정책상 사용자 상호작용 시 오디오 활성화
                 
+                if (isWaitingForDataChoice) return; // 일시정지 중엔 점프 불가
+
                 if (isGameOver) {
+                    if (continueGameAfterData && finalDataPayload) {
+                        finishGameAndShowData();
+                        return;
+                    }
                     obstacles = [];
                     score = 0;
                     nextBossScore = 100;
@@ -578,7 +655,7 @@
                     player.dy = player.jumpPow;
                     player.grounded = false;
                     player.jumps++;
-                    playJump(); // 상향된 점프 사운드 재생
+                    playJump(); // 부드러운 삼각파 점프음
                 }
             }
 
@@ -586,7 +663,7 @@
             canvas.addEventListener('touchstart', jump, {passive: false});
 
             function update() {
-                if (isGameOver) return;
+                if (isGameOver || isWaitingForDataChoice) return; // 일시정지 또는 사망 시 로직 중단
                 
                 player.dy += player.gravity;
                 player.y += player.dy;
@@ -738,9 +815,16 @@
                     ctx.fillStyle = '#fff';
                     ctx.font = '16px sans-serif';
                     ctx.textAlign = 'center';
-                    ctx.fillText('마이너스 수익률! (게임오버)', 150, 70);
+                    
+                    // 게임 오버 멘트 변경
+                    ctx.fillText('고점에서 물렸습니다!', 150, 70);
+                    
                     ctx.font = '12px sans-serif';
-                    ctx.fillText('다시 하려면 터치하세요', 150, 95);
+                    if (continueGameAfterData && finalDataPayload) {
+                        ctx.fillText('터치하여 데이터 결과 보기', 150, 95);
+                    } else {
+                        ctx.fillText('다시 하려면 터치하세요', 150, 95);
+                    }
                 }
             }
 
@@ -814,14 +898,15 @@
                 </div>`;
             });
 
-            stopMiniGame();
+            // 데이터 수집이 끝난 후, 바로 UI를 덮어씌우지 않고 모달창을 띄우는 함수 호출
+            triggerDataReady(() => {
+                document.getElementById('content').innerHTML = html;
+                document.getElementById('content').classList.remove('loading');
 
-            document.getElementById('content').innerHTML = html;
-            document.getElementById('content').classList.remove('loading');
-
-            const downloadBtn = document.getElementById('downloadBtn');
-            downloadBtn.style.display = 'block';
-            downloadBtn.addEventListener('click', () => downloadCSV(stockResults, exState));
+                const downloadBtn = document.getElementById('downloadBtn');
+                downloadBtn.style.display = 'block';
+                downloadBtn.addEventListener('click', () => downloadCSV(stockResults, exState));
+            });
         }
 
         initApp();
