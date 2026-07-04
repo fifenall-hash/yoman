@@ -107,7 +107,7 @@
 
         /* 미니게임 스타일 */
         #game-container {
-            position: relative; /* 모달창 위치를 잡기 위해 필요 */
+            position: relative; 
             width: 300px;
             margin: 20px auto 0 auto;
             text-align: center;
@@ -117,7 +117,7 @@
             border: 1px solid #333;
             border-radius: 8px;
             display: block;
-            touch-action: none; /* 모바일 터치 스크롤 방지 */
+            touch-action: none; 
             cursor: pointer;
         }
         #scoreBoard {
@@ -149,7 +149,7 @@
             border-radius: 4px;
             font-weight: 600;
             width: 80%;
-            transition: background-color 0.2s;
+            transition: background-color 0.2s, opacity 0.2s;
         }
         .btn-cont { background: #3498db; color: white; }
         .btn-cont:hover { background: #2980b9; }
@@ -232,23 +232,17 @@
                     if (response.ok) {
                         const textData = await response.text();
                         let data;
-                        try {
-                            data = JSON.parse(textData);
-                        } catch (parseError) {
-                            continue; 
-                        }
+                        try { data = JSON.parse(textData); } catch (e) { continue; }
 
                         if (data && data.chart && data.chart.result) { 
                             const result = data.chart.result[0];
                             const timestamps = result.timestamp;
                             const quotes = result.indicators.quote[0];
-                            
                             const adjcloses = result.indicators.adjclose ? result.indicators.adjclose[0].adjclose : null;
 
                             if (timestamps && timestamps.length > 0) {
                                 for (let i = 0; i < timestamps.length; i++) {
                                     let p = adjcloses ? adjcloses[i] : quotes.close[i];
-                                    
                                     if (!p || p <= 0 || !Number.isFinite(p)) continue;
 
                                     const dateObj = new Date(timestamps[i] * 1000);
@@ -262,28 +256,20 @@
                             if (history.length > 0) break; 
                         }
                     }
-                } catch (error) {
-                    console.warn(`Proxy fail:`, proxy, error);
-                }
+                } catch (error) { console.warn(`Proxy fail:`, proxy, error); }
             }
             return history;
         }
 
-        // 1500일 고정 주식 매매 상태 계산
         function calculateStockState(data, buyTarget, sellTarget, symbol) {
             const period = 1500;
             const historyLog = [];
 
             if (data.length < period) {
-                return { 
-                    state: `데이터 부족 (현재: ${data.length}일)`, 
-                    currentPrice: data.length > 0 ? data[data.length - 1].close : null, 
-                    historyLog 
-                };
+                return { state: `데이터 부족 (현재: ${data.length}일)`, currentPrice: data.length > 0 ? data[data.length - 1].close : null, historyLog };
             }
 
             const prices = data.map(d => d.close);
-            
             let isHolding = true; 
             let lastActionDateObj = new Date(data[period - 1].date);
             let lastActionType = "매수";
@@ -292,7 +278,6 @@
             for (let i = period - 1; i < data.length; i++) {
                 const slice = prices.slice(i - period + 1, i + 1);
                 const ma = slice.reduce((a, b) => a + b, 0) / period;
-                
                 const disparity = prices[i] / ma;
                 let actionOccurred = false;
 
@@ -307,8 +292,7 @@
                         lastActionDateObj = new Date(data[i].date);
                         currentStateStr = "매도 (Sell)";
                         actionOccurred = true;
-                    } 
-                    else if (!isHolding && disparity <= buyTarget) {
+                    } else if (!isHolding && disparity <= buyTarget) {
                         isHolding = true;
                         lastActionType = "매수";
                         lastActionDateObj = new Date(data[i].date);
@@ -321,13 +305,8 @@
                     const currentDt = new Date(data[i].date);
                     const diffTime = Math.abs(currentDt - lastActionDateObj);
                     const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-                    
-                    if (diffDays >= 365) {
-                        const diffYears = (diffDays / 365.2425).toFixed(2);
-                        currentStateStr = `${lastActionType} 후 관망 (${diffYears}년차)`;
-                    } else {
-                        currentStateStr = `${lastActionType} 후 관망 (${diffDays}일차)`;
-                    }
+                    if (diffDays >= 365) currentStateStr = `${lastActionType} 후 관망 (${(diffDays / 365.2425).toFixed(2)}년차)`;
+                    else currentStateStr = `${lastActionType} 후 관망 (${diffDays}일차)`;
                 }
 
                 let evalState = '중립';
@@ -351,21 +330,10 @@
                     else evalState = '심한 과열';
                 }
 
-                historyLog.push({
-                    date: data[i].date,
-                    close: prices[i],
-                    disp: disparity,
-                    state: currentStateStr,
-                    eval: evalState
-                });
+                historyLog.push({ date: data[i].date, close: prices[i], disp: disparity, state: currentStateStr, eval: evalState });
             }
             
-            return { 
-                state: historyLog[historyLog.length - 1].state, 
-                evalState: historyLog[historyLog.length - 1].eval,
-                currentPrice: prices[prices.length - 1], 
-                historyLog 
-            };
+            return { state: historyLog[historyLog.length - 1].state, evalState: historyLog[historyLog.length - 1].eval, currentPrice: prices[prices.length - 1], historyLog };
         }
 
         function getFastR2ForPeriod(prices, rawMulrimData, maxMulrim, period) {
@@ -418,10 +386,7 @@
             if (maxTestPeriod >= 1) {
                 for (let p = 1; p <= maxTestPeriod; p++) {
                     let r2 = getFastR2ForPeriod(prices, rawMulrimData, maxMulrim, p);
-                    if (r2 > bestR2) {
-                        bestR2 = r2;
-                        bestPeriod = p;
-                    }
+                    if (r2 > bestR2) { bestR2 = r2; bestPeriod = p; }
                 }
             }
 
@@ -442,23 +407,11 @@
                 if (disparity <= 0.9831) evalState = '저환율';
                 else if (disparity > 1.1042) evalState = '고환율';
 
-                historyLog.push({
-                    date: data[i].date,
-                    close: prices[i],
-                    disp: disparity,
-                    state: state,
-                    eval: evalState
-                });
+                historyLog.push({ date: data[i].date, close: prices[i], disp: disparity, state: state, eval: evalState });
             }
 
             const currentState = historyLog[historyLog.length - 1];
-            return { 
-                status: currentState.state, 
-                evalState: currentState.eval,
-                currentPrice: currentState.close,
-                bestPeriod: bestPeriod,
-                historyLog: historyLog
-            };
+            return { status: currentState.state, evalState: currentState.eval, currentPrice: currentState.close, bestPeriod: bestPeriod, historyLog: historyLog };
         }
 
         function downloadCSV(stockResults, exState) {
@@ -490,9 +443,7 @@
 
             let csvContent = "Date,환율 Price,환율 이격도,환율 상태,환율 평가,";
             const headers = [];
-            stockResults.forEach(s => {
-                headers.push(`${s.symbol} Price`, `${s.symbol} 이격도`, `${s.symbol} 상태`, `${s.symbol} 평가`);
-            });
+            stockResults.forEach(s => { headers.push(`${s.symbol} Price`, `${s.symbol} 이격도`, `${s.symbol} 상태`, `${s.symbol} 평가`); });
             csvContent += headers.join(",") + "\n";
 
             for (let i = dates.length - 1; i >= 0; i--) {
@@ -524,15 +475,11 @@
             document.body.removeChild(link);
         }
 
-        // --- 오디오 (효과음) 합성 로직 (레트로 8비트 스타일) ---
+        // --- 오디오 (효과음) 합성 ---
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         let audioCtx;
 
-        function initAudio() {
-            if (!audioCtx) {
-                audioCtx = new AudioContext();
-            }
-        }
+        function initAudio() { if (!audioCtx) audioCtx = new AudioContext(); }
 
         function playSound(freqStart, freqEnd, type, duration, vol = 0.1) {
             if (!audioCtx) return;
@@ -544,21 +491,16 @@
                 gain.connect(audioCtx.destination);
                 
                 osc.frequency.setValueAtTime(freqStart, audioCtx.currentTime);
-                if (freqEnd) {
-                    osc.frequency.exponentialRampToValueAtTime(freqEnd, audioCtx.currentTime + duration);
-                }
+                if (freqEnd) osc.frequency.exponentialRampToValueAtTime(freqEnd, audioCtx.currentTime + duration);
                 
                 gain.gain.setValueAtTime(vol, audioCtx.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
                 
                 osc.start(audioCtx.currentTime);
                 osc.stop(audioCtx.currentTime + duration);
-            } catch (e) {
-                console.error("Audio error:", e);
-            }
+            } catch (e) { console.error("Audio error:", e); }
         }
 
-        // 점프 소리: 삼각파(triangle) 사용으로 사인파보다 명확하고 사각파보다 덜 날카롭게 조정
         function playJump() { initAudio(); playSound(320, 600, 'triangle', 0.15, 0.15); } 
         function playHit() { initAudio(); playSound(150, 40, 'sawtooth', 0.4, 0.2); }
         function playBoss() { 
@@ -566,21 +508,46 @@
             playSound(200, 100, 'square', 0.8, 0.15); 
             setTimeout(() => playSound(250, 120, 'square', 0.8, 0.15), 200); 
         }
+        function playClear() {
+            initAudio();
+            // 승리의 아르페지오 (도-미-솔-도)
+            setTimeout(() => playSound(523, 523, 'triangle', 0.15, 0.15), 0);
+            setTimeout(() => playSound(659, 659, 'triangle', 0.15, 0.15), 150);
+            setTimeout(() => playSound(783, 783, 'triangle', 0.15, 0.15), 300);
+            setTimeout(() => playSound(1046, 1046, 'triangle', 0.4, 0.2), 450);
+        }
 
-        // --- 미니게임 (하락장 피하기 & 보스전) 로직 ---
+        // --- 미니게임 (보스 4단계 진화) 로직 ---
         let gameLoopId;
-        let finalDataPayload = null; // 렌더링 함수 저장용
-        let isWaitingForDataChoice = false; // 모달 활성화 여부
-        let continueGameAfterData = false; // "이번판만 하기" 선택 여부
+        let finalDataPayload = null; 
+        let isWaitingForDataChoice = false; 
+        let continueGameAfterData = false; 
+        let canClickModal = false; 
 
-        // 데이터를 성공적으로 가져왔을 때 호출됨
         function triggerDataReady(renderCallback) {
             finalDataPayload = renderCallback;
-            if (isGameOver) {
+            if (isGameOver || isGameClear) {
                 finishGameAndShowData();
             } else {
                 isWaitingForDataChoice = true;
-                document.getElementById('dataReadyModal').style.display = 'flex';
+                const modal = document.getElementById('dataReadyModal');
+                const btns = document.querySelectorAll('.modal-btn');
+                
+                modal.style.display = 'flex';
+                canClickModal = false; 
+                
+                btns.forEach(b => {
+                    b.style.opacity = '0.4';
+                    b.style.cursor = 'not-allowed';
+                });
+
+                setTimeout(() => {
+                    canClickModal = true;
+                    btns.forEach(b => {
+                        b.style.opacity = '1';
+                        b.style.cursor = 'pointer';
+                    });
+                }, 500);
             }
         }
 
@@ -589,9 +556,9 @@
             if (finalDataPayload) finalDataPayload();
         }
 
-        // 모달창 버튼 이벤트 할당
         document.getElementById('btn-continue-game').addEventListener('click', (e) => {
             e.stopPropagation(); 
+            if (!canClickModal) return; 
             isWaitingForDataChoice = false;
             continueGameAfterData = true; 
             document.getElementById('dataReadyModal').style.display = 'none';
@@ -599,15 +566,16 @@
 
         document.getElementById('btn-show-data').addEventListener('click', (e) => {
             e.stopPropagation();
+            if (!canClickModal) return;
             isWaitingForDataChoice = false;
             document.getElementById('dataReadyModal').style.display = 'none';
             finishGameAndShowData();
         });
 
-        // 게임 변수
         let score = 0; 
         let nextBossScore = 100; 
         let isGameOver = false;
+        let isGameClear = false;
         let frame = 0;
         let nextSpawnFrame = 50; 
         let obstacles = [];
@@ -635,7 +603,7 @@
                 
                 if (isWaitingForDataChoice) return; 
 
-                if (isGameOver) {
+                if (isGameOver || isGameClear) {
                     if (continueGameAfterData && finalDataPayload) {
                         finishGameAndShowData();
                         return;
@@ -646,6 +614,7 @@
                     frame = 0;
                     nextSpawnFrame = 50;
                     isGameOver = false;
+                    isGameClear = false;
                     boss.active = false;
                     updateScoreBoard();
                 } else if (player.jumps < player.maxJumps) {
@@ -660,7 +629,7 @@
             canvas.addEventListener('touchstart', jump, {passive: false});
 
             function update() {
-                if (isGameOver || isWaitingForDataChoice) return; 
+                if (isGameOver || isGameClear || isWaitingForDataChoice) return; 
                 
                 player.dy += player.gravity;
                 player.y += player.dy;
@@ -674,16 +643,23 @@
 
                 frame++;
                 
-                // 보스전 진입 판정 
+                // 보스전 진입
                 if (score >= nextBossScore && !boss.active) {
                     if (obstacles.length === 0) {
                         boss.active = true;
                         boss.x = 300;
                         boss.y = 40;
-                        boss.level = Math.floor(score / 100);
-                        boss.speedY = 1.5 + (boss.level * 0.5); 
+                        boss.level = Math.min(4, Math.floor(score / 100));
+                        
+                        if (boss.level === 4) {
+                            boss.speedY = 4; 
+                            boss.maxFire = 30; 
+                        } else {
+                            boss.speedY = 1.5 + (boss.level * 0.5); 
+                            boss.maxFire = 5 + (boss.level * 3); 
+                        }
+                        
                         boss.fired = 0;
-                        boss.maxFire = 5 + (boss.level * 3); 
                         boss.fireCooldown = 30;
                         boss.state = 'entering';
                         playBoss();
@@ -691,7 +667,6 @@
                     }
                 }
 
-                // 보스 행동 패턴
                 if (boss.active) {
                     if (boss.state === 'entering') {
                         boss.x -= 2;
@@ -703,21 +678,27 @@
                         boss.fireCooldown--;
                         if (boss.fireCooldown <= 0 && boss.fired < boss.maxFire) {
                             let pSpeed = 4 + boss.level + Math.random() * 2;
+                            if (boss.level === 4) pSpeed += 3.5; 
+                            
                             let pWidth = 12 + Math.random() * 8;
                             let pHeight = pWidth;
                             
-                            // 30% 확률로 세로로 긴 미사일 (음봉) 생성
-                            if (Math.random() < 0.3) {
-                                pHeight += 15 + Math.random() * 10;
+                            let longProb = boss.level === 4 ? 0.7 : 0.3;
+                            if (Math.random() < longProb) {
+                                pHeight += 15 + Math.random() * 15;
+                                if (boss.level === 4) pHeight += 15; 
                             }
                             
-                            // 하단 공격 패턴: 60% 확률로 바닥, 40%는 보스 높이
                             let projY = Math.random() < 0.6 ? 130 - pHeight : boss.y + Math.random() * 20;
 
-                            // 미사일 색상을 파란색(#448aff)으로 변경
                             obstacles.push({ x: boss.x, y: projY, w: pWidth, h: pHeight, speed: pSpeed, color: '#448aff', passed: true, isBossProj: true });
                             boss.fired++;
-                            boss.fireCooldown = Math.max(15, 50 - (boss.level * 5)); 
+                            
+                            if (boss.level === 4) {
+                                boss.fireCooldown = Math.max(12, 25 - Math.random() * 5); 
+                            } else {
+                                boss.fireCooldown = Math.max(15, 50 - (boss.level * 5)); 
+                            }
                         }
 
                         if (boss.fired >= boss.maxFire && obstacles.length === 0) {
@@ -728,12 +709,18 @@
                         if (boss.x > 300) {
                             boss.active = false;
                             score += 20; 
-                            nextBossScore = score - (score % 100) + 100; 
-                            updateScoreBoard();
+                            
+                            // 4단계 보스를 격파하면 게임 클리어 처리
+                            if (boss.level === 4) {
+                                isGameClear = true;
+                                playClear();
+                            } else {
+                                nextBossScore = score - (score % 100) + 100; 
+                                updateScoreBoard();
+                            }
                         }
                     }
                 } 
-                // 일반 장애물 생성 
                 else {
                     if (score < nextBossScore && frame >= nextSpawnFrame) {
                         let baseSpeed = 4 + (score / 200);
@@ -742,7 +729,6 @@
                         let color = '#448aff'; 
 
                         if (obsType < 0.2) {
-                            // 진한 파란색 급락장
                             obsW = 15; obsH = 15; obsSpeed = baseSpeed + 3; color = '#0d47a1'; 
                         } else if (obsType < 0.4) {
                             obsW = 40 + Math.random() * 20; obsH = 20; obsSpeed = baseSpeed - 1; 
@@ -760,7 +746,6 @@
                     }
                 }
 
-                // 장애물 이동 및 충돌 판정
                 for (let i = obstacles.length - 1; i >= 0; i--) {
                     let obs = obstacles[i];
                     obs.x -= obs.speed;
@@ -795,44 +780,58 @@
                 ctx.fillRect(player.x + 12, player.y + 4, 4, 4);
 
                 if (boss.active) {
-                    // 보스: 거대한 파란색 장대음봉 컨셉
-                    ctx.fillStyle = '#1565c0'; // 어두운 파란색
-                    // 음봉 윗 꼬리
-                    ctx.fillRect(boss.x + boss.w/2 - 2, boss.y - 10, 4, 10);
-                    // 음봉 아래 꼬리
-                    ctx.fillRect(boss.x + boss.w/2 - 2, boss.y + boss.h, 4, 10);
-                    // 음봉 몸통
-                    ctx.fillRect(boss.x, boss.y, boss.w, boss.h);
+                    ctx.fillStyle = '#1565c0'; 
                     
-                    // 무서운 표정 (눈)
+                    let bodyY, bodyH, tailTopY = 0, tailTopH = 0, tailBotY = 0, tailBotH = 0, faceY;
+                    
+                    if (boss.level === 1) { 
+                        bodyY = boss.y; bodyH = 35;
+                        tailBotY = boss.y + 35; tailBotH = 15;
+                        faceY = boss.y + 8;
+                    } else if (boss.level === 2) { 
+                        bodyY = boss.y; bodyH = 50;
+                        tailTopY = boss.y - 10; tailTopH = 10;
+                        tailBotY = boss.y + 50; tailBotH = 10;
+                        faceY = boss.y + 12;
+                    } else if (boss.level === 3) { 
+                        tailTopY = boss.y - 15; tailTopH = 15;
+                        bodyY = boss.y; bodyH = 40;
+                        faceY = boss.y + 12;
+                    } else { 
+                        bodyY = boss.y - 15; bodyH = 80;
+                        faceY = boss.y + 15;
+                    }
+                    
+                    if (tailTopH > 0) ctx.fillRect(boss.x + boss.w/2 - 2, tailTopY, 4, tailTopH);
+                    if (tailBotH > 0) ctx.fillRect(boss.x + boss.w/2 - 2, tailBotY, 4, tailBotH);
+                    
+                    ctx.fillRect(boss.x, bodyY, boss.w, bodyH);
+                    
                     ctx.fillStyle = '#ffffff';
-                    ctx.fillRect(boss.x + 8, boss.y + 15, 10, 6);
-                    ctx.fillRect(boss.x + 28, boss.y + 15, 10, 6);
-                    ctx.fillStyle = '#ff0000'; // 빨간 눈동자
-                    ctx.fillRect(boss.x + 10, boss.y + 17, 4, 4);
-                    ctx.fillRect(boss.x + 28, boss.y + 17, 4, 4);
+                    ctx.fillRect(boss.x + 8, faceY, 10, 6);
+                    ctx.fillRect(boss.x + 28, faceY, 10, 6);
+                    ctx.fillStyle = '#ff0000'; 
+                    ctx.fillRect(boss.x + 10, faceY + 2, 4, 4);
+                    ctx.fillRect(boss.x + 28, faceY + 2, 4, 4);
 
-                    // 찡그린 눈썹
                     ctx.strokeStyle = '#000000';
                     ctx.lineWidth = 2;
                     ctx.beginPath();
-                    ctx.moveTo(boss.x + 6, boss.y + 10);
-                    ctx.lineTo(boss.x + 18, boss.y + 15);
+                    ctx.moveTo(boss.x + 6, faceY - 5);
+                    ctx.lineTo(boss.x + 18, faceY);
                     ctx.stroke();
                     ctx.beginPath();
-                    ctx.moveTo(boss.x + 40, boss.y + 10);
-                    ctx.lineTo(boss.x + 28, boss.y + 15);
+                    ctx.moveTo(boss.x + 40, faceY - 5);
+                    ctx.lineTo(boss.x + 28, faceY);
                     ctx.stroke();
 
-                    // 화난 입
                     ctx.fillStyle = '#000000';
-                    ctx.fillRect(boss.x + 15, boss.y + 35, 16, 6);
+                    ctx.fillRect(boss.x + 15, faceY + 20, 16, 6);
                     
-                    // 레벨
                     ctx.fillStyle = '#ffffff';
                     ctx.font = 'bold 10px sans-serif';
                     ctx.textAlign = 'center';
-                    ctx.fillText(`Lv.${boss.level}`, boss.x + boss.w/2, boss.y - 15);
+                    ctx.fillText(`Lv.${boss.level}`, boss.x + boss.w/2, bodyY - 5);
                 }
 
                 for (let obs of obstacles) {
@@ -845,7 +844,6 @@
                     ctx.fillRect(0, 0, 300, 150);
                     ctx.fillStyle = '#fff';
                     
-                    // 게임 오버 문구 변경
                     ctx.font = 'bold 22px sans-serif';
                     ctx.textAlign = 'center';
                     ctx.fillText('Game Over', 150, 60);
@@ -859,6 +857,26 @@
                         ctx.fillText('터치하여 데이터 결과 보기', 150, 110);
                     } else {
                         ctx.fillText('다시 하려면 터치하세요', 150, 110);
+                    }
+                } else if (isGameClear) {
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                    ctx.fillRect(0, 0, 300, 150);
+                    
+                    ctx.fillStyle = '#ffd740'; // 금색
+                    ctx.font = 'bold 24px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('Game Clear!', 150, 60);
+
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = '14px sans-serif';
+                    ctx.fillText('모든 하락장을 견뎌냈습니다!', 150, 85);
+                    
+                    ctx.font = '12px sans-serif';
+                    ctx.fillStyle = '#aaaaaa';
+                    if (continueGameAfterData && finalDataPayload) {
+                        ctx.fillText('터치하여 데이터 결과 보기', 150, 110);
+                    } else {
+                        ctx.fillText('새 게임을 하려면 터치하세요', 150, 110);
                     }
                 }
             }
