@@ -166,7 +166,9 @@
         <div id="content" class="loading">
             <div style="margin-bottom: 15px;">
                 주식 및 환율 데이터를 분석 중입니다...<br><span style="font-size: 12px; color: #666;">(야후 파이낸스 접속 중)</span><br><br>
-                <span style="font-size: 13px; color: #ff5252; line-height: 1.4; display: inline-block;">로딩 시간이 좀 걸립니다. 미니 게임을 하면서 기다려주세요.<br>화면이 꺼지면 연산이 멈추고 데이터가 나오지 않을 수 있습니다.</span>
+                <span style="font-size: 13px; color: #ff5252; line-height: 1.4; display: inline-block;">
+                    로딩 시간이 좀 걸립니다. 모바일 환경인 경우 화면이 꺼지면 연산이 멈추고 데이터가 나오지 않을 수 있으니 미니 게임을 하면서 기다려주세요.<br>pc환경은 브라우저를 켜 놓기만 하면 됩니다.
+                </span>
             </div>
             
             <!-- 미니게임 영역 -->
@@ -510,14 +512,13 @@
         }
         function playClear() {
             initAudio();
-            // 승리의 아르페지오 (도-미-솔-도)
             setTimeout(() => playSound(523, 523, 'triangle', 0.15, 0.15), 0);
             setTimeout(() => playSound(659, 659, 'triangle', 0.15, 0.15), 150);
             setTimeout(() => playSound(783, 783, 'triangle', 0.15, 0.15), 300);
             setTimeout(() => playSound(1046, 1046, 'triangle', 0.4, 0.2), 450);
         }
 
-        // --- 미니게임 (보스 4단계 진화) 로직 ---
+        // --- 미니게임 (보스 4단계 진화 및 음봉 몹 패턴) 로직 ---
         let gameLoopId;
         let finalDataPayload = null; 
         let isWaitingForDataChoice = false; 
@@ -541,6 +542,7 @@
                     b.style.cursor = 'not-allowed';
                 });
 
+                // 0.5초 방어 쿨타임
                 setTimeout(() => {
                     canClickModal = true;
                     btns.forEach(b => {
@@ -581,7 +583,7 @@
         let obstacles = [];
 
         const player = { x: 30, y: 100, w: 20, h: 20, dy: 0, gravity: 0.6, jumpPow: -8.5, grounded: false, jumps: 0, maxJumps: 2 };
-        let boss = { active: false, x: 300, y: 30, w: 45, h: 50, speedY: 2, level: 1, fireCooldown: 0, fired: 0, maxFire: 0, state: 'entering' };
+        let boss = { active: false, x: 300, y: 30, w: 40, h: 70, speedY: 2, level: 1, fireCooldown: 0, fired: 0, maxFire: 0, state: 'entering' };
 
         function updateScoreBoard() {
             const board = document.getElementById('scoreBoard');
@@ -650,11 +652,14 @@
                         boss.x = 300;
                         boss.y = 40;
                         boss.level = Math.min(4, Math.floor(score / 100));
+                        boss.w = 40;
                         
                         if (boss.level === 4) {
-                            boss.speedY = 4; 
-                            boss.maxFire = 30; 
+                            boss.h = 90; // 가장 큼
+                            boss.speedY = 4.5; // 속도 극대화
+                            boss.maxFire = 30; // 지속시간 2배 이상
                         } else {
+                            boss.h = 70;
                             boss.speedY = 1.5 + (boss.level * 0.5); 
                             boss.maxFire = 5 + (boss.level * 3); 
                         }
@@ -673,25 +678,29 @@
                         if (boss.x <= 230) boss.state = 'fighting';
                     } else if (boss.state === 'fighting') {
                         boss.y += boss.speedY;
-                        if (boss.y < 20 || boss.y + boss.h > 115) boss.speedY *= -1;
+                        // 보스가 위아래로 튕길 때 화면 벗어나지 않게 처리
+                        if (boss.y < 10 || boss.y + boss.h > 125) boss.speedY *= -1;
 
                         boss.fireCooldown--;
                         if (boss.fireCooldown <= 0 && boss.fired < boss.maxFire) {
                             let pSpeed = 4 + boss.level + Math.random() * 2;
-                            if (boss.level === 4) pSpeed += 3.5; 
+                            if (boss.level === 4) pSpeed += 4; // 4단계 미사일 속도 대폭 증가
                             
-                            let pWidth = 12 + Math.random() * 8;
-                            let pHeight = pWidth;
+                            let pWidth = 14; 
+                            let pHeight = 14; 
+                            let cType = 3; // 보스 미사일은 기본적으로 장대음봉
                             
+                            // 장대 미사일(더 긴 음봉) 확률 적용
                             let longProb = boss.level === 4 ? 0.7 : 0.3;
                             if (Math.random() < longProb) {
                                 pHeight += 15 + Math.random() * 15;
-                                if (boss.level === 4) pHeight += 15; 
+                                if (boss.level === 4) pHeight += 10; 
                             }
                             
                             let projY = Math.random() < 0.6 ? 130 - pHeight : boss.y + Math.random() * 20;
 
-                            obstacles.push({ x: boss.x, y: projY, w: pWidth, h: pHeight, speed: pSpeed, color: '#448aff', passed: true, isBossProj: true });
+                            // 미사일도 장대음봉 형태로 생성
+                            obstacles.push({ x: boss.x, y: projY, w: pWidth, h: pHeight, speed: pSpeed, color: '#448aff', passed: true, isBossProj: true, candleType: 3 });
                             boss.fired++;
                             
                             if (boss.level === 4) {
@@ -710,7 +719,6 @@
                             boss.active = false;
                             score += 20; 
                             
-                            // 4단계 보스를 격파하면 게임 클리어 처리
                             if (boss.level === 4) {
                                 isGameClear = true;
                                 playClear();
@@ -724,21 +732,13 @@
                 else {
                     if (score < nextBossScore && frame >= nextSpawnFrame) {
                         let baseSpeed = 4 + (score / 200);
-                        let obsType = Math.random();
-                        let obsW, obsH, obsSpeed;
+                        let obsW = 14; // 가로 크기 고정 (세로 캔들형태 유지)
+                        let obsH = 25 + Math.random() * 20; // 다양한 세로 길이
+                        let obsSpeed = baseSpeed + (Math.random() * 2 - 1);
+                        let cType = Math.floor(Math.random() * 4); // 0:아래꼬리, 1:십자, 2:위꼬리, 3:장대
                         let color = '#448aff'; 
 
-                        if (obsType < 0.2) {
-                            obsW = 15; obsH = 15; obsSpeed = baseSpeed + 3; color = '#0d47a1'; 
-                        } else if (obsType < 0.4) {
-                            obsW = 40 + Math.random() * 20; obsH = 20; obsSpeed = baseSpeed - 1; 
-                        } else if (obsType < 0.6) {
-                            obsW = 20; obsH = 35 + Math.random() * 10; obsSpeed = baseSpeed; 
-                        } else {
-                            obsW = 15 + Math.random() * 10; obsH = 15 + Math.random() * 10; obsSpeed = baseSpeed + (Math.random() * 2 - 1); 
-                        }
-
-                        obstacles.push({ x: 300, y: 130 - obsH, w: obsW, h: obsH, speed: obsSpeed, color: color, passed: false });
+                        obstacles.push({ x: 300, y: 130 - obsH, w: obsW, h: obsH, speed: obsSpeed, color: color, passed: false, candleType: cType });
 
                         let minDelay = Math.max(30, 70 - Math.floor(score/30)); 
                         let maxDelay = minDelay + 40 + Math.random() * 40;
@@ -783,36 +783,44 @@
                     ctx.fillStyle = '#1565c0'; 
                     
                     let bodyY, bodyH, tailTopY = 0, tailTopH = 0, tailBotY = 0, tailBotH = 0, faceY;
+                    let tw = 6;
+                    let tx = boss.x + boss.w/2 - tw/2;
                     
+                    // 보스 레벨별 외형 (정확한 캔들 형태)
                     if (boss.level === 1) { 
-                        bodyY = boss.y; bodyH = 35;
-                        tailBotY = boss.y + 35; tailBotH = 15;
-                        faceY = boss.y + 8;
-                    } else if (boss.level === 2) { 
-                        bodyY = boss.y; bodyH = 50;
-                        tailTopY = boss.y - 10; tailTopH = 10;
-                        tailBotY = boss.y + 50; tailBotH = 10;
-                        faceY = boss.y + 12;
-                    } else if (boss.level === 3) { 
-                        tailTopY = boss.y - 15; tailTopH = 15;
+                        // Lv.1: 아래 꼬리 음봉
                         bodyY = boss.y; bodyH = 40;
-                        faceY = boss.y + 12;
+                        tailBotY = boss.y + 40; tailBotH = boss.h - 40;
+                        faceY = boss.y + 10;
+                    } else if (boss.level === 2) { 
+                        // Lv.2: 십자/위아래 꼬리
+                        bodyY = boss.y + 20; bodyH = 30;
+                        tailTopY = boss.y; tailTopH = 20;
+                        tailBotY = boss.y + 50; tailBotH = boss.h - 50;
+                        faceY = boss.y + 25;
+                    } else if (boss.level === 3) { 
+                        // Lv.3: 위 꼬리 음봉
+                        bodyY = boss.y + 30; bodyH = boss.h - 30;
+                        tailTopY = boss.y; tailTopH = 30;
+                        faceY = boss.y + 35;
                     } else { 
-                        bodyY = boss.y - 15; bodyH = 80;
-                        faceY = boss.y + 15;
+                        // Lv.4: 장대 음봉 (꼬리 없음)
+                        bodyY = boss.y; bodyH = boss.h;
+                        faceY = boss.y + 30;
                     }
                     
-                    if (tailTopH > 0) ctx.fillRect(boss.x + boss.w/2 - 2, tailTopY, 4, tailTopH);
-                    if (tailBotH > 0) ctx.fillRect(boss.x + boss.w/2 - 2, tailBotY, 4, tailBotH);
+                    if (tailTopH > 0) ctx.fillRect(tx, tailTopY, tw, tailTopH);
+                    if (tailBotH > 0) ctx.fillRect(tx, tailBotY, tw, tailBotH);
                     
                     ctx.fillRect(boss.x, bodyY, boss.w, bodyH);
                     
+                    // 화난 얼굴 표정
                     ctx.fillStyle = '#ffffff';
                     ctx.fillRect(boss.x + 8, faceY, 10, 6);
-                    ctx.fillRect(boss.x + 28, faceY, 10, 6);
+                    ctx.fillRect(boss.x + 22, faceY, 10, 6);
                     ctx.fillStyle = '#ff0000'; 
                     ctx.fillRect(boss.x + 10, faceY + 2, 4, 4);
-                    ctx.fillRect(boss.x + 28, faceY + 2, 4, 4);
+                    ctx.fillRect(boss.x + 24, faceY + 2, 4, 4);
 
                     ctx.strokeStyle = '#000000';
                     ctx.lineWidth = 2;
@@ -821,22 +829,46 @@
                     ctx.lineTo(boss.x + 18, faceY);
                     ctx.stroke();
                     ctx.beginPath();
-                    ctx.moveTo(boss.x + 40, faceY - 5);
-                    ctx.lineTo(boss.x + 28, faceY);
+                    ctx.moveTo(boss.x + 34, faceY - 5);
+                    ctx.lineTo(boss.x + 22, faceY);
                     ctx.stroke();
 
                     ctx.fillStyle = '#000000';
-                    ctx.fillRect(boss.x + 15, faceY + 20, 16, 6);
+                    ctx.fillRect(boss.x + 12, faceY + 20, 16, 6);
                     
                     ctx.fillStyle = '#ffffff';
                     ctx.font = 'bold 10px sans-serif';
                     ctx.textAlign = 'center';
-                    ctx.fillText(`Lv.${boss.level}`, boss.x + boss.w/2, bodyY - 5);
+                    // 레벨 숫자는 몸통 위치에 따라 유동적으로 배치
+                    ctx.fillText(`Lv.${boss.level}`, boss.x + boss.w/2, bodyY - 5 < boss.y ? bodyY + bodyH + 12 : bodyY - 5);
                 }
 
                 for (let obs of obstacles) {
                     ctx.fillStyle = obs.color;
-                    ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+                    
+                    let bw = obs.w;
+                    let bh, by, tty=0, tth=0, tby=0, tbh=0;
+                    let tw = 4;
+                    let tx = obs.x + bw/2 - tw/2;
+
+                    if (obs.candleType === 0) { // 아래꼬리
+                        bh = obs.h * 0.4; by = obs.y;
+                        tby = obs.y + bh; tbh = obs.h * 0.6;
+                    } else if (obs.candleType === 1) { // 십자형
+                        bh = obs.h * 0.3; by = obs.y + obs.h * 0.35;
+                        tty = obs.y; tth = obs.h * 0.35;
+                        tby = obs.y + obs.h * 0.65; tbh = obs.h * 0.35;
+                    } else if (obs.candleType === 2) { // 위꼬리
+                        bh = obs.h * 0.4; by = obs.y + obs.h * 0.6;
+                        tty = obs.y; tth = obs.h * 0.6;
+                    } else { // 장대음봉 (보스 미사일 포함)
+                        bh = obs.h; by = obs.y;
+                    }
+
+                    // 캔들 그리기
+                    ctx.fillRect(obs.x, by, bw, bh); 
+                    if (tth > 0) ctx.fillRect(tx, tty, tw, tth); 
+                    if (tbh > 0) ctx.fillRect(tx, tby, tw, tbh); 
                 }
 
                 if (isGameOver) {
@@ -862,7 +894,7 @@
                     ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
                     ctx.fillRect(0, 0, 300, 150);
                     
-                    ctx.fillStyle = '#ffd740'; // 금색
+                    ctx.fillStyle = '#ffd740'; 
                     ctx.font = 'bold 24px sans-serif';
                     ctx.textAlign = 'center';
                     ctx.fillText('Game Clear!', 150, 60);
