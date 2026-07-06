@@ -2,219 +2,584 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>지금 사요?</title>
-    <!-- PWA 및 아이콘 설정 -->
-    <link rel="manifest" href="manifest.json">
-    <link rel="icon" href="icon.ico" sizes="any">
-    <link rel="apple-touch-icon" href="icon.png">
-    <meta name="theme-color" content="#121212">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>주식 커스텀 분석 및 매매 최적화 시스템</title>
     
+    <meta name="theme-color" content="#2c3e50">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Stock Analytics">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js"></script>
+
     <style>
         body {
             margin: 0;
-            padding: 0;
-            background-color: #121212; /* 다크 모드 배경 */
-            color: #ffffff;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            padding: 10px;
+            background-color: #f8f9fa;
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
-            min-height: 100vh;
+            overflow-x: hidden;
         }
-        #app {
+        
+        canvas {
+            touch-action: pan-y !important; 
+        }
+        #scatterChart, #tradeOptimizerChart, #splitCalcChart, #distChart {
+            touch-action: none !important; 
+        }
+
+        .widget-container {
             width: 100%;
-            max-width: 500px;
-            padding: 20px;
+            max-width: 1200px;
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 15px;
             box-sizing: border-box;
         }
-        header {
+        .header {
             text-align: center;
-            margin-bottom: 40px;
+            margin-bottom: 20px;
         }
         h1 {
-            font-size: 28px;
-            font-weight: 800;
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+            font-size: 22px;
+        }
+        p {
             margin: 0;
-            color: #ffffff;
+            color: #7f8c8d;
+            font-size: 13px;
         }
-        .row {
+        .control-panel {
             display: flex;
-            align-items: center;
-            padding: 16px 0;
-            border-bottom: 1px solid #333;
-            font-size: 15px;
-        }
-        .row:last-child {
-            border-bottom: none;
-        }
-        .col-title {
-            flex: 0 0 60px;
-            font-weight: 600;
-            color: #aaaaaa;
-            text-align: left;
-            font-size: 13px;
-        }
-        .col-status {
-            flex: 1;
-            padding-left: 5px;
-            font-weight: 500;
-            font-size: 13px;
-        }
-        .col-eval {
-            flex: 0 0 70px;
-            text-align: center;
-            font-weight: 700;
-            font-size: 12px;
-        }
-        .col-price {
-            flex: 0 0 110px;
-            text-align: right;
-            color: #dddddd;
-            font-size: 13px;
-            font-variant-numeric: tabular-nums;
-        }
-        /* 한국 주식 기준 색상: 매수(빨강), 매도(파랑) */
-        .buy { color: #ff5252; font-weight: 700; }
-        .sell { color: #448aff; font-weight: 700; }
-        .highlight { color: #ffd740; font-weight: 700; }
-        .wait { color: #9e9e9e; }
-        
-        .loading {
-            text-align: center;
-            color: #aaaaaa;
-            margin-top: 50px;
-        }
-
-        /* CSV 다운로드 버튼 스타일 */
-        .btn-download {
-            display: none;
-            width: 100%;
-            padding: 12px;
-            margin-top: 30px;
-            background-color: #1e1e1e;
-            color: #666;
-            border: 1px solid #333;
-            border-radius: 8px;
-            font-size: 13px;
-            cursor: pointer;
-            transition: background 0.2s, color 0.2s;
-        }
-        .btn-download:hover {
-            background-color: #2a2a2a;
-            color: #aaa;
-        }
-
-        /* 미니게임 스타일 */
-        #game-container {
-            position: relative; 
-            width: 300px;
-            margin: 20px auto 0 auto;
-            text-align: center;
-        }
-        #gameCanvas {
-            background-color: #1e1e1e;
-            border: 1px solid #333;
-            border-radius: 8px;
-            display: block;
-            touch-action: none; 
-            cursor: pointer;
-        }
-        #scoreBoard {
-            margin-top: 10px;
-            font-size: 13px;
-            color: #ffd740;
-            font-weight: 600;
-        }
-
-        /* 데이터 준비 완료 모달 스타일 */
-        #dataReadyModal {
-            display: none;
-            position: absolute;
-            top: 0; left: 0; width: 300px; height: 150px;
-            background: rgba(0, 0, 0, 0.85);
-            flex-direction: column;
+            flex-wrap: wrap;
+            gap: 10px;
             justify-content: center;
             align-items: center;
+            margin-bottom: 20px;
+            background: #f1f2f6;
+            padding: 15px;
             border-radius: 8px;
-            z-index: 10;
         }
-        .modal-btn {
-            font-family: inherit;
-            font-size: 12px;
-            margin-bottom: 8px;
-            padding: 8px 12px;
-            cursor: pointer;
-            border: none;
+        .control-panel label {
+            font-size: 13px;
+            font-weight: bold;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+        }
+        .control-panel input, .control-panel select {
+            padding: 6px;
+            margin-left: 5px;
+            border: 1px solid #ced4da;
             border-radius: 4px;
-            font-weight: 600;
-            width: 80%;
-            transition: background-color 0.2s, opacity 0.2s;
+            text-align: center;
+            font-size: 14px;
+            color: #2c3e50;
         }
-        .btn-cont { background: #3498db; color: white; }
-        .btn-cont:hover { background: #2980b9; }
-        .btn-stop { background: #e74c3c; color: white; }
-        .btn-stop:hover { background: #c0392b; }
+        .control-panel input[type="number"] {
+            width: 70px;
+        }
+        #ticker-input {
+            width: 80px;
+            text-transform: uppercase;
+            font-weight: bold;
+            color: #e74c3c;
+        }
+        .btn-group {
+            width: 100%;
+            text-align: center;
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
+        }
+        .btn {
+            background-color: #2c3e50;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            font-size: 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            flex: 1 1 auto;
+        }
+        .btn:hover { background-color: #1a252f; }
+        .btn-optimize { background-color: #8e44ad; }
+        .btn-optimize:hover { background-color: #732d91; }
+        .btn-split { background-color: #8e44ad; }
+        .btn-split:hover { background-color: #732d91; }
+        .btn-trade-opt { background-color: #d35400; }
+        .btn-trade-opt:hover { background-color: #a04000; }
+        .btn-info { background-color: #2980b9; }
+        .btn-info:hover { background-color: #2471a3; }
+        .btn-apply-selected { background-color: #9b59b6; } 
+        .btn-apply-selected:hover { background-color: #8e44ad; }
+        .btn-apply-selected:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+        .btn-reset { background-color: #7f8c8d; }
+        .btn-reset:hover { background-color: #636e72; }
+        .btn-download { background-color: #27ae60; margin-top: 10px; }
+        .btn-download:hover { background-color: #219653; }
+        
+        .evaluation-panel {
+            display: none; 
+            background-color: #e8f4f8;
+            border: 1px solid #bce8f1;
+            color: #31708f;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            line-height: 1.8;
+            word-break: keep-all;
+        }
+        .simulation-panel {
+            display: none; 
+            background-color: #fdfbf7;
+            border: 1px solid #f5b041;
+            color: #2c3e50;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            line-height: 1.6;
+        }
+        .eval-highlight {
+            color: #e74c3c;
+            font-size: 20px;
+            margin: 0 3px;
+        }
+        .eval-capital {
+            color: #d35400;
+            font-size: 28px;
+            margin: 5px 0;
+            display: inline-block;
+        }
+        .chart-wrapper {
+            position: relative;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        .main-chart { height: 45vh; min-height: 350px; margin-bottom: 5px; } /* 마진 조정 */
+        .sub-chart { height: 30vh; min-height: 250px; }
+        
+        #loading {
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 16px;
+            color: #3498db;
+            font-weight: bold;
+            text-align: center;
+            line-height: 1.5;
+            z-index: 1000;
+            background: rgba(255,255,255,0.95);
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            display: none;
+            width: 80%;
+            max-width: 300px;
+        }
+        .btn-container { text-align: center; }
+        #table-container { display: none; }
+
+        /* 모달창 CSS 공통 */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            width: 95%;
+            max-width: 900px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            text-align: center;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .opt-chart-container {
+            position: relative;
+            height: 350px;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+        .modal-actions {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        
+        /* 표 스타일 보강 */
+        #data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        #data-table th, #data-table td {
+            border: 1px solid #ddd;
+            padding: 6px;
+            text-align: center;
+        }
+        #data-table th { background-color: #f1f2f6; }
     </style>
 </head>
 <body>
 
-    <div id="app">
-        <header>
-            <h1>지금 사요?</h1>
-        </header>
-        <div id="content" class="loading">
-            <div style="margin-bottom: 15px;">
-                주식 및 환율 데이터를 분석 중입니다...<br><span style="font-size: 12px; color: #666;">(야후 파이낸스 접속 중)</span><br><br>
-                <span style="font-size: 13px; color: #ff5252; line-height: 1.4; display: inline-block;">
-                    로딩 시간이 좀 걸립니다. 모바일 환경인 경우 화면이 꺼지면 연산이 멈추고 데이터가 나오지 않을 수 있으니 미니 게임을 하면서 기다려주세요.<br>pc환경은 브라우저를 켜 놓기만 하면 됩니다.
-                </span>
+    <div id="loading">데이터를 불러오는 중입니다...</div>
+
+    <div id="optimizer-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 style="font-size: 18px; margin-top: 0;">📈 기준일수 최적화 분석기 (R² 기반)</h2>
+            <div class="opt-chart-container">
+                <canvas id="optimizerChart"></canvas>
             </div>
-            
-            <!-- 미니게임 영역 -->
-            <div id="game-container">
-                <canvas id="gameCanvas" width="300" height="150"></canvas>
-                
-                <!-- 데이터 준비 완료 선택창 -->
-                <div id="dataReadyModal">
-                    <p style="font-size: 13px; color: white; margin: 0 0 12px 0; text-align: center; line-height: 1.4;">
-                        데이터 준비가 완료되었습니다.<br>게임을 계속 하시겠습니까?
-                    </p>
-                    <button id="btn-continue-game" class="modal-btn btn-cont">이번판만 하고 데이터 보러 가기.</button>
-                    <button id="btn-show-data" class="modal-btn btn-stop">바로 데이터 보러 가기.</button>
-                </div>
-                
-                <div id="scoreBoard">터치/클릭 점프 (더블 점프!) | 수익률: +0%</div>
+            <p id="opt-result-text" style="font-size:16px; font-weight:bold; margin:15px 0;">연산 중입니다...</p>
+            <div class="modal-actions">
+                <button id="opt-apply-btn" class="btn btn-download" style="display:none; margin:0;" onclick="applyOptimization()">적용하기</button>
+                <button class="btn btn-reset" style="margin:0;" onclick="resetChartZoom(optChartInstance)">🔍 줌 초기화</button>
+                <button class="btn" style="margin:0;" onclick="closeModal('optimizer-modal')">닫기</button>
             </div>
         </div>
+    </div>
+
+    <div id="trade-optimizer-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 style="font-size: 18px; margin-top: 0; color:#d35400;">📊 매수/매도 타점 최적화</h2>
+            <div class="opt-chart-container">
+                <canvas id="tradeOptimizerChart"></canvas>
+            </div>
+            <p id="trade-opt-result-text" style="font-size:15px; margin:15px 0; line-height: 1.6;">모든 매수/매도 조합을 시뮬레이션 중입니다...</p>
+            <div class="modal-actions">
+                <button id="trade-opt-apply-btn" class="btn btn-trade-opt" style="display:none; margin:0;" onclick="applyTradeOptimization()">🚀 최고 효율 타점 적용</button>
+                <button id="stable-opt-apply-btn" class="btn btn-download" style="display:none; margin:0; background-color:#27ae60;" onclick="applyStableOptimization()">⚫ 최고 안정 타점 적용</button>
+                <button id="custom-apply-btn" class="btn btn-apply-selected" style="margin:0;" disabled onclick="applySelectedPoint()">⚪ 선택 타점 적용</button>
+                <button class="btn btn-reset" style="margin:0;" onclick="resetChartZoom(tradeOptChartInstance)">🔍 줌/초기화</button>
+                <button class="btn" style="margin:0;" onclick="closeModal('trade-optimizer-modal')">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="timeseries-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 style="font-size: 18px; margin-top: 0; color:#2c3e50;">📅 날짜별 이격도 & 물림일수 추이</h2>
+            <div class="opt-chart-container">
+                <canvas id="timeseriesChart"></canvas>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-reset" style="margin:0;" onclick="resetChartZoom(timeseriesChartInstance)">🔍 줌 및 정보창 초기화</button>
+                <button class="btn" style="margin:0;" onclick="closeModal('timeseries-modal')">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="scatter-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 style="font-size: 18px; margin-top: 0; color:#2c3e50;">📈 상관관계 산점도 및 추세선</h2>
+            <div class="opt-chart-container">
+                <canvas id="scatterChart"></canvas>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-reset" style="margin:0;" onclick="resetChartZoom(scatterChartInstance)">🔍 줌 및 정보창 초기화</button>
+                <button class="btn" style="margin:0;" onclick="closeModal('scatter-modal')">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="split-calc-modal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 1000px;">
+            <h2 style="font-size: 18px; margin-top: 0; color:#8e44ad;">📉 커스텀 분할매매 계산기</h2>
+            
+            <div id="split-setup-panel" style="background:#f1f2f6; padding:15px; border-radius:8px; margin-bottom:15px; text-align:left; font-size:14px;">
+                <div style="margin-bottom:10px; color:#7f8c8d; font-size:13px;">
+                    ※ 조건은 <strong>위에서부터 아래로 순서대로(우선순위)</strong> 적용됩니다.<br>
+                    ※ 해당하는 조건이 없을 경우 매매를 하지 않고 <strong>기존 보유량을 그대로 유지(관망)</strong>합니다.
+                </div>
+                <div id="conditions-container" style="display:flex; flex-direction:column; gap:10px;">
+                    </div>
+                <div style="margin-top:15px; display:flex; justify-content:center; gap:10px;">
+                    <button class="btn btn-info" style="margin:0; padding:8px 16px; font-weight:bold;" onclick="addConditionRow()">➕ 조건 추가</button>
+                    <button class="btn btn-split" style="margin:0; padding:8px 16px; font-weight:bold;" onclick="runSplitCalculation()">🚀 계산하기</button>
+                </div>
+            </div>
+
+            <div id="split-result-panel" style="display:none; text-align:center;">
+                <div style="background:#e8f4f8; padding:15px; border-radius:8px; margin-bottom:15px; border:1px solid #bce8f1;">
+                    <h3 style="margin:0 0 10px 0; color:#2c3e50; font-size:16px;">최종 자산 현황</h3>
+                    <div style="display:flex; justify-content:space-around; flex-wrap:wrap; gap:10px;">
+                        <div><span style="color:#7f8c8d;">보유 현금:</span> <strong id="res-cash" style="color:#2c3e50; font-size:18px;">-</strong></div>
+                        <div><span style="color:#7f8c8d;">주식 평가액:</span> <strong id="res-stock" style="color:#8e44ad; font-size:18px;">-</strong></div>
+                        <div><span style="color:#7f8c8d;">총 자산:</span> <strong id="res-total" style="color:#d35400; font-size:22px;">-</strong></div>
+                    </div>
+                </div>
+                <div class="opt-chart-container" style="height: 40vh; min-height: 350px;">
+                    <canvas id="splitCalcChart"></canvas>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button id="split-calc-reset-btn" class="btn btn-reset" style="display:none; margin:0;" onclick="resetChartZoom(splitCalcChartInstance)">🔍 줌 및 정보창 초기화</button>
+                <button class="btn" style="margin:0;" onclick="closeModal('split-calc-modal')">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="dist-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 style="font-size: 18px; margin-top: 0; color:#2c3e50;">📊 이격도 확률 분포도 (실제 vs 정규분포)</h2>
+            <div class="opt-chart-container">
+                <canvas id="distChart"></canvas>
+            </div>
+            
+            <div style="background:#f1f2f6; padding:15px; border-radius:8px; margin-bottom:15px; text-align:center; font-size:14px;">
+                <label style="font-weight:bold; color:#2c3e50;">누적 확률 타점 계산:</label><br>
+                <div style="margin-top: 10px; display: flex; justify-content: center; align-items: center; gap: 8px;">
+                    <span style="color:#7f8c8d;">하위</span>
+                    <input type="number" id="dist-percent-input" value="30" step="1" style="width: 70px; padding: 6px; border:1px solid #ccc; border-radius:4px; text-align:center; font-size: 16px; font-weight:bold; color:#e74c3c;">
+                    <span style="color:#7f8c8d;">% (퍼센트)</span>
+                    <button class="btn btn-info" style="padding:6px 16px; margin:0; font-weight:bold;" onclick="calcDistributionPercentile()">계산하기</button>
+                </div>
+                <div id="dist-calc-result" style="margin-top: 15px; background: #fff; border: 1px solid #ddd; padding: 10px; border-radius: 6px; line-height:1.8; font-size:15px; display:none;">
+                    %를 입력하고 계산하기를 누르면 해당 확률의 이격도 타점을 알려줍니다.
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn btn-reset" style="margin:0;" onclick="resetChartZoom(distChartInstance)">🔍 줌 및 정보창 초기화</button>
+                <button class="btn" style="margin:0;" onclick="closeModal('dist-modal')">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="widget-container">
+        <div class="header">
+            <h1 id="main-title">Custom Analytics & Simulator</h1>
+            <p>매수, 매도 이격도 지점을 설정하여 최적의 수익률을 시뮬레이션 해보세요.<br><span style="font-size:12px; color:#95a5a6;">(PC: Ctrl+휠 확대 / 모바일: 두 손가락 확대)</span></p>
+        </div>
+
+        <div class="control-panel">
+            <label>시장
+                <select id="market-select">
+                    <option value="">미국</option>
+                    <option value=".KS">한국(코스피)</option>
+                    <option value=".KQ">한국(코스닥)</option>
+                </select>
+            </label>
+            <label>종목 <input type="text" id="ticker-input" value="TQQQ"></label>
+            <label>이평 기준일수 <input type="number" id="ma-period" value="1500" min="1"></label>
+            
+            <div style="width: 100%; height: 0;"></div> 
+            
+            <label style="color:#e74c3c;">매수(이하) <input type="number" id="buy-point" step="0.05" value="1.5"></label>
+            <label style="color:#3498db;">매도(이상) <input type="number" id="sell-point" step="0.05" value="3.0"></label>
+            
+            <div class="btn-group">
+                <button class="btn" onclick="handleRenderClick()">데이터 갱신 및 시뮬레이션</button>
+            </div>
+            <div class="btn-group" style="margin-top: 5px;">
+                <button class="btn btn-trade-opt" onclick="openTradeOptimizer()">📊 매수/매도 최적화</button>
+                <button class="btn btn-optimize" onclick="openOptimizer()">💡 기준일수 최적화 (R²)</button>
+                <button class="btn btn-split" onclick="openSplitCalculator()">📉 분할매매 계산기</button>
+            </div>
+            <div class="btn-group" style="margin-top: 5px;">
+                <button class="btn btn-info" onclick="openTimeseriesModal()">📅 이격도 vs 물림일수</button>
+                <button class="btn btn-info" onclick="openScatterModal()">📈 이격-물림 산점도</button>
+                <button class="btn btn-info" onclick="openDistributionModal()">📊 이격도 분포도 보기</button>
+                <button class="btn btn-reset" onclick="resetMainChartsZoom()">🔍 차트 줌/초기화</button>
+            </div>
+        </div>
+
+        <div id="simulation-panel" class="simulation-panel"></div>
+        <div id="evaluation-panel" class="evaluation-panel"></div>
         
-        <button id="downloadBtn" class="btn-download">📊 데이터 확인용 CSV 다운로드</button>
+        <div class="chart-wrapper main-chart">
+            <canvas id="priceChart"></canvas>
+        </div>
+        
+        <div style="display:flex; justify-content:flex-end; margin-top:-10px; margin-bottom:15px; width:100%;">
+            <button id="toggle-sim-asset-btn" class="btn btn-info" style="font-size:12px; padding:6px 12px; margin:0;" onclick="toggleSimAsset()">📈 시뮬레이션 자산 켜기</button>
+        </div>
+
+        <div class="chart-wrapper sub-chart">
+            <canvas id="disparityChart"></canvas>
+        </div>
+
+        <div class="btn-container" style="display:flex; justify-content:center; align-items:center; gap:10px; margin-bottom:10px;">
+            <select id="csv-download-option" style="padding:8px; border-radius:6px; border:1px solid #ced4da; font-family:inherit;">
+                <option value="valid">이격도 발생일 기준 다운로드</option>
+                <option value="all">최초 1일차 기준 전체 다운로드</option>
+            </select>
+            <button class="btn btn-download" style="margin-top:0;" onclick="downloadCSV()">⬇️ 데이터 표 다운로드 (.csv)</button>
+        </div>
+
+        <div id="table-container" style="display:block; width:100%; overflow-x:auto; margin-top:15px;">
+            <table id="data-table">
+                <thead>
+                    <tr>
+                        <th>날짜</th>
+                        <th>수정종가</th>
+                        <th>이평선</th>
+                        <th>이격도</th>
+                        <th>물림일수(일)</th>
+                        <th>매매 상태</th>
+                        <th>보유 현금</th>
+                        <th>주식 평가액</th>
+                        <th>총 자산</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body"></tbody>
+            </table>
+        </div>
     </div>
 
     <script>
-        // PWA 서비스 워커 등록
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').catch(err => console.error("SW 등록 실패:", err));
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch(err => {
+                    console.log('Service Worker registration failed: ', err);
+                });
+            });
         }
 
-        const STOCKS = [
-            { symbol: 'TQQQ', buy: 1.5, sell: 3.0 },
-            { symbol: 'TECL', buy: 1.5, sell: 3.5 },
-            { symbol: 'SOXL', buy: 1.0, sell: 5.0 }
-        ];
+        let cachedTicker = '';
+        let cachedCompanyName = 'TQQQ';
+        let cachedData = null;
+        
+        let priceChartInstance = null;
+        let disparityChartInstance = null;
+        let optChartInstance = null;
+        let tradeOptChartInstance = null;
+        let timeseriesChartInstance = null;
+        let scatterChartInstance = null;
+        let distChartInstance = null;
+        
+        let bestOptimizedBuy = 1.5;
+        let bestOptimizedSell = 3.0;
+        let bestStableBuy = 1.5;
+        let bestStableSell = 3.0;
+        
+        window.currentOptBounds = null; // L과 H 경계를 기억하기 위한 변수
+        window.currentAnalysis = null;
+        window.selectedPointFromChart = null; 
+        
+        window.fullCsvData = null;
+        
+        // 자산 켜기/끄기 토글 상태 변수
+        let showSimAsset = false;
 
-        function formatPrice(price, isKrw = false) {
-            if (!price) return '데이터 없음';
-            if (isKrw) {
-                return Math.round(price).toLocaleString('ko-KR') + '원';
+        function toggleSimAsset() {
+            showSimAsset = !showSimAsset;
+            const btn = document.getElementById('toggle-sim-asset-btn');
+            if (showSimAsset) {
+                btn.innerHTML = "📉 시뮬레이션 자산 끄기";
+                btn.style.backgroundColor = "#7f8c8d"; // 회색 버튼
             } else {
-                return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                btn.innerHTML = "📈 시뮬레이션 자산 켜기";
+                btn.style.backgroundColor = "#2980b9"; // 기존 파란색
+            }
+            if (cachedData) calculateAndRender(); // 재계산 및 렌더링 호출
+        }
+
+        function getTradeColor(cap, maxCap, minCap, alpha = 1.0) {
+            if (maxCap === minCap) return `rgba(255, 0, 0, ${alpha})`;
+            let clampedCap = Math.max(minCap, Math.min(maxCap, cap));
+            let t = (maxCap - clampedCap) / (maxCap - minCap);
+            let v = t * 4;
+            let r, g, b;
+            if (v <= 1) { r = 255; g = Math.round(v * 255); b = 0; } 
+            else if (v <= 2) { r = Math.round(255 - (v - 1) * 255); g = 255; b = 0; } 
+            else if (v <= 3) { r = 0; g = 255; b = Math.round((v - 2) * 255); } 
+            else { r = 0; g = Math.round(255 - (v - 3) * 255); b = 255; }
+            return alpha === 1.0 ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+        function openModal(modalId) {
+            document.getElementById(modalId).style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+
+        function resetChartZoom(chartInstance) {
+            if (chartInstance) {
+                chartInstance.resetZoom();
+                if (chartInstance.setActiveElements) chartInstance.setActiveElements([]);
+                if (chartInstance.tooltip) chartInstance.tooltip.setActiveElements([], {x: 0, y: 0});
+                chartInstance.update(); 
             }
         }
 
-        // Yahoo Finance 데이터 패치
-        async function fetchHistory(ticker) {
+        function resetMainChartsZoom() {
+            resetChartZoom(priceChartInstance);
+            resetChartZoom(disparityChartInstance);
+        }
+
+        const zoomPluginX = {
+            pan: { enabled: true, mode: 'x' },
+            zoom: { wheel: { enabled: true, modifierKey: 'ctrl' }, pinch: { enabled: true }, mode: 'x' }
+        };
+
+        const zoomPluginXY = {
+            pan: { enabled: true, mode: 'xy' },
+            zoom: { wheel: { enabled: true, modifierKey: 'ctrl' }, pinch: { enabled: true }, mode: 'xy' }
+        };
+
+        async function handleRenderClick() {
+            let rawTicker = document.getElementById('ticker-input').value.trim().toUpperCase();
+            const marketSuffix = document.getElementById('market-select').value;
+            
+            const buyPt = parseFloat(document.getElementById('buy-point').value);
+            const sellPt = parseFloat(document.getElementById('sell-point').value);
+            
+            if (!rawTicker) return alert('티커명 혹은 6자리 종목코드를 입력해주세요.');
+            if (buyPt >= sellPt) return alert('매수 지점은 반드시 매도 지점보다 작아야 합니다.');
+
+            let inputTicker = rawTicker;
+            if (marketSuffix !== "" && !rawTicker.includes(".")) {
+                inputTicker = rawTicker + marketSuffix;
+            }
+
+            if (inputTicker !== cachedTicker) {
+                await fetchNewData(inputTicker);
+            } else {
+                calculateAndRender();
+            }
+        }
+
+        async function fetchNewData(ticker) {
+            const loadingEl = document.getElementById('loading');
+            loadingEl.style.display = 'block';
+            loadingEl.innerHTML = `${ticker} 데이터를 불러오는 중입니다...<br><span style="font-size:14px; color:#7f8c8d;">(야후 서버 응답 대기 중)</span>`;
+            loadingEl.style.color = '#3498db';
+
             const currentUnixTime = Math.floor(Date.now() / 1000); 
+
             const targetUrl1 = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?period1=0&period2=${currentUnixTime}&interval=1d&events=history`;
             const targetUrl2 = `https://query2.finance.yahoo.com/v8/finance/chart/${ticker}?period1=0&period2=${currentUnixTime}&interval=1d&events=history`;
 
@@ -227,134 +592,648 @@
                 `https://thingproxy.freeboard.io/fetch/${targetUrl1}`
             ];
 
-            let history = [];
-            for (let proxy of proxyList) {
-                try {
-                    const response = await fetch(proxy, { method: 'GET', headers: { 'Accept': 'application/json' }});
-                    if (response.ok) {
-                        const textData = await response.text();
-                        let data;
-                        try { data = JSON.parse(textData); } catch (e) { continue; }
-
-                        if (data && data.chart && data.chart.result) { 
-                            const result = data.chart.result[0];
-                            const timestamps = result.timestamp;
-                            const quotes = result.indicators.quote[0];
-                            const adjcloses = result.indicators.adjclose ? result.indicators.adjclose[0].adjclose : null;
-
-                            if (timestamps && timestamps.length > 0) {
-                                for (let i = 0; i < timestamps.length; i++) {
-                                    let p = adjcloses ? adjcloses[i] : quotes.close[i];
-                                    if (!p || p <= 0 || !Number.isFinite(p)) continue;
-
-                                    const dateObj = new Date(timestamps[i] * 1000);
-                                    const yyyy = dateObj.getUTCFullYear();
-                                    const mm = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
-                                    const dd = String(dateObj.getUTCDate()).padStart(2, '0');
-
-                                    history.push({ date: `${yyyy}-${mm}-${dd}`, close: p });
+            try {
+                let dataFetched = null;
+                for (let proxy of proxyList) {
+                    try {
+                        const response = await fetch(proxy, { method: 'GET', headers: { 'Accept': 'application/json' }});
+                        if (response.ok) {
+                            const textData = await response.text();
+                            try {
+                                const data = JSON.parse(textData);
+                                if (data && data.chart && data.chart.result) { 
+                                    dataFetched = data; 
+                                    break; 
                                 }
+                            } catch (parseError) {
+                                console.warn(`JSON Parse failed for proxy:`, proxy);
                             }
-                            if (history.length > 0) break; 
+                        } else {
+                            console.warn(`Proxy returned HTTP ${response.status}:`, proxy);
                         }
+                    } catch (error) { console.warn(`Proxy fail:`, proxy, error); }
+                }
+
+                if (!dataFetched) throw new Error('모든 프록시 서버에서 데이터 로드 실패');
+
+                const result = dataFetched.chart.result[0];
+                const meta = result.meta;
+                const companyName = meta.shortName || meta.longName || ticker;
+                cachedCompanyName = companyName;
+
+                const timestamps = result.timestamp;
+                const quotes = result.indicators.quote[0];
+                const adjcloses = result.indicators.adjclose ? result.indicators.adjclose[0].adjclose : null;
+
+                let dates = []; let prices = [];
+                if (timestamps && timestamps.length > 0) {
+                    for (let i = 0; i < timestamps.length; i++) {
+                        let p = adjcloses ? adjcloses[i] : quotes.close[i];
+                        if (!p || p <= 0 || !Number.isFinite(p)) continue;
+
+                        const dateObj = new Date(timestamps[i] * 1000);
+                        const yyyy = dateObj.getUTCFullYear();
+                        const mm = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+                        const dd = String(dateObj.getUTCDate()).padStart(2, '0');
+
+                        dates.push(`${yyyy}-${mm}-${dd}`);
+                        prices.push(p);
                     }
-                } catch (error) { console.warn(`Proxy fail:`, proxy, error); }
+                }
+
+                const N = prices.length;
+                if (N === 0) throw new Error("유효한 일봉 데이터가 없습니다.");
+
+                let rawMulrimData = new Array(N).fill(0);
+                let maxMulrim = 0;
+                for (let i = 0; i < N; i++) {
+                    let count = 0;
+                    let currentPrice = prices[i];
+                    for (let j = i + 1; j < N; j++) { if (prices[j] < currentPrice) count++; }
+                    rawMulrimData[i] = count;
+                    if (count > maxMulrim) maxMulrim = count;
+                }
+
+                cachedData = { dates: dates, prices: prices, rawMulrimData: rawMulrimData, maxMulrim: maxMulrim };
+                cachedTicker = ticker;
+                document.getElementById('main-title').innerText = `${companyName} 시뮬레이터`;
+                loadingEl.style.display = 'none';
+                calculateAndRender(); 
+
+            } catch (error) {
+                console.error(error);
+                loadingEl.innerHTML = `데이터 추출 실패<br><span style="font-size:13px;">티커명이나 인터넷 상태를 다시 확인해 주세요.</span>`;
+                loadingEl.style.color = '#e74c3c';
+                setTimeout(() => { loadingEl.style.display = 'none'; }, 3000);
             }
-            return history;
         }
 
-        function calculateStockState(data, buyTarget, sellTarget, symbol) {
-            const period = 1500;
-            const historyLog = [];
+        function calculateAndRender() {
+            if (!cachedData) return;
 
-            if (data.length < period) {
-                return { state: `데이터 부족 (현재: ${data.length}일)`, currentPrice: data.length > 0 ? data[data.length - 1].close : null, historyLog };
+            const period = parseInt(document.getElementById('ma-period').value) || 1500;
+            const initialCap = 10000; 
+            const buyPoint = parseFloat(document.getElementById('buy-point').value) || 1.5;
+            const sellPoint = parseFloat(document.getElementById('sell-point').value) || 3.0;
+
+            if(buyPoint >= sellPoint) {
+                alert("매수 지점은 매도 지점보다 반드시 작아야 합니다.");
+                return;
             }
 
-            const prices = data.map(d => d.close);
-            let isHolding = true; 
-            let lastActionDateObj = new Date(data[period - 1].date);
-            let lastActionType = "매수";
-            let currentStateStr = "초기 보유 시작";
+            let smaData = [], disparityData = [], validDisparities = [], windowPrices = [];
+            const N = cachedData.prices.length;
+            const maxMulrim = cachedData.maxMulrim;
+            const rawMulrimData = cachedData.rawMulrimData;
 
-            for (let i = period - 1; i < data.length; i++) {
-                const slice = prices.slice(i - period + 1, i + 1);
-                const ma = slice.reduce((a, b) => a + b, 0) / period;
-                const disparity = prices[i] / ma;
+            for (let i = 0; i < N; i++) {
+                const currentPrice = cachedData.prices[i];
+                windowPrices.push(currentPrice);
+                if (windowPrices.length > period) windowPrices.shift();
+
+                if (windowPrices.length === period) {
+                    const average = windowPrices.reduce((a, b) => a + b, 0) / period;
+                    if (average > 0) {
+                        const disparity = currentPrice / average; 
+                        smaData.push(average);
+                        if (Number.isFinite(disparity)) { disparityData.push(disparity); validDisparities.push(disparity); } 
+                        else disparityData.push(null);
+                    } else { smaData.push(null); disparityData.push(null); }
+                } else { smaData.push(null); disparityData.push(null); }
+            }
+
+            let avgDisparity = validDisparities.length > 0 ? validDisparities.reduce((a, b) => a + b, 0) / validDisparities.length : 0;
+            
+            let disparityAvgLineData = [];
+            let disparityBuyLineData = [], disparitySellLineData = [];
+            let priceAvgDisparityLineData = [];
+            let priceBuyLineData = [], priceSellLineData = [];
+
+            for (let i = 0; i < N; i++) {
+                if (disparityData[i] !== null) {
+                    disparityAvgLineData.push(avgDisparity);
+                    disparityBuyLineData.push(buyPoint);
+                    disparitySellLineData.push(sellPoint);
+                    priceAvgDisparityLineData.push(smaData[i] * avgDisparity);
+                    priceBuyLineData.push(smaData[i] * buyPoint); 
+                    priceSellLineData.push(smaData[i] * sellPoint); 
+                } else {
+                    disparityAvgLineData.push(null);
+                    disparityBuyLineData.push(null); disparitySellLineData.push(null);
+                    priceAvgDisparityLineData.push(null); priceBuyLineData.push(null); priceSellLineData.push(null);
+                }
+            }
+
+            let firstValidIdx = disparityData.findIndex(d => d !== null);
+            if (firstValidIdx === -1) firstValidIdx = 0; 
+
+            let isHolding = true;
+            let cash = 0;
+            let shares = initialCap / cachedData.prices[firstValidIdx]; 
+            
+            let tradeActions = new Array(N).fill("-");
+            let capitalHistory = new Array(N).fill(null);
+            let cashHistory = new Array(N).fill(null);
+            let stockHistory = new Array(N).fill(null);
+
+            for (let i = 0; i < firstValidIdx; i++) {
+                cashHistory[i] = initialCap;
+                stockHistory[i] = 0;
+                capitalHistory[i] = initialCap;
+                tradeActions[i] = "시뮬레이션 대기";
+            }
+
+            let lastActionDateObj = new Date(cachedData.dates[firstValidIdx]);
+            let lastActionType = "매수";
+
+            for (let i = firstValidIdx; i < N; i++) {
+                let d = disparityData[i];
+                let p = cachedData.prices[i];
                 let actionOccurred = false;
 
-                if (i === period - 1) {
+                if (i === firstValidIdx) {
+                    tradeActions[i] = "초기 보유 시작";
                     actionOccurred = true;
-                    currentStateStr = "초기 보유 시작";
-                    lastActionDateObj = new Date(data[i].date);
-                } else {
-                    if (isHolding && disparity >= sellTarget) {
+                    lastActionDateObj = new Date(cachedData.dates[i]);
+                }
+                
+                if (d !== null) {
+                    if (isHolding && d > sellPoint && shares > 0) {
+                        cash = shares * p;
+                        shares = 0;
                         isHolding = false;
+                        tradeActions[i] = "매도 (Sell)";
                         lastActionType = "매도";
-                        lastActionDateObj = new Date(data[i].date);
-                        currentStateStr = "매도 (Sell)";
+                        lastActionDateObj = new Date(cachedData.dates[i]);
                         actionOccurred = true;
-                    } else if (!isHolding && disparity <= buyTarget) {
+                    } else if (!isHolding && d < buyPoint && cash > 0) {
+                        shares = cash / p;
+                        cash = 0;
                         isHolding = true;
+                        tradeActions[i] = "매수 (Buy)";
                         lastActionType = "매수";
-                        lastActionDateObj = new Date(data[i].date);
-                        currentStateStr = "매수 (Buy)";
+                        lastActionDateObj = new Date(cachedData.dates[i]);
                         actionOccurred = true;
                     }
                 }
 
                 if (!actionOccurred) {
-                    const currentDt = new Date(data[i].date);
+                    const currentDt = new Date(cachedData.dates[i]);
                     const diffTime = Math.abs(currentDt - lastActionDateObj);
                     const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-                    if (diffDays >= 365) currentStateStr = `${lastActionType} 후 관망 (${(diffDays / 365.2425).toFixed(2)}년차)`;
-                    else currentStateStr = `${lastActionType} 후 관망 (${diffDays}일차)`;
+                    
+                    if (diffDays >= 365) {
+                        const diffYears = (diffDays / 365.2425).toFixed(2);
+                        tradeActions[i] = `${lastActionType} 후 관망 (${diffYears}년차)`;
+                    } else {
+                        tradeActions[i] = `${lastActionType} 후 관망 (${diffDays}일차)`;
+                    }
                 }
 
-                let evalState = '중립';
-                if (symbol === 'TQQQ') {
-                    if (disparity <= 1.6093) evalState = '심한 저평가';
-                    else if (disparity <= 1.9971) evalState = '저평가';
-                    else if (disparity <= 2.2958) evalState = '중립';
-                    else if (disparity <= 2.9607) evalState = '과열';
-                    else evalState = '심한 과열';
-                } else if (symbol === 'TECL') {
-                    if (disparity <= 1.7314) evalState = '심한 저평가';
-                    else if (disparity <= 2.1225) evalState = '저평가';
-                    else if (disparity <= 2.4379) evalState = '중립';
-                    else if (disparity <= 3.0115) evalState = '과열';
-                    else evalState = '심한 과열';
-                } else if (symbol === 'SOXL') {
-                    if (disparity <= 1.1588) evalState = '심한 저평가';
-                    else if (disparity <= 1.7736) evalState = '저평가';
-                    else if (disparity <= 2.5217) evalState = '중립';
-                    else if (disparity <= 3.6264) evalState = '과열';
-                    else evalState = '심한 과열';
-                }
-
-                historyLog.push({ date: data[i].date, close: prices[i], disp: disparity, state: currentStateStr, eval: evalState });
+                cashHistory[i] = cash;
+                stockHistory[i] = shares * p;
+                capitalHistory[i] = cash + (shares * p);
             }
+            let finalCapital = capitalHistory[N - 1];
+
+            const startDateStr = cachedData.dates[firstValidIdx];
+            const endDateStr = cachedData.dates[N - 1];
+            const startDt = new Date(startDateStr);
+            const endDt = new Date(endDateStr);
+            const diffTime = Math.abs(endDt - startDt);
+            const totalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             
-            return { state: historyLog[historyLog.length - 1].state, evalState: historyLog[historyLog.length - 1].eval, currentPrice: prices[prices.length - 1], historyLog };
+            let totalYears = totalDays / 365.2425;
+            if (totalYears <= 0) totalYears = 0.001; 
+            
+            const cagr = (Math.pow(finalCapital / initialCap, 1 / totalYears) - 1) * 100;
+            
+            const baseInitialPrice = cachedData.prices[firstValidIdx];
+            const baseLatestPrice = cachedData.prices[N - 1];
+            const baseFinalCapital = (initialCap / baseInitialPrice) * baseLatestPrice;
+            const baseCagr = (Math.pow(baseLatestPrice / baseInitialPrice, 1 / totalYears) - 1) * 100;
+            
+            const tradingDays = N - firstValidIdx; 
+
+            let displayMulrimData = new Array(N);
+            let safeMulrimData = new Array(N); 
+            for (let i = 0; i < N; i++) {
+                if ((N - 1) - i < maxMulrim) {
+                    displayMulrimData[i] = "데이터 부족";
+                    safeMulrimData[i] = null;
+                } else {
+                    displayMulrimData[i] = rawMulrimData[i];
+                    safeMulrimData[i] = rawMulrimData[i];
+                }
+            }
+
+            window.fullCsvData = {
+                dates: cachedData.dates,
+                prices: cachedData.prices,
+                sma: smaData,
+                disparity: disparityData,
+                mulrim: displayMulrimData,
+                tradeActions: tradeActions,
+                cash: cashHistory,
+                stock: stockHistory,
+                capital: capitalHistory,
+                firstValidIdx: firstValidIdx
+            };
+
+            let rSquared = 0, slope = 0, intercept = 0, validX = [], validY = [];
+            for (let i = 0; i < N; i++) {
+                if (disparityData[i] !== null && safeMulrimData[i] !== null) {
+                    validX.push(disparityData[i]); validY.push(safeMulrimData[i]);
+                }
+            }
+
+            if (validX.length > 1) {
+                let sumX = 0, sumY = 0;
+                for (let i = 0; i < validX.length; i++) { sumX += validX[i]; sumY += validY[i]; }
+                let meanX = sumX / validX.length, meanY = sumY / validY.length;
+                let covXY = 0, varX = 0, varY = 0;
+                for (let i = 0; i < validX.length; i++) {
+                    let dx = validX[i] - meanX, dy = validY[i] - meanY;
+                    covXY += dx * dy; varX += dx * dx; varY += dy * dy;
+                }
+                if (varX > 0 && varY > 0) {
+                    rSquared = (covXY / Math.sqrt(varX * varY)) ** 2;
+                    slope = covXY / varX;
+                    intercept = meanY - slope * meanX;
+                }
+            }
+
+            let maxDisp = 5, minDisp = 0;
+            if (validDisparities.length > 0) {
+                maxDisp = Math.max(...validDisparities, 1.0, sellPoint, avgDisparity);
+                minDisp = Math.min(...validDisparities, 1.0, buyPoint, avgDisparity);
+            }
+
+            window.currentAnalysis = {
+                dates: cachedData.dates.slice(firstValidIdx), 
+                disparity: disparityData.slice(firstValidIdx), 
+                validDisparities: validDisparities,
+                mulrim: safeMulrimData.slice(firstValidIdx),
+                slope: slope, intercept: intercept, minDisp: minDisp, maxDisp: maxDisp, period: period
+            };
+
+            const simPanel = document.getElementById('simulation-panel');
+            const evalPanel = document.getElementById('evaluation-panel');
+            
+            if (validDisparities.length > 0) {
+                const latestDate = cachedData.dates[N - 1];
+                const latestPrice = cachedData.prices[N - 1]; 
+                const latestDisparity = validDisparities[validDisparities.length - 1];
+                
+                let dispStdDev = 0;
+                let dispSqSum = 0;
+                for (let i = 0; i < validDisparities.length; i++) {
+                    dispSqSum += Math.pow(validDisparities[i] - avgDisparity, 2);
+                }
+                dispStdDev = Math.sqrt(dispSqSum / validDisparities.length);
+                
+                function erf(x) {
+                    let sign = (x >= 0) ? 1 : -1;
+                    x = Math.abs(x);
+                    let a1 =  0.254829592, a2 = -0.284496736, a3 =  1.421413741, a4 = -1.453152027, a5 =  1.061405429, p = 0.3275911;
+                    let t = 1.0 / (1.0 + p * x);
+                    let y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+                    return sign * y;
+                }
+                
+                let riskLevel = 50; 
+                if (dispStdDev > 0) {
+                    let zScore = (latestDisparity - avgDisparity) / dispStdDev;
+                    let cdf = 0.5 * (1 + erf(zScore / Math.sqrt(2)));
+                    riskLevel = cdf * 100;
+                }
+                
+                let expectedMulrim = Math.max(0, Math.round(slope * latestDisparity + intercept)) || 0;
+
+                let utility = (((1 + cagr / 100) / (1 + baseCagr / 100)) - 1) * 100;
+                let multiple = baseFinalCapital !== 0 ? (finalCapital / baseFinalCapital) : 1;
+
+                simPanel.innerHTML = `<div style="font-size: 16px; color:#7f8c8d; margin-bottom:5px;">📊 시뮬레이션 결과</div>` +
+                                     `<div style="font-size: 14px; font-weight: normal; color: #555;">실수행 기간: ${startDateStr} ~ ${endDateStr}</div>` +
+                                     `<div style="font-size: 14px; font-weight: normal; color: #555; margin-bottom:12px;">(<span style="color:#2c3e50; font-weight:bold;">${totalYears.toFixed(2)}년</span> / ${totalDays}일 [개장: ${tradingDays}일])</div>` +
+                                     `<div style="font-size: 16px; color: #2c3e50; margin-bottom:5px;">전략 적용 시 <strong>${totalYears.toFixed(2)}년</strong> 총 수익률 <strong>${multiple.toFixed(2)}배</strong></div>` +
+                                     `<div class="eval-capital" style="color:#d35400; font-size:24px; margin-bottom:5px;">전략 효용성: ${utility.toFixed(2)}%</div>` +
+                                     `<div style="font-size: 15px; font-weight: normal; color: #2c3e50; margin-top:5px;">CAGR: <span style="color:#e74c3c; font-weight:bold;">${cagr.toFixed(2)}%</span> <span style="font-size:13px; color:#7f8c8d; margin-left:5px;">[단순 보유 CAGR: ${baseCagr.toFixed(2)}%]</span></div>`;
+                simPanel.style.display = 'block';
+
+                evalPanel.innerHTML = `오늘의 현황 (${latestDate})<br>` +
+                                      `<div style="margin: 10px 0; display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap: 8px;">` +
+                                      `<span>주가: <span class="eval-highlight">${latestPrice.toFixed(2)}</span></span>` + 
+                                      `<span style="color:#bdc3c7;">|</span>` +
+                                      `<span>이격 비율: <span class="eval-highlight">${latestDisparity.toFixed(2)}x</span></span>` + 
+                                      `<span style="color:#bdc3c7;">|</span>` +
+                                      `<span>위험도: <span class="eval-highlight">${riskLevel.toFixed(1)}%</span></span>` +
+                                      `</div>` +
+                                      `예상 물림일수(회귀기반): 약 ${expectedMulrim}일 <span style="font-size:12px; color:#7f8c8d;">(R²: ${rSquared.toFixed(3)})</span>`;
+                evalPanel.style.display = 'block';
+            } else {
+                simPanel.style.display = 'none';
+                evalPanel.innerHTML = `산정 불가: 기준 일수(${period}일)가 데이터 제공 기간보다 깁니다.`;
+                evalPanel.style.display = 'block';
+            }
+
+            // 시뮬레이션 자산(1배수 기준) 계산
+            let normalizedCapital = new Array(N).fill(null);
+            for (let i = firstValidIdx; i < N; i++) {
+                normalizedCapital[i] = capitalHistory[i] / initialCap;
+            }
+
+            renderPriceChart(
+                cachedData.dates.slice(firstValidIdx), 
+                cachedData.prices.slice(firstValidIdx), 
+                priceAvgDisparityLineData.slice(firstValidIdx), 
+                priceBuyLineData.slice(firstValidIdx), 
+                priceSellLineData.slice(firstValidIdx), 
+                avgDisparity, period,
+                normalizedCapital.slice(firstValidIdx) // 정규화된 자산 데이터 전달
+            );
+            
+            renderDisparityChart(
+                cachedData.dates.slice(firstValidIdx), 
+                disparityData.slice(firstValidIdx), 
+                disparityAvgLineData.slice(firstValidIdx),
+                disparityBuyLineData.slice(firstValidIdx), 
+                disparitySellLineData.slice(firstValidIdx), 
+                avgDisparity, maxDisp, minDisp, period
+            );
+            
+            populateTable(
+                cachedData.dates.slice(firstValidIdx), 
+                cachedData.prices.slice(firstValidIdx), 
+                displayMulrimData.slice(firstValidIdx), 
+                smaData.slice(firstValidIdx), 
+                disparityData.slice(firstValidIdx), 
+                tradeActions.slice(firstValidIdx), 
+                cashHistory.slice(firstValidIdx), 
+                stockHistory.slice(firstValidIdx), 
+                capitalHistory.slice(firstValidIdx), 
+                period
+            );
         }
 
-        function getFastR2ForPeriod(prices, rawMulrimData, maxMulrim, period) {
-            const N = prices.length;
+        function getYearlyTicksConfig() {
+            return {
+                autoSkip: false,
+                maxRotation: 0,
+                callback: function(val, index, ticks) {
+                    try {
+                        const labels = this.chart.data.labels;
+                        if (!labels) return null;
+                        if (Math.floor(val) !== val) return null; 
+                        
+                        const label = labels[val]; 
+                        if (!label || label.length < 10) return null;
+                        const visibleTicksCount = ticks.length;
+
+                        if (visibleTicksCount < 60) {
+                            return label; 
+                        } else if (visibleTicksCount < 300) {
+                            const day = parseInt(label.substring(8, 10));
+                            if (day <= 3) return label.substring(0, 7); 
+                            return null;
+                        } else {
+                            if (val === 0) return label.substring(0, 4) + '-01';
+                            const prevLabel = labels[val - 1];
+                            if (!prevLabel) return null;
+                            if (label.substring(0, 4) !== prevLabel.substring(0, 4)) {
+                                return label.substring(0, 4) + '-01'; 
+                            }
+                            return null;
+                        }
+                    } catch(e) { return null; }
+                }
+            };
+        }
+
+        function getYearlyGridConfig() {
+            return {
+                display: true, drawOnChartArea: true,
+                color: function(context) {
+                    try {
+                        if (context.tick && context.tick.label && context.tick.label.length > 0) return 'rgba(200, 200, 200, 0.4)';
+                        return 'rgba(0,0,0,0)';
+                    } catch(e) { return 'rgba(0,0,0,0)'; }
+                }
+            };
+        }
+
+        function renderPriceChart(labels, priceData, priceAvgLineData, priceBuyLineData, priceSellLineData, avgDisparity, period, simAssetData) {
+            const ctx = document.getElementById('priceChart').getContext('2d');
+            if (priceChartInstance) priceChartInstance.destroy();
+            
+            let chartDatasets = [
+                { label: `수정종가`, data: priceData, borderColor: '#000000', backgroundColor: 'rgba(0, 0, 0, 0.1)', borderWidth: 2, pointRadius: 0, tension: 0.1, order: 2 },
+                { label: `평균 이격도 (${avgDisparity.toFixed(2)}x)`, data: priceAvgLineData, borderColor: '#8e44ad', borderDash: [5, 5], borderWidth: 2, pointRadius: 0, tension: 0.1, spanGaps: true, order: 3 },
+                { label: `매도선`, data: priceSellLineData, borderColor: '#3498db', borderWidth: 1.5, borderDash: [5, 5], pointRadius: 0, tension: 0.1, spanGaps: true, order: 4 },
+                { label: `매수선`, data: priceBuyLineData, borderColor: '#e74c3c', borderWidth: 1.5, borderDash: [5, 5], pointRadius: 0, tension: 0.1, spanGaps: true, order: 5 }
+            ];
+
+            let chartScales = { 
+                x: { grid: getYearlyGridConfig(), ticks: getYearlyTicksConfig() }, 
+                y: { 
+                    type: 'logarithmic', 
+                    display: true, 
+                    position: 'left', 
+                    title: { display: true, text: '가격(로그)', color: '#333' },
+                    afterBuildTicks: function(axis) {
+                        const ticks = [];
+                        const minVal = axis.min > 0 ? axis.min : 0.01;
+                        const maxVal = axis.max > 0 ? axis.max : 10000000;
+                        const minLog = Math.floor(Math.log2(minVal));
+                        const maxLog = Math.ceil(Math.log2(maxVal));
+                        for (let i = minLog; i <= maxLog; i++) {
+                            ticks.push({ value: Math.pow(2, i) });
+                        }
+                        axis.ticks = ticks;
+                    },
+                    ticks: {
+                        callback: function(value) { return value < 1 ? value.toFixed(3) : value.toLocaleString(); }
+                    }
+                } 
+            };
+
+            // 시뮬레이션 자산이 켜져있다면 우측 보조 축과 라인 추가
+            if (showSimAsset && simAssetData) {
+                chartDatasets.push({
+                    label: `시뮬레이션 자산 (우측 축)`,
+                    data: simAssetData,
+                    borderColor: '#27ae60', // 녹색
+                    backgroundColor: 'rgba(39, 174, 96, 0.1)',
+                    borderWidth: 2.5,
+                    pointRadius: 0,
+                    tension: 0.1,
+                    yAxisID: 'y1',
+                    order: 1 // 가장 위에 그려지도록 설정
+                });
+
+                chartScales.y1 = {
+                    type: 'logarithmic', 
+                    display: true, 
+                    position: 'right', 
+                    title: { display: true, text: '자산 배수(로그)', color: '#27ae60' },
+                    grid: { drawOnChartArea: false },
+                    afterBuildTicks: function(axis) {
+                        const ticks = [];
+                        const minVal = axis.min > 0 ? axis.min : 0.01;
+                        const maxVal = axis.max > 0 ? axis.max : 10000;
+                        const minLog = Math.floor(Math.log2(minVal));
+                        const maxLog = Math.ceil(Math.log2(maxVal));
+                        for (let i = minLog; i <= maxLog; i++) {
+                            ticks.push({ value: Math.pow(2, i) });
+                        }
+                        axis.ticks = ticks;
+                    },
+                    ticks: {
+                        callback: function(value) { return value < 1 ? value.toFixed(2) + 'x' : value.toLocaleString() + 'x'; }
+                    }
+                };
+            }
+
+            priceChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: chartDatasets
+                },
+                options: { 
+                    responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, 
+                    plugins: { zoom: zoomPluginX },
+                    scales: chartScales
+                }
+            });
+        }
+
+        function renderDisparityChart(labels, disparityData, avgLineData, buyLineData, sellLineData, avgDisparity, maxDisp, minDisp, period) {
+            const ctx = document.getElementById('disparityChart').getContext('2d');
+            if (disparityChartInstance) disparityChartInstance.destroy();
+            disparityChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [ 
+                        { label: `이격도`, data: disparityData, borderColor: '#000000', backgroundColor: 'rgba(0, 0, 0, 0.1)', borderWidth: 2, pointRadius: 0, tension: 0.1, spanGaps: true, fill: true, order: 1 },
+                        { label: `평균 이격도 (${avgDisparity.toFixed(2)}x)`, data: avgLineData, borderColor: '#8e44ad', borderDash: [5, 5], borderWidth: 2, pointRadius: 0, tension: 0, spanGaps: true, order: 2 },
+                        { label: `매도선`, data: sellLineData, borderColor: '#3498db', borderWidth: 2, borderDash: [5,5], pointRadius: 0, tension: 0, spanGaps: true, order: 3 },
+                        { label: `매수선`, data: buyLineData, borderColor: '#e74c3c', borderWidth: 2, borderDash: [5,5], pointRadius: 0, tension: 0, spanGaps: true, order: 4 }
+                    ]
+                },
+                options: { 
+                    responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, 
+                    plugins: { zoom: zoomPluginX },
+                    scales: { 
+                        x: { grid: getYearlyGridConfig(), ticks: getYearlyTicksConfig() }, 
+                        y: { 
+                            type: 'linear', 
+                            display: true, 
+                            position: 'right', 
+                            title: { display: true, text: '이격도', color: '#000000' }, 
+                            min: minDisp, 
+                            max: maxDisp,
+                            afterBuildTicks: function(axis) {
+                                const ticks = [];
+                                const minVal = Math.floor(axis.min);
+                                const maxVal = Math.ceil(axis.max);
+                                for (let i = minVal; i <= maxVal; i++) {
+                                    ticks.push({ value: i });
+                                }
+                                axis.ticks = ticks;
+                            }
+                        } 
+                    } 
+                }
+            });
+        }
+
+        function populateTable(dates, prices, displayMulrimData, smaData, disparityData, tradeActions, cashHistory, stockHistory, capitalHistory, period) {
+            const tableBody = document.getElementById('table-body');
+            let htmlContent = '';
+            for (let i = dates.length - 1; i >= 0; i--) {
+                const date = dates[i];
+                const price = prices[i] ? prices[i].toFixed(4) : '-';
+                const sma = smaData[i] !== null ? smaData[i].toFixed(4) : '-';
+                const disparity = disparityData[i] !== null ? disparityData[i].toFixed(4) : '-';
+                const mulrim = displayMulrimData[i]; 
+                const action = tradeActions[i];
+                
+                let actionStyle = '';
+                if (action === "매수 (Buy)" || action === "초기 보유 시작") {
+                    actionStyle = 'color:#e74c3c; font-weight:bold;';
+                } else if (action === "매도 (Sell)") {
+                    actionStyle = 'color:#3498db; font-weight:bold;';
+                } else if (action.includes("관망")) {
+                    actionStyle = 'color:#7f8c8d; font-size:12px;';
+                }
+                
+                const cashVal = cashHistory[i] !== null ? cashHistory[i].toFixed(2) : '-';
+                const stockVal = stockHistory[i] !== null ? stockHistory[i].toFixed(2) : '-';
+                const capitalVal = capitalHistory[i] !== null ? capitalHistory[i].toFixed(2) : '-';
+                
+                htmlContent += `<tr><td>${date}</td><td>${price}</td><td>${sma}</td><td>${disparity}</td><td>${mulrim}</td><td style="${actionStyle}">${action}</td><td style="color:#2c3e50;">${cashVal}</td><td style="color:#8e44ad;">${stockVal}</td><td style="font-weight:bold; color:#d35400;">${capitalVal}</td></tr>`;
+            }
+            tableBody.innerHTML = htmlContent;
+        }
+
+        function downloadCSV() {
+            if (!window.fullCsvData) return alert('다운로드할 데이터가 없습니다.');
+            
+            const option = document.getElementById('csv-download-option').value;
+            const { dates, prices, sma, disparity, mulrim, tradeActions, cash, stock, capital, firstValidIdx } = window.fullCsvData;
+            
+            let startIndex = 0;
+            if (option === 'valid') {
+                startIndex = firstValidIdx;
+            }
+
+            let csvContent = "\uFEFF"; 
+            csvContent += "날짜,수정종가,이평선,이격도,물림일수(일),매매 상태,보유 현금,주식 평가액,총 자산\n";
+            
+            for (let i = dates.length - 1; i >= startIndex; i--) {
+                const date = dates[i];
+                const price = prices[i] ? prices[i].toFixed(4) : '-';
+                const smaVal = sma[i] !== null ? sma[i].toFixed(4) : '-';
+                const disp = disparity[i] !== null ? disparity[i].toFixed(4) : '-';
+                const mul = mulrim[i] !== null ? mulrim[i] : '-';
+                const action = tradeActions[i];
+                const c = cash[i] !== null ? cash[i].toFixed(2) : '-';
+                const s = stock[i] !== null ? stock[i].toFixed(2) : '-';
+                const cap = capital[i] !== null ? capital[i].toFixed(2) : '-';
+                
+                csvContent += `"${date}","${price}","${smaVal}","${disp}","${mul}","${action}","${c}","${s}","${cap}"\n`;
+            }
+            
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `${cachedCompanyName}_시뮬레이션_결과.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        function getFastR2ForPeriod(period) {
+            const N = cachedData.prices.length;
             let validX = [], validY = [], sum = 0;
             for (let i = 0; i < N; i++) {
-                sum += prices[i];
-                if (i >= period) sum -= prices[i - period];
+                sum += cachedData.prices[i];
+                if (i >= period) sum -= cachedData.prices[i - period];
                 if (i >= period - 1) {
                     let avg = sum / period;
                     if (avg > 0) {
-                        let disparity = prices[i] / avg;
-                        if ((N - 1) - i >= maxMulrim && Number.isFinite(disparity)) {
-                            validX.push(disparity); validY.push(rawMulrimData[i]);
+                        let disparity = cachedData.prices[i] / avg;
+                        if ((N - 1) - i >= cachedData.maxMulrim && Number.isFinite(disparity)) {
+                            validX.push(disparity); validY.push(cachedData.rawMulrimData[i]);
                         }
                     }
                 }
             }
-            if (validX.length < 30) return 0;
+            if (validX.length < 30) return 0; 
             let sumX = 0, sumY = 0;
             for (let i = 0; i < validX.length; i++) { sumX += validX[i]; sumY += validY[i]; }
             let meanX = sumX / validX.length, meanY = sumY / validY.length;
@@ -367,633 +1246,888 @@
             return 0;
         }
 
-        function calculateExchangeState(data) {
-            const prices = data.map(d => d.close);
-            const N = prices.length;
-            if (N < 100) return { status: '데이터 부족', currentPrice: null, bestPeriod: 0, historyLog: [] };
+        function openOptimizer() {
+            if (!cachedData) return alert('먼저 데이터를 불러와주세요.');
+            openModal('optimizer-modal');
+            document.getElementById('opt-apply-btn').style.display = 'none';
+            document.getElementById('opt-result-text').innerText = '연산 중입니다...';
+            if (optChartInstance) optChartInstance.destroy();
+            setTimeout(() => { runOptimization(); }, 50);
+        }
 
-            let rawMulrimData = new Array(N).fill(0);
-            let maxMulrim = 0;
+        function runOptimization() {
+            const maxTestPeriod = Math.min(3000, cachedData.prices.length - cachedData.maxMulrim - 30);
+            if (maxTestPeriod < 1) { closeModal('optimizer-modal'); return alert("데이터가 부족합니다."); }
+            let labels = [], r2Data = [], maxR2 = -1, bestPeriod = 1; 
+            for (let p = 1; p <= maxTestPeriod; p += 1) {
+                let r2 = getFastR2ForPeriod(p);
+                labels.push(p); r2Data.push(r2);
+                if (r2 > maxR2) { maxR2 = r2; bestPeriod = p; }
+            }
+            bestOptimizedPeriod = bestPeriod;
+            
+            const ctx = document.getElementById('optimizerChart').getContext('2d');
+            let pointColors = labels.map(l => l === bestPeriod ? '#e74c3c' : '#3498db');
+            let pointRadius = labels.map(l => l === bestPeriod ? 6 : 0);
+            optChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: { labels: labels, datasets: [{ label: 'R²', data: r2Data, borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.1)', borderWidth: 2, pointBackgroundColor: pointColors, pointBorderColor: pointColors, pointRadius: pointRadius, fill: true }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { zoom: zoomPluginX } }
+            });
+            document.getElementById('opt-result-text').innerHTML = `최적 기준일수: <span style="color:#e74c3c; font-size:20px;">${bestPeriod}일</span> (R² = ${maxR2.toFixed(4)})`;
+            document.getElementById('opt-apply-btn').style.display = 'inline-block';
+        }
+
+        function openTimeseriesModal() {
+            if (!window.currentAnalysis) return alert('먼저 데이터를 계산해주세요.');
+            openModal('timeseries-modal');
+            const ctx = document.getElementById('timeseriesChart').getContext('2d');
+            if (timeseriesChartInstance) timeseriesChartInstance.destroy();
+            timeseriesChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: window.currentAnalysis.dates,
+                    datasets: [
+                        { label: '이격 비율 (좌측)', data: window.currentAnalysis.disparity, borderColor: '#000000', yAxisID: 'y', pointRadius: 0, tension: 0.1, spanGaps: true },
+                        { label: '물림일수 (우측)', data: window.currentAnalysis.mulrim, borderColor: '#e74c3c', yAxisID: 'y1', pointRadius: 0, tension: 0.1, spanGaps: true }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                    plugins: { zoom: zoomPluginX },
+                    scales: {
+                        x: { grid: getYearlyGridConfig(), ticks: getYearlyTicksConfig() },
+                        y: { type: 'linear', position: 'left', title: { display: true, text: '이격비율', color: '#000000' }, min: window.currentAnalysis.minDisp, max: window.currentAnalysis.maxDisp },
+                        y1: { type: 'linear', position: 'right', title: { display: true, text: '물림일수', color: '#e74c3c' }, grid: { drawOnChartArea: false } }
+                    }
+                }
+            });
+        }
+
+        function openScatterModal() {
+            if (!window.currentAnalysis) return alert('먼저 데이터를 계산해주세요.');
+            openModal('scatter-modal');
+            const ctx = document.getElementById('scatterChart').getContext('2d');
+            if (scatterChartInstance) scatterChartInstance.destroy();
+
+            let scatterData = [], scatterColors = [], validIndices = [];
+            for(let i=0; i<window.currentAnalysis.dates.length; i++) {
+                if(window.currentAnalysis.disparity[i] !== null && window.currentAnalysis.mulrim[i] !== null) validIndices.push(i);
+            }
+            const N_valid = validIndices.length;
+            for(let k = 0; k < N_valid; k++) {
+                let i = validIndices[k];
+                scatterData.push({ x: window.currentAnalysis.disparity[i], y: window.currentAnalysis.mulrim[i] });
+                let t = N_valid > 1 ? k / (N_valid - 1) : 0; 
+                let v = t * 4; 
+                let r, g, b;
+                if (v <= 1) { r = 255; g = Math.round(v * 255); b = 0; } 
+                else if (v <= 2) { r = Math.round(255 - (v - 1) * 255); g = 255; b = 0; } 
+                else if (v <= 3) { r = 0; g = 255; b = Math.round((v - 2) * 255); } 
+                else { r = 0; g = Math.round(255 - (v - 3) * 255); b = 255; }
+                scatterColors.push(`rgba(${r}, ${g}, ${b}, 0.6)`);
+            }
+
+            let trendlineData = [
+                { x: window.currentAnalysis.minDisp, y: window.currentAnalysis.slope * window.currentAnalysis.minDisp + window.currentAnalysis.intercept },
+                { x: window.currentAnalysis.maxDisp, y: window.currentAnalysis.slope * window.currentAnalysis.maxDisp + window.currentAnalysis.intercept }
+            ];
+
+            scatterChartInstance = new Chart(ctx, {
+                data: {
+                    datasets: [
+                        { type: 'scatter', label: '과거 데이터 (적색:과거 → 청색:최신)', data: scatterData, backgroundColor: scatterColors, pointRadius: 4, pointHoverRadius: 6 },
+                        { type: 'line', label: '추세선', data: trendlineData, borderColor: '#e74c3c', borderWidth: 2, pointRadius: 0, fill: false }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    interaction: { mode: 'nearest', intersect: true },
+                    plugins: { 
+                        zoom: zoomPluginXY,
+                        tooltip: { callbacks: { label: function(c) { return `이격도: ${c.parsed.x.toFixed(2)}x, 물림: ${c.parsed.y}일`; } } } 
+                    },
+                    scales: { x: { type: 'linear', position: 'bottom', title: { display: true, text: '이격비율' } }, y: { title: { display: true, text: '물림일수' }, beginAtZero: true } }
+                }
+            });
+        }
+
+        function openDistributionModal() {
+            if (!window.currentAnalysis || !window.currentAnalysis.validDisparities || window.currentAnalysis.validDisparities.length === 0) {
+                return alert('먼저 데이터를 계산해주세요.');
+            }
+            
+            openModal('dist-modal');
+            document.getElementById('dist-calc-result').style.display = 'none'; 
+            
+            const disparities = window.currentAnalysis.validDisparities;
+            let sum = 0, sqSum = 0;
+            for(let d of disparities) { sum += d; }
+            let mean = sum / disparities.length;
+            for(let d of disparities) { sqSum += (d - mean) ** 2; }
+            let stdDev = Math.sqrt(sqSum / disparities.length);
+
+            let min = Math.min(...disparities);
+            let max = Math.max(...disparities);
+            
+            let bins = 60; 
+            let binWidth = (max - min) / bins;
+            let counts = new Array(bins).fill(0);
+
+            for(let d of disparities) {
+                let index = Math.floor((d - min) / binWidth);
+                if(index >= bins) index = bins - 1; 
+                if(index < 0) index = 0;
+                counts[index]++;
+            }
+
+            let labels = [];
+            let histData = [];
+            let normData = [];
+            let total = disparities.length;
+
+            for(let i=0; i<bins; i++) {
+                let binMid = min + (i + 0.5) * binWidth;
+                labels.push(binMid.toFixed(2));
+                
+                let density = counts[i] / (total * binWidth);
+                histData.push(density);
+                
+                let normPdf = (1 / (stdDev * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * Math.pow((binMid - mean)/stdDev, 2));
+                normData.push(normPdf);
+            }
+
+            const ctx = document.getElementById('distChart').getContext('2d');
+            if (distChartInstance) distChartInstance.destroy();
+            
+            distChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            type: 'bar',
+                            label: '실제 분포 (히스토그램 밀도)',
+                            data: histData,
+                            backgroundColor: 'rgba(0, 0, 0, 0.4)', 
+                            borderColor: '#000000',
+                            borderWidth: 1,
+                            barPercentage: 1.0,
+                            categoryPercentage: 1.0
+                        },
+                        {
+                            type: 'line',
+                            label: '정규분포 곡선 (PDF)',
+                            data: normData,
+                            borderColor: 'rgba(231, 76, 60, 1)',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            fill: false,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        zoom: zoomPluginX,
+                        tooltip: {
+                            callbacks: {
+                                title: function(ctx) { return '이격도: ' + ctx[0].label + 'x 구간'; },
+                                label: function(ctx) {
+                                    return ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(4);
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: '이격 비율' }
+                        },
+                        y: {
+                            title: { display: true, text: '확률 밀도 (Density)' },
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+            
+            calcDistributionPercentile();
+        }
+
+        function inverseNormalCDF(p) {
+            if (p <= 0.0) return -Infinity;
+            if (p >= 1.0) return Infinity;
+            let t, z;
+            if (p < 0.5) {
+                t = Math.sqrt(-2.0 * Math.log(p));
+            } else {
+                t = Math.sqrt(-2.0 * Math.log(1.0 - p));
+            }
+            let c0 = 2.515517, c1 = 0.802853, c2 = 0.010328;
+            let d1 = 1.432788, d2 = 0.189269, d3 = 0.001308;
+            z = t - ((c2 * t + c1) * t + c0) / (((d3 * t + d2) * t + d1) * t + 1.0);
+            return p < 0.5 ? -z : z;
+        }
+
+        function calcDistributionPercentile() {
+            let val = parseFloat(document.getElementById('dist-percent-input').value);
+            let p = val / 100;
+            if (isNaN(p) || p <= 0 || p >= 1) return alert("0보다 크고 100보다 작은 올바른 %를 입력해주세요.");
+
+            const disparities = window.currentAnalysis.validDisparities;
+            let sum = 0, sqSum = 0;
+            for(let d of disparities) { sum += d; }
+            let mean = sum / disparities.length;
+            for(let d of disparities) { sqSum += (d - mean) ** 2; }
+            let stdDev = Math.sqrt(sqSum / disparities.length);
+
+            let z = inverseNormalCDF(p);
+            let expectedDisparity = mean + z * stdDev;
+
+            let sortedDisp = disparities.slice().sort((a,b) => a - b);
+            let targetIndex = Math.floor(p * sortedDisp.length);
+            if (targetIndex >= sortedDisp.length) targetIndex = sortedDisp.length - 1;
+            let actualDisparity = sortedDisp[targetIndex];
+
+            const resDiv = document.getElementById('dist-calc-result');
+            resDiv.style.display = 'block';
+            resDiv.innerHTML = 
+                `-∞ 부터 누적 하위 <span style="color:#e74c3c; font-size:18px; font-weight:bold;">${val}%</span> 지점 타점 분석:<br>` +
+                `<div style="margin-top:10px; background:#e8f4f8; padding:10px; border-radius:6px; border:1px solid #bce8f1;">` +
+                `✅ <strong>실제 데이터 기준:</strong> 이격도 <span style="color:#27ae60; font-size:18px; font-weight:bold;">${actualDisparity.toFixed(4)}x</span> 이하<br>` +
+                `<span style="font-size:13px; color:#7f8c8d;">(과거 전체 데이터 중 정확히 하위 ${val}%에 해당하는 실제 수치)</span>` +
+                `</div>` +
+                `<div style="margin-top:5px; background:#fdfbf7; padding:10px; border-radius:6px; border:1px solid #f5b041;">` +
+                `📉 <strong>정규분포 가정시:</strong> 이격도 <span style="color:#d35400; font-size:18px; font-weight:bold;">${expectedDisparity.toFixed(4)}x</span> 이하<br>` +
+                `<span style="font-size:13px; color:#7f8c8d;">(수학적 정규분포 모형으로 계산한 이론적 수치)</span>` +
+                `</div>`;
+        }
+
+        function getTradeRadius(pX, pY, badPts) {
+            if (!badPts || badPts.length === 0) return 10.0; // 방해물이 없으면 넉넉하게 큰 반경
+            let minSq = Infinity;
+            for (let i = 0; i < badPts.length; i++) {
+                let b = badPts[i];
+                let dSq = Math.pow(pX - b.sell, 2) + Math.pow(pY - b.buy, 2);
+                if (dSq < minSq) minSq = dSq;
+            }
+            return Math.sqrt(minSq);
+        }
+
+        function generateCircleData(cx, cy, r, steps = 100) {
+            if (r <= 0) return [];
+            let data = [];
+            for (let i = 0; i <= steps; i++) {
+                let angle = (i / steps) * 2 * Math.PI;
+                data.push({ x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) });
+            }
+            return data;
+        }
+
+        function openTradeOptimizer() {
+            if (!cachedData) return alert('먼저 데이터를 불러와주세요.');
+            openModal('trade-optimizer-modal');
+            
+            window.selectedPointFromChart = null;
+            document.getElementById('custom-apply-btn').disabled = true;
+
+            document.getElementById('trade-opt-apply-btn').style.display = 'none';
+            document.getElementById('stable-opt-apply-btn').style.display = 'none';
+            document.getElementById('trade-opt-result-text').innerText = '수만 가지 조합의 딥 시뮬레이션을 진행 중입니다...';
+            setTimeout(() => { runTradeOptimization(); }, 100);
+        }
+
+        function runTradeOptimization() {
+            const period = parseInt(document.getElementById('ma-period').value) || 1500;
+            const initCap = 10000;
+            const N = cachedData.prices.length;
+            let disparities = new Array(N).fill(null);
+            let sum = 0, validCount = 0;
+            let minD = 9999, maxD = -9999;
+
             for (let i = 0; i < N; i++) {
-                let count = 0;
-                let currentPrice = prices[i];
-                for (let j = i + 1; j < N; j++) { if (prices[j] < currentPrice) count++; }
-                rawMulrimData[i] = count;
-                if (count > maxMulrim) maxMulrim = count;
-            }
-
-            const maxTestPeriod = Math.min(3000, N - maxMulrim - 30);
-            let bestR2 = -1;
-            let bestPeriod = 20; 
-            if (maxTestPeriod >= 1) {
-                for (let p = 1; p <= maxTestPeriod; p++) {
-                    let r2 = getFastR2ForPeriod(prices, rawMulrimData, maxMulrim, p);
-                    if (r2 > bestR2) { bestR2 = r2; bestPeriod = p; }
+                let p = cachedData.prices[i];
+                sum += p;
+                if (i >= period) sum -= cachedData.prices[i - period];
+                if (i >= period - 1) {
+                    let avg = sum / period;
+                    if (avg > 0) {
+                        let d = p / avg;
+                        disparities[i] = d;
+                        if (Number.isFinite(d)) {
+                            validCount++;
+                            if (d < minD) minD = d;
+                            if (d > maxD) maxD = d;
+                        }
+                    }
                 }
             }
 
-            const historyLog = [];
-            for (let i = bestPeriod - 1; i < N; i++) {
-                const slice = prices.slice(i - bestPeriod + 1, i + 1);
-                const ma = slice.reduce((a, b) => a + b, 0) / bestPeriod;
-                const disparity = prices[i] / ma;
-                
-                let state = '관망';
-                if (disparity <= 0.9831) state = '달러 환전 적극 권장!';
-                else if (disparity <= 1.0206) state = '달러 환전 권장';
-                else if (disparity <= 1.0594) state = '달러 환전 장려';
-                else if (disparity <= 1.1042) state = '달러 환전 고려';
-                else state = '관망';
-
-                let evalState = '적정';
-                if (disparity <= 0.9831) evalState = '저환율';
-                else if (disparity > 1.1042) evalState = '고환율';
-
-                historyLog.push({ date: data[i].date, close: prices[i], disp: disparity, state: state, eval: evalState });
+            if (validCount < 10) {
+                closeModal('trade-optimizer-modal');
+                return alert("데이터가 너무 적어 최적화할 수 없습니다.");
             }
 
-            const currentState = historyLog[historyLog.length - 1];
-            return { status: currentState.state, evalState: currentState.eval, currentPrice: currentState.close, bestPeriod: bestPeriod, historyLog: historyLog };
-        }
+            let firstValidIdx = disparities.findIndex(d => d !== null);
+            if (firstValidIdx === -1) firstValidIdx = 0;
 
-        function downloadCSV(stockResults, exState) {
-            const dateMap = {};
+            const startDt = new Date(cachedData.dates[firstValidIdx]);
+            const endDt = new Date(cachedData.dates[N - 1]);
+            const diffTime = Math.abs(endDt - startDt);
+            const totalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            let totalYears = totalDays / 365.2425;
+            if (totalYears <= 0) totalYears = 0.001;
+
+            const baseInitialPrice = cachedData.prices[firstValidIdx];
+            const baseLatestPrice = cachedData.prices[N - 1];
             
-            stockResults.forEach(stock => {
-                if (!stock.historyLog) return;
-                stock.historyLog.forEach(record => {
-                    if (!dateMap[record.date]) dateMap[record.date] = { date: record.date };
-                    dateMap[record.date][`${stock.symbol}_Price`] = record.close;
-                    dateMap[record.date][`${stock.symbol}_Disp`] = record.disp;
-                    dateMap[record.date][`${stock.symbol}_State`] = record.state;
-                    dateMap[record.date][`${stock.symbol}_Eval`] = record.eval;
-                });
-            });
+            const baseFinalCapital = (initCap / baseInitialPrice) * baseLatestPrice;
+            const baseCagr = (Math.pow(baseLatestPrice / baseInitialPrice, 1 / totalYears) - 1) * 100;
 
-            if (exState && exState.historyLog) {
-                exState.historyLog.forEach(record => {
-                    if (!dateMap[record.date]) dateMap[record.date] = { date: record.date };
-                    dateMap[record.date][`Exchange_Price`] = record.close;
-                    dateMap[record.date][`Exchange_Disp`] = record.disp;
-                    dateMap[record.date][`Exchange_State`] = record.state;
-                    dateMap[record.date][`Exchange_Eval`] = record.eval;
-                });
-            }
-
-            const dates = Object.keys(dateMap).sort();
-            if (dates.length === 0) return alert("다운로드할 데이터가 없습니다.");
-
-            let csvContent = "Date,환율 Price,환율 이격도,환율 상태,환율 평가,";
-            const headers = [];
-            stockResults.forEach(s => { headers.push(`${s.symbol} Price`, `${s.symbol} 이격도`, `${s.symbol} 상태`, `${s.symbol} 평가`); });
-            csvContent += headers.join(",") + "\n";
-
-            for (let i = dates.length - 1; i >= 0; i--) {
-                const date = dates[i];
-                const row = [date];
-                const data = dateMap[date];
-
-                row.push(data[`Exchange_Price`] !== undefined ? data[`Exchange_Price`].toFixed(2) : "");
-                row.push(data[`Exchange_Disp`] !== undefined ? data[`Exchange_Disp`].toFixed(4) : "");
-                row.push(data[`Exchange_State`] || "");
-                row.push(data[`Exchange_Eval`] || "");
-
-                stockResults.forEach(s => {
-                    row.push(data[`${s.symbol}_Price`] !== undefined ? data[`${s.symbol}_Price`].toFixed(2) : "");
-                    row.push(data[`${s.symbol}_Disp`] !== undefined ? data[`${s.symbol}_Disp`].toFixed(4) : "");
-                    row.push(data[`${s.symbol}_State`] || "");
-                    row.push(data[`${s.symbol}_Eval`] || "");
-                });
-                csvContent += row.join(",") + "\n";
-            }
-
-            const bom = "\uFEFF"; 
-            const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = `Data_Check_${new Date().toISOString().split('T')[0]}.csv`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-
-        // --- 오디오 (효과음) 합성 ---
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        let audioCtx;
-
-        function initAudio() { if (!audioCtx) audioCtx = new AudioContext(); }
-
-        function playSound(freqStart, freqEnd, type, duration, vol = 0.1) {
-            if (!audioCtx) return;
-            try {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = type;
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                
-                osc.frequency.setValueAtTime(freqStart, audioCtx.currentTime);
-                if (freqEnd) osc.frequency.exponentialRampToValueAtTime(freqEnd, audioCtx.currentTime + duration);
-                
-                gain.gain.setValueAtTime(vol, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-                
-                osc.start(audioCtx.currentTime);
-                osc.stop(audioCtx.currentTime + duration);
-            } catch (e) { console.error("Audio error:", e); }
-        }
-
-        function playJump() { initAudio(); playSound(320, 600, 'triangle', 0.15, 0.15); } 
-        function playHit() { initAudio(); playSound(150, 40, 'sawtooth', 0.4, 0.2); }
-        function playBoss() { 
-            initAudio(); 
-            playSound(200, 100, 'square', 0.8, 0.15); 
-            setTimeout(() => playSound(250, 120, 'square', 0.8, 0.15), 200); 
-        }
-        function playClear() {
-            initAudio();
-            setTimeout(() => playSound(523, 523, 'triangle', 0.15, 0.15), 0);
-            setTimeout(() => playSound(659, 659, 'triangle', 0.15, 0.15), 150);
-            setTimeout(() => playSound(783, 783, 'triangle', 0.15, 0.15), 300);
-            setTimeout(() => playSound(1046, 1046, 'triangle', 0.4, 0.2), 450);
-        }
-
-        // --- 미니게임 (보스 4단계 진화 및 음봉 몹 패턴) 로직 ---
-        let gameLoopId;
-        let finalDataPayload = null; 
-        let isWaitingForDataChoice = false; 
-        let continueGameAfterData = false; 
-        let canClickModal = false; 
-
-        function triggerDataReady(renderCallback) {
-            finalDataPayload = renderCallback;
-            if (isGameOver || isGameClear) {
-                finishGameAndShowData();
-            } else {
-                isWaitingForDataChoice = true;
-                const modal = document.getElementById('dataReadyModal');
-                const btns = document.querySelectorAll('.modal-btn');
-                
-                modal.style.display = 'flex';
-                canClickModal = false; 
-                
-                btns.forEach(b => {
-                    b.style.opacity = '0.4';
-                    b.style.cursor = 'not-allowed';
-                });
-
-                // 0.5초 방어 쿨타임
-                setTimeout(() => {
-                    canClickModal = true;
-                    btns.forEach(b => {
-                        b.style.opacity = '1';
-                        b.style.cursor = 'pointer';
-                    });
-                }, 500);
-            }
-        }
-
-        function finishGameAndShowData() {
-            stopMiniGame();
-            if (finalDataPayload) finalDataPayload();
-        }
-
-        document.getElementById('btn-continue-game').addEventListener('click', (e) => {
-            e.stopPropagation(); 
-            if (!canClickModal) return; 
-            isWaitingForDataChoice = false;
-            continueGameAfterData = true; 
-            document.getElementById('dataReadyModal').style.display = 'none';
-        });
-
-        document.getElementById('btn-show-data').addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (!canClickModal) return;
-            isWaitingForDataChoice = false;
-            document.getElementById('dataReadyModal').style.display = 'none';
-            finishGameAndShowData();
-        });
-
-        let score = 0; 
-        let nextBossScore = 100; 
-        let isGameOver = false;
-        let isGameClear = false;
-        let frame = 0;
-        let nextSpawnFrame = 50; 
-        let obstacles = [];
-
-        const player = { x: 30, y: 100, w: 20, h: 20, dy: 0, gravity: 0.6, jumpPow: -8.5, grounded: false, jumps: 0, maxJumps: 2 };
-        let boss = { active: false, x: 300, y: 30, w: 40, h: 70, speedY: 2, level: 1, fireCooldown: 0, fired: 0, maxFire: 0, state: 'entering' };
-
-        function updateScoreBoard() {
-            const board = document.getElementById('scoreBoard');
-            if (boss.active) {
-                board.innerHTML = `<span style="color:#ff5252;">⚠️ [Lv.${boss.level} 거대 하락장 등장!] ⚠️</span> | 수익률: +${score}%`;
-            } else {
-                board.innerText = `터치/클릭 점프 (더블 점프!) | 수익률: +${score}%`;
-            }
-        }
-
-        function startMiniGame() {
-            const canvas = document.getElementById('gameCanvas');
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-
-            function jump(e) {
-                if (e) e.preventDefault();
-                initAudio(); 
-                
-                if (isWaitingForDataChoice) return; 
-
-                if (isGameOver || isGameClear) {
-                    if (continueGameAfterData && finalDataPayload) {
-                        finishGameAndShowData();
-                        return;
-                    }
-                    obstacles = [];
-                    score = 0;
-                    nextBossScore = 100;
-                    frame = 0;
-                    nextSpawnFrame = 50;
-                    isGameOver = false;
-                    isGameClear = false;
-                    boss.active = false;
-                    updateScoreBoard();
-                } else if (player.jumps < player.maxJumps) {
-                    player.dy = player.jumpPow;
-                    player.grounded = false;
-                    player.jumps++;
-                    playJump(); 
-                }
-            }
-
-            canvas.addEventListener('mousedown', jump);
-            canvas.addEventListener('touchstart', jump, {passive: false});
-
-            function update() {
-                if (isGameOver || isGameClear || isWaitingForDataChoice) return; 
-                
-                player.dy += player.gravity;
-                player.y += player.dy;
-                
-                if (player.y + player.h >= 130) {
-                    player.y = 130 - player.h;
-                    player.dy = 0;
-                    player.grounded = true;
-                    player.jumps = 0;
-                }
-
-                frame++;
-                
-                // 보스전 진입
-                if (score >= nextBossScore && !boss.active) {
-                    if (obstacles.length === 0) {
-                        boss.active = true;
-                        boss.x = 300;
-                        boss.y = 40;
-                        boss.level = Math.min(4, Math.floor(score / 100));
-                        boss.w = 40;
-                        
-                        if (boss.level === 4) {
-                            boss.h = 90; // 가장 큼
-                            boss.speedY = 4.5; // 속도 극대화
-                            boss.maxFire = 30; // 지속시간 2배 이상
-                        } else {
-                            boss.h = 70;
-                            boss.speedY = 1.5 + (boss.level * 0.5); 
-                            boss.maxFire = 5 + (boss.level * 3); 
-                        }
-                        
-                        boss.fired = 0;
-                        boss.fireCooldown = 30;
-                        boss.state = 'entering';
-                        playBoss();
-                        updateScoreBoard();
-                    }
-                }
-
-                if (boss.active) {
-                    if (boss.state === 'entering') {
-                        boss.x -= 2;
-                        if (boss.x <= 230) boss.state = 'fighting';
-                    } else if (boss.state === 'fighting') {
-                        boss.y += boss.speedY;
-                        // 보스가 위아래로 튕길 때 화면 벗어나지 않게 처리
-                        if (boss.y < 10 || boss.y + boss.h > 125) boss.speedY *= -1;
-
-                        boss.fireCooldown--;
-                        if (boss.fireCooldown <= 0 && boss.fired < boss.maxFire) {
-                            let pSpeed = 4 + boss.level + Math.random() * 2;
-                            if (boss.level === 4) pSpeed += 4; // 4단계 미사일 속도 대폭 증가
-                            
-                            let pWidth = 14; 
-                            let pHeight = 14; 
-                            let cType = 3; // 보스 미사일은 기본적으로 장대음봉
-                            
-                            // 장대 미사일(더 긴 음봉) 확률 적용
-                            let longProb = boss.level === 4 ? 0.7 : 0.3;
-                            if (Math.random() < longProb) {
-                                pHeight += 15 + Math.random() * 15;
-                                if (boss.level === 4) pHeight += 10; 
-                            }
-                            
-                            let projY = Math.random() < 0.6 ? 130 - pHeight : boss.y + Math.random() * 20;
-
-                            // 미사일도 장대음봉 형태로 생성
-                            obstacles.push({ x: boss.x, y: projY, w: pWidth, h: pHeight, speed: pSpeed, color: '#448aff', passed: true, isBossProj: true, candleType: 3 });
-                            boss.fired++;
-                            
-                            if (boss.level === 4) {
-                                boss.fireCooldown = Math.max(12, 25 - Math.random() * 5); 
-                            } else {
-                                boss.fireCooldown = Math.max(15, 50 - (boss.level * 5)); 
-                            }
-                        }
-
-                        if (boss.fired >= boss.maxFire && obstacles.length === 0) {
-                            boss.state = 'leaving';
-                        }
-                    } else if (boss.state === 'leaving') {
-                        boss.x += 3;
-                        if (boss.x > 300) {
-                            boss.active = false;
-                            score += 20; 
-                            
-                            if (boss.level === 4) {
-                                isGameClear = true;
-                                playClear();
-                            } else {
-                                nextBossScore = score - (score % 100) + 100; 
-                                updateScoreBoard();
-                            }
-                        }
-                    }
-                } 
-                else {
-                    if (score < nextBossScore && frame >= nextSpawnFrame) {
-                        let baseSpeed = 4 + (score / 200);
-                        let obsW = 14; // 가로 크기 고정 (세로 캔들형태 유지)
-                        let obsH = 25 + Math.random() * 20; // 다양한 세로 길이
-                        let obsSpeed = baseSpeed + (Math.random() * 2 - 1);
-                        let cType = Math.floor(Math.random() * 4); // 0:아래꼬리, 1:십자, 2:위꼬리, 3:장대
-                        let color = '#448aff'; 
-
-                        obstacles.push({ x: 300, y: 130 - obsH, w: obsW, h: obsH, speed: obsSpeed, color: color, passed: false, candleType: cType });
-
-                        let minDelay = Math.max(30, 70 - Math.floor(score/30)); 
-                        let maxDelay = minDelay + 40 + Math.random() * 40;
-                        nextSpawnFrame = frame + minDelay + Math.floor(Math.random() * (maxDelay - minDelay));
-                    }
-                }
-
-                for (let i = obstacles.length - 1; i >= 0; i--) {
-                    let obs = obstacles[i];
-                    obs.x -= obs.speed;
-                    
-                    if (!obs.passed && player.x > obs.x + obs.w) {
-                        obs.passed = true;
-                        score += 10;
-                        updateScoreBoard();
-                    }
-
-                    if (obs.x + obs.w < 0) {
-                        obstacles.splice(i, 1);
-                    }
-                    
-                    if (player.x + 4 < obs.x + obs.w && player.x + player.w - 4 > obs.x &&
-                        player.y + 4 < obs.y + obs.h && player.y + player.h - 4 > obs.y) {
-                        if (!isGameOver) playHit();
-                        isGameOver = true;
-                    }
-                }
-            }
-
-            function draw() {
-                ctx.clearRect(0, 0, 300, 150);
-                
-                ctx.fillStyle = '#333';
-                ctx.fillRect(0, 130, 300, 2);
-
-                ctx.fillStyle = '#ff5252';
-                ctx.fillRect(player.x, player.y, player.w, player.h);
-                ctx.fillStyle = '#fff';
-                ctx.fillRect(player.x + 12, player.y + 4, 4, 4);
-
-                if (boss.active) {
-                    ctx.fillStyle = '#1565c0'; 
-                    
-                    let bodyY, bodyH, tailTopY = 0, tailTopH = 0, tailBotY = 0, tailBotH = 0, faceY;
-                    let tw = 6;
-                    let tx = boss.x + boss.w/2 - tw/2;
-                    
-                    // 보스 레벨별 외형 (정확한 캔들 형태)
-                    if (boss.level === 1) { 
-                        // Lv.1: 아래 꼬리 음봉
-                        bodyY = boss.y; bodyH = 40;
-                        tailBotY = boss.y + 40; tailBotH = boss.h - 40;
-                        faceY = boss.y + 10;
-                    } else if (boss.level === 2) { 
-                        // Lv.2: 십자/위아래 꼬리
-                        bodyY = boss.y + 20; bodyH = 30;
-                        tailTopY = boss.y; tailTopH = 20;
-                        tailBotY = boss.y + 50; tailBotH = boss.h - 50;
-                        faceY = boss.y + 25;
-                    } else if (boss.level === 3) { 
-                        // Lv.3: 위 꼬리 음봉
-                        bodyY = boss.y + 30; bodyH = boss.h - 30;
-                        tailTopY = boss.y; tailTopH = 30;
-                        faceY = boss.y + 35;
-                    } else { 
-                        // Lv.4: 장대 음봉 (꼬리 없음)
-                        bodyY = boss.y; bodyH = boss.h;
-                        faceY = boss.y + 30;
-                    }
-                    
-                    if (tailTopH > 0) ctx.fillRect(tx, tailTopY, tw, tailTopH);
-                    if (tailBotH > 0) ctx.fillRect(tx, tailBotY, tw, tailBotH);
-                    
-                    ctx.fillRect(boss.x, bodyY, boss.w, bodyH);
-                    
-                    // 화난 얼굴 표정
-                    ctx.fillStyle = '#ffffff';
-                    ctx.fillRect(boss.x + 8, faceY, 10, 6);
-                    ctx.fillRect(boss.x + 22, faceY, 10, 6);
-                    ctx.fillStyle = '#ff0000'; 
-                    ctx.fillRect(boss.x + 10, faceY + 2, 4, 4);
-                    ctx.fillRect(boss.x + 24, faceY + 2, 4, 4);
-
-                    ctx.strokeStyle = '#000000';
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    ctx.moveTo(boss.x + 6, faceY - 5);
-                    ctx.lineTo(boss.x + 18, faceY);
-                    ctx.stroke();
-                    ctx.beginPath();
-                    ctx.moveTo(boss.x + 34, faceY - 5);
-                    ctx.lineTo(boss.x + 22, faceY);
-                    ctx.stroke();
-
-                    ctx.fillStyle = '#000000';
-                    ctx.fillRect(boss.x + 12, faceY + 20, 16, 6);
-                    
-                    ctx.fillStyle = '#ffffff';
-                    ctx.font = 'bold 10px sans-serif';
-                    ctx.textAlign = 'center';
-                    // 레벨 숫자는 몸통 위치에 따라 유동적으로 배치
-                    ctx.fillText(`Lv.${boss.level}`, boss.x + boss.w/2, bodyY - 5 < boss.y ? bodyY + bodyH + 12 : bodyY - 5);
-                }
-
-                for (let obs of obstacles) {
-                    ctx.fillStyle = obs.color;
-                    
-                    let bw = obs.w;
-                    let bh, by, tty=0, tth=0, tby=0, tbh=0;
-                    let tw = 4;
-                    let tx = obs.x + bw/2 - tw/2;
-
-                    if (obs.candleType === 0) { // 아래꼬리
-                        bh = obs.h * 0.4; by = obs.y;
-                        tby = obs.y + bh; tbh = obs.h * 0.6;
-                    } else if (obs.candleType === 1) { // 십자형
-                        bh = obs.h * 0.3; by = obs.y + obs.h * 0.35;
-                        tty = obs.y; tth = obs.h * 0.35;
-                        tby = obs.y + obs.h * 0.65; tbh = obs.h * 0.35;
-                    } else if (obs.candleType === 2) { // 위꼬리
-                        bh = obs.h * 0.4; by = obs.y + obs.h * 0.6;
-                        tty = obs.y; tth = obs.h * 0.6;
-                    } else { // 장대음봉 (보스 미사일 포함)
-                        bh = obs.h; by = obs.y;
-                    }
-
-                    // 캔들 그리기
-                    ctx.fillRect(obs.x, by, bw, bh); 
-                    if (tth > 0) ctx.fillRect(tx, tty, tw, tth); 
-                    if (tbh > 0) ctx.fillRect(tx, tby, tw, tbh); 
-                }
-
-                if (isGameOver) {
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-                    ctx.fillRect(0, 0, 300, 150);
-                    ctx.fillStyle = '#fff';
-                    
-                    ctx.font = 'bold 22px sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.fillText('Game Over', 150, 60);
-
-                    ctx.font = '14px sans-serif';
-                    ctx.fillText('고점에서 물렸습니다!', 150, 85);
-                    
-                    ctx.font = '12px sans-serif';
-                    ctx.fillStyle = '#aaaaaa';
-                    if (continueGameAfterData && finalDataPayload) {
-                        ctx.fillText('터치하여 데이터 결과 보기', 150, 110);
-                    } else {
-                        ctx.fillText('다시 하려면 터치하세요', 150, 110);
-                    }
-                } else if (isGameClear) {
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-                    ctx.fillRect(0, 0, 300, 150);
-                    
-                    ctx.fillStyle = '#ffd740'; 
-                    ctx.font = 'bold 24px sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.fillText('Game Clear!', 150, 60);
-
-                    ctx.fillStyle = '#ffffff';
-                    ctx.font = '14px sans-serif';
-                    ctx.fillText('모든 하락장을 견뎌냈습니다!', 150, 85);
-                    
-                    ctx.font = '12px sans-serif';
-                    ctx.fillStyle = '#aaaaaa';
-                    if (continueGameAfterData && finalDataPayload) {
-                        ctx.fillText('터치하여 데이터 결과 보기', 150, 110);
-                    } else {
-                        ctx.fillText('새 게임을 하려면 터치하세요', 150, 110);
-                    }
-                }
-            }
-
-            function loop() {
-                update();
-                draw();
-                gameLoopId = requestAnimationFrame(loop);
-            }
+            let step = 0.05; 
             
-            updateScoreBoard();
-            loop();
-        }
+            let startD = Math.floor(minD / step) * step;
+            let endD = Math.ceil(maxD / step) * step;
 
-        function stopMiniGame() {
-            if (gameLoopId) cancelAnimationFrame(gameLoopId);
-        }
+            let actualStartD = startD - step; // L (최소보다 한 스텝 아래)
+            let actualEndD = endD + step;     // H (최대보다 한 스텝 위)
 
-        async function initApp() {
-            startMiniGame();
+            window.currentOptBounds = { L: actualStartD, H: actualEndD };
 
-            const exchangePrices = await fetchHistory('USDKRW=X');
-            const exState = calculateExchangeState(exchangePrices);
+            let xLabels = []; 
+            let yLabels = []; 
+            
+            for (let b = actualStartD; b <= actualEndD + 0.001; b += step) xLabels.push(parseFloat(b.toFixed(2)));
+            for (let s = actualStartD; s <= actualEndD + 0.001; s += step) yLabels.push(parseFloat(s.toFixed(2)));
 
-            const stockResults = [];
-            for (let s of STOCKS) {
-                const prices = await fetchHistory(s.symbol);
-                const state = calculateStockState(prices, s.buy, s.sell, s.symbol); 
-                stockResults.push({ symbol: s.symbol, ...state });
+            let results = [];
+            let goodPoints = [];
+            let badPoints = []; 
+            let maxFinalCapital = -1;
+            let minFinalCapital = Infinity;
+            let bestBuy = 0, bestSell = 0;
+
+            for (let i = 0; i < yLabels.length; i++) {
+                let sellPt = yLabels[i];
+                for (let j = 0; j < xLabels.length; j++) {
+                    let buyPt = xLabels[j];
+                    
+                    // 논리적으로 불가한 타점(매수 >= 매도)은 차트 표기 여부와 상관없이 다시 엄격하게 투명한 벽(장애물)으로 설정합니다.
+                    if (buyPt >= sellPt) {
+                        badPoints.push({ buy: buyPt, sell: sellPt, v: 0, utility: 0, cagr: 0 });
+                        continue; 
+                    }
+
+                    let cash = 0;
+                    let shares = initCap / cachedData.prices[firstValidIdx];
+                    let isHolding = true;
+                    
+                    for (let k = firstValidIdx; k < N; k++) {
+                        let d = disparities[k];
+                        if (d === null) continue;
+                        
+                        let p = cachedData.prices[k];
+                        if (isHolding && d > sellPt && shares > 0) {
+                            cash = shares * p;
+                            shares = 0;
+                            isHolding = false;
+                        } else if (!isHolding && d < buyPt && cash > 0) {
+                            shares = cash / p;
+                            cash = 0;
+                            isHolding = true;
+                        }
+                    }
+                    
+                    let finalCap = cash + (shares * cachedData.prices[N - 1]);
+                    let strategyCagr = (Math.pow(finalCap / initCap, 1 / totalYears) - 1) * 100;
+                    let utility = (((1 + strategyCagr / 100) / (1 + baseCagr / 100)) - 1) * 100;
+
+                    let item = { buy: buyPt, sell: sellPt, v: finalCap, utility: utility, cagr: strategyCagr };
+                    results.push(item);
+
+                    // 효용성 0 이하면 장애물(badPoints)에 추가
+                    if (utility > 0) {
+                        goodPoints.push(item);
+                    } else {
+                        badPoints.push(item);
+                    }
+
+                    if (finalCap > maxFinalCapital) {
+                        maxFinalCapital = finalCap;
+                        bestBuy = buyPt;
+                        bestSell = sellPt;
+                    }
+                    if (finalCap < minFinalCapital) {
+                        minFinalCapital = finalCap;
+                    }
+                }
             }
 
-            function getEvalColor(evalText) {
-                if (!evalText) return '#aaaaaa';
-                if (evalText.includes('심한 저평가') || evalText === '저환율') return '#ff5252';
-                if (evalText === '저평가') return '#ff8a65';
-                if (evalText === '중립' || evalText === '적정') return '#9e9e9e';
-                if (evalText === '과열') return '#64b5f6';
-                if (evalText.includes('심한 과열') || evalText === '고환율') return '#448aff';
-                return '#aaaaaa';
-            }
-
-            let exStatusText = exState.status;
-            if (exStatusText.includes('적극 권장')) exStatusText = `<span class="buy">${exStatusText}</span>`;
-            else if (exStatusText.includes('권장')) exStatusText = `<span class="highlight">${exStatusText}</span>`;
-            else if (exStatusText.includes('장려') || exStatusText.includes('고려')) exStatusText = `<span style="color:#f39c12; font-weight:600;">${exStatusText}</span>`;
-            else exStatusText = `<span class="wait">${exStatusText}</span>`;
-
-            let html = `
-            <div class="row">
-                <div class="col-title">환전여부:</div>
-                <div class="col-status">${exStatusText}</div>
-                <div class="col-eval" style="color: ${getEvalColor(exState.evalState)}">${exState.evalState}</div>
-                <div class="col-price">현재 환율: ${formatPrice(exState.currentPrice, true)}</div>
-            </div>`;
-
-            stockResults.forEach(r => {
-                let statusText = r.state;
-                if (r.state === '매수 (Buy)' || r.state === '초기 보유 시작') {
-                    statusText = `<span class="buy">${r.state}</span>`;
-                } else if (r.state === '매도 (Sell)') {
-                    statusText = `<span class="sell">${r.state}</span>`;
+            // === 최고 안정 지점 구하기 알고리즘 ===
+            let bestStablePoint = null;
+            if (goodPoints.length > 0) {
+                if (badPoints.length === 0) {
+                    bestStablePoint = goodPoints.reduce((max, p) => p.cagr > max.cagr ? p : max, goodPoints[0]);
                 } else {
-                    statusText = `<span class="wait">${r.state}</span>`;
+                    let maxMinDistSq = -1;
+                    let candidates = [];
+
+                    for (let i = 0; i < goodPoints.length; i++) {
+                        let p = goodPoints[i];
+                        let minDistSq = Infinity;
+                        
+                        for (let j = 0; j < badPoints.length; j++) {
+                            let b = badPoints[j];
+                            let distSq = Math.pow(p.sell - b.sell, 2) + Math.pow(p.buy - b.buy, 2);
+                            if (distSq < minDistSq) minDistSq = distSq;
+                        }
+                        
+                        if (minDistSq > maxMinDistSq + 1e-9) { 
+                            maxMinDistSq = minDistSq;
+                            candidates = [p];
+                        } else if (Math.abs(minDistSq - maxMinDistSq) <= 1e-9) {
+                            candidates.push(p);
+                        }
+                    }
+
+                    if (candidates.length === 1) {
+                        bestStablePoint = candidates[0];
+                    } else if (candidates.length > 1) {
+                        let bestAvgCagr = -Infinity;
+                        for (let i = 0; i < candidates.length; i++) {
+                            let c = candidates[i];
+                            let sumCagr = 0;
+                            let count = 0;
+                            
+                            for (let j = 0; j < goodPoints.length; j++) {
+                                let g = goodPoints[j];
+                                let distSq = Math.pow(c.sell - g.sell, 2) + Math.pow(c.buy - g.buy, 2);
+                                if (distSq < maxMinDistSq - 1e-9) { 
+                                    sumCagr += g.cagr;
+                                    count++;
+                                }
+                            }
+                            
+                            let avgCagr = count > 0 ? sumCagr / count : c.cagr;
+                            if (avgCagr > bestAvgCagr) {
+                                bestAvgCagr = avgCagr;
+                                bestStablePoint = c;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if (!bestStablePoint && goodPoints.length > 0) {
+                bestStablePoint = goodPoints.reduce((max, p) => p.cagr > max.cagr ? p : max, goodPoints[0]);
+            } else if (!bestStablePoint && results.length > 0) {
+                bestStablePoint = results[0]; 
+            }
+
+            bestOptimizedBuy = bestBuy;
+            bestOptimizedSell = bestSell;
+
+            let stableCircleData = [];
+            if (bestStablePoint) {
+                bestStableBuy = bestStablePoint.buy;
+                bestStableSell = bestStablePoint.sell;
+                let r = getTradeRadius(bestStablePoint.sell, bestStablePoint.buy, badPoints);
+                stableCircleData = generateCircleData(bestStablePoint.sell, bestStablePoint.buy, r);
+            }
+
+            let scatterData = [];
+            let scatterColors = [];
+            for (let item of results) {
+                scatterData.push({ x: item.sell, y: item.buy });
+                scatterColors.push(getTradeColor(item.v, maxFinalCapital, minFinalCapital, 0.8));
+            }
+
+            const ctx = document.getElementById('tradeOptimizerChart').getContext('2d');
+            if (tradeOptChartInstance) tradeOptChartInstance.destroy();
+
+            const formatLH = (v) => {
+                if (!window.currentOptBounds) return v.toFixed(2) + 'x';
+                if (Math.abs(v - window.currentOptBounds.L) < 0.01) return `L (${v.toFixed(2)})`;
+                if (Math.abs(v - window.currentOptBounds.H) < 0.01) return `H (${v.toFixed(2)})`;
+                return v.toFixed(2) + 'x';
+            };
+
+            const updateResultText = (selectedItem = null, selectedRadius = 0) => {
+                let maxStrategyCagr = (Math.pow(maxFinalCapital / initCap, 1 / totalYears) - 1) * 100;
+                let maxUtility = (((1 + maxStrategyCagr / 100) / (1 + baseCagr / 100)) - 1) * 100;
+
+                let maxColor = getTradeColor(maxFinalCapital, maxFinalCapital, minFinalCapital, 1.0);
+                let baseColor = getTradeColor(baseFinalCapital, maxFinalCapital, minFinalCapital, 1.0);
+                
+                let maxR = getTradeRadius(bestSell, bestBuy, badPoints); // 최고 효율 지점의 반경
+
+                let stableSectionHtml = '';
+                if (bestStablePoint) {
+                    let stableColor = getTradeColor(bestStablePoint.v, maxFinalCapital, minFinalCapital, 1.0);
+                    let stableR = getTradeRadius(bestStablePoint.sell, bestStablePoint.buy, badPoints);
+                    stableSectionHtml = 
+                        `<br><br><strong style="color:#000000; font-size:16px;">최고 안정 지점 ⚫</strong><br>` +
+                        `매수 <span style="color:#e74c3c; font-weight:bold;">${formatLH(bestStablePoint.buy)}</span> 이하 / 매도 <span style="color:#3498db; font-weight:bold;">${formatLH(bestStablePoint.sell)}</span> 이상<br>` +
+                        `<span style="font-size:13px; color:#7f8c8d;">(안전 반경: ${stableR.toFixed(2)})</span><br>` +
+                        `<span style="color:${stableColor}; font-weight:bold;">효용성: ${bestStablePoint.utility.toFixed(2)}% / CAGR: ${bestStablePoint.cagr.toFixed(2)}%</span>`;
+                } else {
+                    stableSectionHtml = 
+                        `<br><br><strong style="color:#000000; font-size:16px;">최고 안정 지점 ⚫</strong><br>` +
+                        `<span style="color:#7f8c8d; font-weight:bold;">계산할 수 있는 안정 지점 데이터가 부족합니다.</span>`;
                 }
 
-                html += `
-                <div class="row">
-                    <div class="col-title">${r.symbol}:</div>
-                    <div class="col-status">${statusText}</div>
-                    <div class="col-eval" style="color: ${getEvalColor(r.evalState)}">${r.evalState}</div>
-                    <div class="col-price">현재가: ${formatPrice(r.currentPrice, false)}</div>
-                </div>`;
+                let html = 
+                    `<strong style="color:#000000; font-size:16px;">단순 Buy&Hold</strong><br>` +
+                    `<span style="color:${baseColor}; font-weight:bold;">효용성: 0.00% / CAGR: ${baseCagr.toFixed(2)}%</span><br><br>` +
+                    `<strong style="color:#000000; font-size:16px;">최고 효율 지점 🚀</strong><br>` +
+                    `매수 <span style="color:#e74c3c; font-weight:bold;">${formatLH(bestBuy)}</span> 이하 / 매도 <span style="color:#3498db; font-weight:bold;">${formatLH(bestSell)}</span> 이상<br>` +
+                    `<span style="font-size:13px; color:#7f8c8d;">(안전 반경: ${maxR.toFixed(2)})</span><br>` +
+                    `<span style="color:${maxColor}; font-weight:bold;">효용성: ${maxUtility.toFixed(2)}% / CAGR: ${maxStrategyCagr.toFixed(2)}%</span>` +
+                    stableSectionHtml;
+
+                if (selectedItem) {
+                    let itemColor = getTradeColor(selectedItem.v, maxFinalCapital, minFinalCapital, 1.0);
+                    html += `<br><br>` +
+                            `<strong style="color:#000000; font-size:16px;">선택된 타점 ⚪</strong><br>` +
+                            `매수 <span style="color:#e74c3c; font-weight:bold;">${formatLH(selectedItem.buy)}</span> 이하 / 매도 <span style="color:#3498db; font-weight:bold;">${formatLH(selectedItem.sell)}</span> 이상<br>` +
+                            `<span style="font-size:13px; color:#7f8c8d;">(안전 반경: ${selectedRadius.toFixed(2)})</span><br>` +
+                            `<span style="color:${itemColor}; font-weight:bold;">효용성: ${selectedItem.utility.toFixed(2)}% / CAGR: ${selectedItem.cagr.toFixed(2)}%</span>`;
+                }
+
+                document.getElementById('trade-opt-result-text').innerHTML = html;
+            };
+            
+            tradeOptChartInstance = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        {
+                            label: '효용성 및 자본금 (적색:최고효율 → 청색:최저효율)',
+                            data: scatterData,
+                            backgroundColor: scatterColors,
+                            pointStyle: 'rect',
+                            pointRadius: 6,
+                            pointHoverRadius: 8,
+                            order: 3 
+                        },
+                        {
+                            type: 'line',
+                            label: '최고 안정 지점 ⚫',
+                            data: stableCircleData,
+                            borderColor: 'rgba(0, 0, 0, 0.9)', // 검정색
+                            backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            pointHoverRadius: 0,
+                            pointHitRadius: 0,
+                            fill: true,
+                            showLine: true,
+                            order: 2
+                        },
+                        {
+                            type: 'line',
+                            label: '선택 타점 ⚪',
+                            data: [], 
+                            borderColor: 'rgba(128, 128, 128, 0.9)', // 회색
+                            backgroundColor: 'rgba(128, 128, 128, 0.15)',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            pointHoverRadius: 0,
+                            pointHitRadius: 0,
+                            fill: true,
+                            showLine: true,
+                            order: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    interaction: { mode: 'nearest', intersect: true, axis: 'xy' },
+                    onClick: function(e, elements) {
+                        if (elements.length > 0) {
+                            const idx = elements[0].index;
+                            if (elements[0].datasetIndex === 0) {
+                                const item = results[idx];
+                                window.selectedPointFromChart = { buy: item.buy, sell: item.sell };
+                                document.getElementById('custom-apply-btn').disabled = false;
+                                
+                                let selRadius = getTradeRadius(item.sell, item.buy, badPoints);
+                                tradeOptChartInstance.data.datasets[2].data = generateCircleData(item.sell, item.buy, selRadius);
+                                tradeOptChartInstance.update();
+                                
+                                updateResultText(item, selRadius);
+                            }
+                        }
+                    },
+                    plugins: {
+                        zoom: zoomPluginXY,
+                        tooltip: {
+                            filter: function(tooltipItem) { return tooltipItem.datasetIndex === 0; },
+                            callbacks: {
+                                label: function(context) {
+                                    let idx = context.dataIndex;
+                                    let utility = results[idx].utility;
+                                    let cagr = results[idx].cagr;
+                                    
+                                    let strX = Math.abs(context.parsed.x - window.currentOptBounds.L) < 0.01 ? `L (${context.parsed.x.toFixed(2)})` : 
+                                               (Math.abs(context.parsed.x - window.currentOptBounds.H) < 0.01 ? `H (${context.parsed.x.toFixed(2)})` : context.parsed.x.toFixed(2));
+                                    let strY = Math.abs(context.parsed.y - window.currentOptBounds.L) < 0.01 ? `L (${context.parsed.y.toFixed(2)})` : 
+                                               (Math.abs(context.parsed.y - window.currentOptBounds.H) < 0.01 ? `H (${context.parsed.y.toFixed(2)})` : context.parsed.y.toFixed(2));
+
+                                    return `매도: ${strX}, 매수: ${strY} | 효용성: ${utility.toFixed(2)}% (CAGR: ${cagr.toFixed(2)}%)`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { 
+                            title: { display: true, text: '매도 기준선 (Sell)' },
+                            ticks: {
+                                callback: function(val, index) {
+                                    let num = parseFloat(val);
+                                    if (window.currentOptBounds) {
+                                        if (Math.abs(num - window.currentOptBounds.L) < 0.01) return 'L (' + num.toFixed(2) + ')';
+                                        if (Math.abs(num - window.currentOptBounds.H) < 0.01) return 'H (' + num.toFixed(2) + ')';
+                                    }
+                                    return num.toFixed(2);
+                                }
+                            }
+                        },
+                        y: { 
+                            title: { display: true, text: '매수 기준선 (Buy)' },
+                            ticks: {
+                                callback: function(val, index) {
+                                    let num = parseFloat(val);
+                                    if (window.currentOptBounds) {
+                                        if (Math.abs(num - window.currentOptBounds.L) < 0.01) return 'L (' + num.toFixed(2) + ')';
+                                        if (Math.abs(num - window.currentOptBounds.H) < 0.01) return 'H (' + num.toFixed(2) + ')';
+                                    }
+                                    return num.toFixed(2);
+                                }
+                            }
+                        }
+                    }
+                }
             });
 
-            triggerDataReady(() => {
-                document.getElementById('content').innerHTML = html;
-                document.getElementById('content').classList.remove('loading');
-
-                const downloadBtn = document.getElementById('downloadBtn');
-                downloadBtn.style.display = 'block';
-                downloadBtn.addEventListener('click', () => downloadCSV(stockResults, exState));
-            });
+            updateResultText();
+            document.getElementById('trade-opt-apply-btn').style.display = 'inline-block';
+            document.getElementById('stable-opt-apply-btn').style.display = 'inline-block';
         }
 
-        initApp();
+        function applyTradeOptimization() {
+            document.getElementById('buy-point').value = bestOptimizedBuy;
+            document.getElementById('sell-point').value = bestOptimizedSell;
+            closeModal('trade-optimizer-modal');
+            calculateAndRender();
+        }
+
+        function applyStableOptimization() {
+            document.getElementById('buy-point').value = bestStableBuy;
+            document.getElementById('sell-point').value = bestStableSell;
+            closeModal('trade-optimizer-modal');
+            calculateAndRender();
+        }
+
+        function applySelectedPoint() {
+            if (window.selectedPointFromChart) {
+                document.getElementById('buy-point').value = window.selectedPointFromChart.buy;
+                document.getElementById('sell-point').value = window.selectedPointFromChart.sell;
+                closeModal('trade-optimizer-modal');
+                calculateAndRender();
+            }
+        }
+
+        // --- 5. 커스텀 분할매매 계산기 로직 ---
+        let splitCalcChartInstance = null;
+
+        function addConditionRow(disp = '', op = 'gte', ratio = '') {
+            const container = document.getElementById('conditions-container');
+            const row = document.createElement('div');
+            row.className = 'condition-row';
+            row.style.cssText = 'display:flex; flex-wrap:wrap; gap:10px; align-items:center; background:#fff; padding:10px; border-radius:6px; border:1px solid #ddd; justify-content:center;';
+            
+            row.innerHTML = `
+                <div style="display:flex; align-items:center; gap:5px;">
+                    <strong>이격도:</strong> 
+                    <input type="number" step="0.01" value="${disp}" class="cond-disp" placeholder="예: 3.5" style="width:80px; padding:4px; border:1px solid #ccc; border-radius:4px;">
+                </div>
+                <div style="display:flex; align-items:center; gap:5px;">
+                    <strong>범위:</strong> 
+                    <select class="cond-op" style="padding:4px; border:1px solid #ccc; border-radius:4px;">
+                        <option value="gte" ${op === 'gte' ? 'selected' : ''}>이상</option>
+                        <option value="lte" ${op === 'lte' ? 'selected' : ''}>이하</option>
+                    </select>
+                </div>
+                <div style="display:flex; align-items:center; gap:5px;">
+                    <strong>적용사항(주식비율):</strong> 
+                    <input type="number" step="0.01" min="0" max="1" value="${ratio}" class="cond-ratio" placeholder="0 ~ 1" style="width:70px; padding:4px; border:1px solid #ccc; border-radius:4px;">
+                </div>
+                <button class="btn btn-reset" style="padding:4px 10px; margin:0 0 0 auto; background:#e74c3c; border-radius:4px;" onclick="this.parentElement.remove()">❌ 삭제</button>
+            `;
+            container.appendChild(row);
+        }
+
+        function openSplitCalculator() {
+            if (!cachedData) return alert('먼저 데이터를 불러와주세요.');
+            
+            const container = document.getElementById('conditions-container');
+            if (container.children.length === 0) {
+                addConditionRow(3.5, 'gte', 0.4);
+                addConditionRow(2.0, 'lte', 1.0);
+            }
+
+            document.getElementById('split-result-panel').style.display = 'none';
+            document.getElementById('split-calc-reset-btn').style.display = 'none';
+            openModal('split-calc-modal');
+        }
+
+        function runSplitCalculation() {
+            const rows = document.querySelectorAll('.condition-row');
+            if (rows.length === 0) return alert("최소 1개의 조건을 추가해주세요.");
+
+            let conditions = [];
+            for (let row of rows) {
+                let disp = parseFloat(row.querySelector('.cond-disp').value);
+                let op = row.querySelector('.cond-op').value;
+                let ratio = parseFloat(row.querySelector('.cond-ratio').value);
+
+                if (isNaN(disp) || isNaN(ratio) || ratio < 0 || ratio > 1) {
+                    return alert("이격도와 적용사항(0~1 비율)을 모든 칸에 정확한 숫자로 입력해주세요.");
+                }
+                conditions.push({ disp, isGreater: op === 'gte', ratio });
+            }
+
+            const period = parseInt(document.getElementById('ma-period').value) || 1500;
+            const initCap = 10000;
+            const N = cachedData.prices.length;
+            let disparities = new Array(N).fill(null);
+            let sum = 0;
+
+            for (let i = 0; i < N; i++) {
+                let p = cachedData.prices[i];
+                sum += p;
+                if (i >= period) sum -= cachedData.prices[i - period];
+                if (i >= period - 1) {
+                    let avg = sum / period;
+                    if (avg > 0) disparities[i] = p / avg;
+                }
+            }
+
+            let firstValidIdx = disparities.findIndex(d => d !== null);
+            if (firstValidIdx === -1) return alert("데이터가 부족하여 계산을 수행할 수 없습니다.");
+
+            const prices = cachedData.prices;
+            let cash = 0.0;
+            let shares = initCap / prices[firstValidIdx];
+
+            let capitalHistory = new Array(N).fill(null);
+
+            for (let i = firstValidIdx; i < N; i++) {
+                let d = disparities[i];
+                let p = prices[i];
+
+                let targetRatio = -1; 
+                for (let cond of conditions) {
+                    if (cond.isGreater && d >= cond.disp) { targetRatio = cond.ratio; break; } 
+                    else if (!cond.isGreater && d <= cond.disp) { targetRatio = cond.ratio; break; }
+                }
+
+                if (targetRatio !== -1) {
+                    let currentAsset = cash + shares * p;
+                    let targetStockValue = currentAsset * targetRatio;
+                    let currentStockValue = shares * p;
+                    let diff = targetStockValue - currentStockValue;
+
+                    if (diff > 0) { 
+                        let buyAmount = Math.min(cash, diff);
+                        shares += buyAmount / p;
+                        cash -= buyAmount;
+                    } else if (diff < 0) { 
+                        let sellShares = Math.min(shares, -diff / p);
+                        shares -= sellShares;
+                        cash += sellShares * p;
+                    }
+                }
+                capitalHistory[i] = cash + shares * p;
+            }
+
+            let finalCash = cash;
+            let finalStock = shares * prices[N - 1];
+            let finalCap = finalCash + finalStock;
+
+            document.getElementById('res-cash').innerText = finalCash.toLocaleString(undefined, {maximumFractionDigits:2});
+            document.getElementById('res-stock').innerText = finalStock.toLocaleString(undefined, {maximumFractionDigits:2});
+            document.getElementById('res-total').innerText = finalCap.toLocaleString(undefined, {maximumFractionDigits:2});
+
+            let chartDates = cachedData.dates.slice(firstValidIdx);
+            let chartPrices = prices.slice(firstValidIdx);
+            let chartCaps = capitalHistory.slice(firstValidIdx);
+
+            const ctx = document.getElementById('splitCalcChart').getContext('2d');
+            if (splitCalcChartInstance) splitCalcChartInstance.destroy();
+
+            splitCalcChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartDates,
+                    datasets: [
+                        { label: '종가 (좌측축)', data: chartPrices, borderColor: '#000000', backgroundColor: 'rgba(0, 0, 0, 0.1)', borderWidth: 2, pointRadius: 0, yAxisID: 'y', order: 2 },
+                        { label: '총 자산 (우측축)', data: chartCaps, borderColor: '#d35400', backgroundColor: 'rgba(211, 84, 0, 0.1)', borderWidth: 2, pointRadius: 0, yAxisID: 'y1', order: 1 }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                    plugins: { 
+                        zoom: zoomPluginX,
+                        tooltip: { callbacks: { label: function(context) { let label = context.dataset.label || ''; if (label) label += ': '; if (context.parsed.y !== null) label += context.parsed.y.toLocaleString(undefined, {maximumFractionDigits: 2}); return label; } } }
+                    },
+                    scales: {
+                        x: { grid: getYearlyGridConfig(), ticks: getYearlyTicksConfig() },
+                        y: { 
+                            type: 'logarithmic', display: true, position: 'left', title: { display: true, text: '종가 (로그)', color: '#000000' },
+                            afterBuildTicks: function(axis) {
+                                const ticks = [];
+                                const minVal = axis.min > 0 ? axis.min : 0.01;
+                                const maxVal = axis.max > 0 ? axis.max : 10000000;
+                                const minLog = Math.floor(Math.log2(minVal));
+                                const maxLog = Math.ceil(Math.log2(maxVal));
+                                for (let i = minLog; i <= maxLog; i++) {
+                                    ticks.push({ value: Math.pow(2, i) });
+                                }
+                                axis.ticks = ticks;
+                            },
+                            ticks: { callback: function(value) { return value < 1 ? value.toFixed(3) : value.toLocaleString(); } }
+                        },
+                        y1: { 
+                            type: 'logarithmic', display: true, position: 'right', title: { display: true, text: '총 자산 (로그)', color: '#d35400' }, grid: { drawOnChartArea: false },
+                            afterBuildTicks: function(axis) {
+                                const ticks = [];
+                                const minVal = axis.min > 0 ? axis.min : 0.01;
+                                const maxVal = axis.max > 0 ? axis.max : 1000000000;
+                                const minLog = Math.floor(Math.log2(minVal));
+                                const maxLog = Math.ceil(Math.log2(maxVal));
+                                for (let i = minLog; i <= maxLog; i++) {
+                                    ticks.push({ value: Math.pow(2, i) });
+                                }
+                                axis.ticks = ticks;
+                            },
+                            ticks: { callback: function(value) { return value < 1 ? value.toFixed(3) : value.toLocaleString(); } }
+                        }
+                    }
+                }
+            });
+
+            document.getElementById('split-result-panel').style.display = 'block';
+            document.getElementById('split-calc-reset-btn').style.display = 'inline-block';
+        }
+
+        window.onload = handleRenderClick;
     </script>
 </body>
 </html>
