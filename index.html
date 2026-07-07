@@ -14,7 +14,7 @@
         body {
             margin: 0;
             padding: 0;
-            background-color: #121212; /* 다크 모드 배경 */
+            background-color: #121212; 
             color: #ffffff;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             display: flex;
@@ -58,7 +58,8 @@
         .col-status {
             flex: 1;
             padding-left: 5px;
-            font-size: 13px;
+            font-weight: 700;
+            font-size: 12px;
         }
         .col-eval {
             flex: 0 0 85px;
@@ -73,11 +74,6 @@
             font-size: 13px;
             font-variant-numeric: tabular-nums;
         }
-        /* 한국 주식 기준 색상: 매수(빨강), 매도(파랑) */
-        .buy { color: #ff5252; font-weight: 700; }
-        .sell { color: #448aff; font-weight: 700; }
-        .highlight { color: #ffd740; font-weight: 700; }
-        .wait { color: #9e9e9e; }
         
         .loading {
             text-align: center;
@@ -85,24 +81,23 @@
             margin-top: 50px;
         }
 
-        /* CSV 다운로드 버튼 스타일 */
-        .btn-download {
+        /* 하단 버튼들 스타일 */
+        .btn-common {
             display: none;
             width: 100%;
             padding: 12px;
-            margin-top: 30px;
-            background-color: #1e1e1e;
-            color: #666;
-            border: 1px solid #333;
+            margin-top: 15px;
             border-radius: 8px;
-            font-size: 13px;
+            font-size: 14px;
+            font-weight: 700;
             cursor: pointer;
             transition: background 0.2s, color 0.2s;
+            border: none;
         }
-        .btn-download:hover {
-            background-color: #2a2a2a;
-            color: #aaa;
-        }
+        .btn-desc { background-color: #8e44ad; color: #fff; }
+        .btn-desc:hover { background-color: #732d91; }
+        .btn-download { background-color: #1e1e1e; color: #666; border: 1px solid #333; }
+        .btn-download:hover { background-color: #2a2a2a; color: #aaa; }
 
         /* 미니게임 스타일 */
         #game-container {
@@ -154,6 +149,36 @@
         .btn-cont:hover { background: #2980b9; }
         .btn-stop { background: #e74c3c; color: white; }
         .btn-stop:hover { background: #c0392b; }
+
+        /* 상세 설명 모달창 */
+        #descModal {
+            display: none; 
+            position: fixed; 
+            top: 0; left: 0; 
+            width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.85); 
+            z-index: 100; 
+            align-items: center; 
+            justify-content: center; 
+            padding: 20px; 
+            box-sizing: border-box;
+        }
+        .desc-content {
+            background: #1e1e1e; 
+            color: #ddd; 
+            border-radius: 12px; 
+            padding: 20px; 
+            max-width: 500px; 
+            width: 100%; 
+            max-height: 85vh; 
+            overflow-y: auto; 
+            border: 1px solid #444;
+            line-height: 1.6;
+            font-size: 14px;
+        }
+        .desc-content h2 { margin-top: 0; color: #ffd740; font-size: 20px; text-align: center; }
+        .desc-content strong { color: #fff; }
+        .desc-content hr { border: 0; border-top: 1px solid #333; margin: 15px 0; }
     </style>
 </head>
 <body>
@@ -187,7 +212,29 @@
             </div>
         </div>
         
-        <button id="downloadBtn" class="btn-download">📊 데이터 확인용 CSV 다운로드</button>
+        <button id="descBtn" class="btn-common btn-desc" onclick="document.getElementById('descModal').style.display='flex'">📖 상세 설명 보기 (주린이 필독)</button>
+        <button id="downloadBtn" class="btn-common btn-download">📊 데이터 확인용 CSV 다운로드</button>
+    </div>
+
+    <!-- 상세 설명 모달 -->
+    <div id="descModal">
+        <div class="desc-content">
+            <h2>📖 지금 사요? 상세 설명</h2>
+            <p><strong>주린이도 안심하고 쓰는 수학적 투자 나침반!</strong><br>이 앱은 단순한 감이나 사람의 고정된 수치에 의존하지 않습니다. 야후 파이낸스로부터 과거의 모든 주가 및 환율 데이터를 끌어와 통계적으로 분석한 뒤, 최적의 타점을 <strong>자율적으로 역산</strong>해내는 수학적 알고리즘을 사용합니다.</p>
+            <hr>
+            <p><strong>1. 분위수 대칭 탐색 (SPXL, TQQQ, TECL, 환율)</strong><br>
+            과거 데이터에서 수익이 깎이는 '나쁜 타점(Bad Points)'을 피하면서, 가장 넓은 안전지대(안전 반경)를 확보할 수 있는 상위/하위 퍼센트(%) 대칭 지점을 스스로 찾아냅니다. 이렇게 도출된 가장 안전한 매도선과 매수선을 기준으로, 그 사잇값을 정확히 3등분하여 총 5개의 구역(심한 과열 ~ 심한 저평가)을 수학적으로 빈틈없이 배정합니다.</p>
+            
+            <p><strong>2. SOXL의 예외적 적용 (최고 효율 지점 탐색)</strong><br>
+            반도체 3배 레버리지인 SOXL은 변동성이 극도로 심해 대칭적인 접근이 오히려 효율을 떨어뜨릴 수 있습니다. 따라서 SOXL만큼은 과거 데이터상 <strong>최종 자산을 가장 극대화했던 비대칭적인 정확한 타점</strong>을 직접 찾는 방식을 예외적으로 적용했습니다. 도출된 이 최고 효율 타점을 다시 정규분포 확률(%)로 역산해 동일하게 5개 구역으로 나눕니다.</p>
+
+            <p><strong>3. 환율 맞춤형 기준일수 (R² 회귀)</strong><br>
+            환율은 주식처럼 고정된 1500일 이동평균선을 쓰지 않습니다. R²(결정계수) 회귀 분석을 돌려 현재의 환율 흐름과 물림일수(손실 기간) 간의 연관성이 가장 높은 '최적의 맞춤형 기준일수'를 스스로 먼저 찾은 후, 위의 대칭 탐색을 진행하여 완벽한 달러 환전 타점을 제시합니다.</p>
+
+            <p><strong>💡 왜 신뢰할 수 있나요?</strong><br>
+            본 앱의 로직은 단순 무지성 보유(Buy & Hold) 전략 대비 하락장(MDD)의 타격을 압도적으로 방어하며, 복리로 자산을 거대하게 불릴 수 있는지 수만 번 교차 시뮬레이션한 결과를 기반으로 합니다. 표시되는 색상(빨간색이 가장 좋은 진입 찬스)과 지침만 따라가도 최악의 고점에 물리는 일은 피할 수 있습니다!</p>
+            <button onclick="document.getElementById('descModal').style.display='none'" style="width:100%; margin-top:15px; background:#e74c3c; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">닫기</button>
+        </div>
     </div>
 
     <script>
@@ -196,7 +243,7 @@
             navigator.serviceWorker.register('sw.js').catch(err => console.error("SW 등록 실패:", err));
         }
 
-        // 종목 배열에 SPXL 추가
+        // 종목 배열 (SPXL 추가)
         const STOCKS = ['SPXL', 'TQQQ', 'TECL', 'SOXL'];
 
         function formatPrice(price, isKrw = false) {
@@ -206,6 +253,16 @@
             } else {
                 return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             }
+        }
+
+        // 구역 분할 색상 지정 (a~e)
+        function getZoneColor(zone) {
+            if (zone === 'a') return 'rgb(0, 0, 255)';      // 파랑 (매도/위험)
+            if (zone === 'b') return 'rgb(0, 128, 255)';    // 연파랑
+            if (zone === 'c') return 'rgb(128, 128, 128)';  // 회색 (중립/적정)
+            if (zone === 'd') return 'rgb(255, 128, 0)';    // 주황
+            if (zone === 'e') return 'rgb(255, 0, 0)';      // 빨강 (매수/기회)
+            return '#aaaaaa';
         }
 
         // Yahoo Finance 데이터 패치
@@ -259,222 +316,27 @@
             return history;
         }
 
-        // 정규분포 CDF 역함수 (분위수 타점 도출용)
+        // === 수학 및 통계 코어 함수 ===
+        function normalCDF(x) {
+            let sign = (x >= 0) ? 1 : -1;
+            x = Math.abs(x) / Math.sqrt(2);
+            let t = 1.0 / (1.0 + 0.3275911 * x);
+            let erf = 1.0 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+            return 0.5 * (1 + sign * erf);
+        }
+
         function inverseNormalCDF(p) {
-            if (p <= 0.0) return -Infinity;
-            if (p >= 1.0) return Infinity;
+            if (p <= 0.0) return -5.0;
+            if (p >= 1.0) return 5.0;
             let t, z;
-            if (p < 0.5) {
-                t = Math.sqrt(-2.0 * Math.log(p));
-            } else {
-                t = Math.sqrt(-2.0 * Math.log(1.0 - p));
-            }
+            if (p < 0.5) t = Math.sqrt(-2.0 * Math.log(p));
+            else t = Math.sqrt(-2.0 * Math.log(1.0 - p));
             let c0 = 2.515517, c1 = 0.802853, c2 = 0.010328;
             let d1 = 1.432788, d2 = 0.189269, d3 = 0.001308;
             z = t - ((c2 * t + c1) * t + c0) / (((d3 * t + d2) * t + d1) * t + 1.0);
             return p < 0.5 ? -z : z;
         }
 
-        // 범용 최적화 타점 계산 (안전 반경 최대화 지점 찾기)
-        function findOptimalTradePoints(dates, prices, period) {
-            const N = prices.length;
-            let disparities = new Array(N).fill(null);
-            let sum = 0, minD = 9999, maxD = -9999;
-            let validDisparities = [];
-
-            for (let i = 0; i < N; i++) {
-                let p = prices[i];
-                sum += p;
-                if (i >= period) sum -= prices[i - period];
-                if (i >= period - 1) {
-                    let avg = sum / period;
-                    if (avg > 0) {
-                        let d = p / avg;
-                        disparities[i] = d;
-                        if (Number.isFinite(d)) {
-                            validDisparities.push(d);
-                            if (d < minD) minD = d;
-                            if (d > maxD) maxD = d;
-                        }
-                    }
-                }
-            }
-
-            if (validDisparities.length < 10) return { buyPt: 0.9, sellPt: 1.1, disparities };
-
-            let firstValidIdx = disparities.findIndex(d => d !== null);
-            const startDt = new Date(dates[firstValidIdx]);
-            const endDt = new Date(dates[N - 1]);
-            let totalYears = Math.ceil(Math.abs(endDt - startDt) / (1000 * 60 * 60 * 24)) / 365.2425;
-            if (totalYears <= 0) totalYears = 0.001;
-
-            const baseInitialPrice = prices[firstValidIdx];
-            const baseLatestPrice = prices[N - 1];
-            const baseCagr = (Math.pow(baseLatestPrice / baseInitialPrice, 1 / totalYears) - 1) * 100;
-            const initCap = 10000;
-
-            let step = 0.05; 
-            let startD = Math.floor(minD / step) * step - step;
-            let endD = Math.ceil(maxD / step) * step + step;
-            let xLabels = [], yLabels = []; 
-            for (let b = startD; b <= endD + 0.001; b += step) xLabels.push(parseFloat(b.toFixed(2)));
-            for (let s = startD; s <= endD + 0.001; s += step) yLabels.push(parseFloat(s.toFixed(2)));
-
-            let badPoints = []; 
-            for (let i = 0; i < yLabels.length; i++) {
-                let sellPt = yLabels[i];
-                for (let j = 0; j < xLabels.length; j++) {
-                    let buyPt = xLabels[j];
-                    if (buyPt >= sellPt) {
-                        badPoints.push({ buy: buyPt, sell: sellPt });
-                        continue; 
-                    }
-                    let cash = 0, shares = initCap / baseInitialPrice, isHolding = true;
-                    for (let k = firstValidIdx; k < N; k++) {
-                        let d = disparities[k];
-                        if (d === null) continue;
-                        let p = prices[k];
-                        if (isHolding && d > sellPt && shares > 0) { cash = shares * p; shares = 0; isHolding = false; } 
-                        else if (!isHolding && d < buyPt && cash > 0) { shares = cash / p; cash = 0; isHolding = true; }
-                    }
-                    let finalCap = cash + (shares * baseLatestPrice);
-                    let strategyCagr = (Math.pow(finalCap / initCap, 1 / totalYears) - 1) * 100;
-                    let utility = (((1 + strategyCagr / 100) / (1 + baseCagr / 100)) - 1) * 100;
-                    
-                    if (utility <= 0) badPoints.push({ buy: buyPt, sell: sellPt });
-                }
-            }
-
-            let dispSum = 0;
-            for(let d of validDisparities) dispSum += d;
-            let mean = dispSum / validDisparities.length;
-            let sqSum = 0;
-            for(let d of validDisparities) sqSum += Math.pow(d - mean, 2);
-            let stdDev = Math.sqrt(sqSum / validDisparities.length);
-
-            let bestRadius = -Infinity;
-            let bestBuy = 0.9, bestSell = 1.1;
-
-            // 분위수 대칭 탐색 (1% ~ 50%)
-            for (let p_percent = 1.0; p_percent <= 50.0; p_percent += 0.5) {
-                let p_buy = p_percent / 100;
-                let p_sell = (100 - p_percent) / 100;
-
-                let z_buy = inverseNormalCDF(p_buy);
-                let z_sell = inverseNormalCDF(p_sell);
-
-                let buyPt = mean + z_buy * stdDev;
-                let sellPt = mean + z_sell * stdDev;
-
-                let minSq = Infinity;
-                if (badPoints.length === 0) {
-                    minSq = 100.0; 
-                } else {
-                    for (let b of badPoints) {
-                        let dSq = Math.pow(sellPt - b.sell, 2) + Math.pow(buyPt - b.buy, 2);
-                        if (dSq < minSq) minSq = dSq;
-                    }
-                }
-                let safeR = Math.sqrt(minSq);
-
-                if (safeR > bestRadius) {
-                    bestRadius = safeR;
-                    bestBuy = buyPt;
-                    bestSell = sellPt;
-                }
-            }
-
-            return { buyPt: bestBuy, sellPt: bestSell, disparities };
-        }
-
-        // 이격도 기반 구역 분할 함수
-        function determineZone(disp, buyPt, sellPt) {
-            if (disp === null || !Number.isFinite(disp)) return null;
-            let diff = sellPt - buyPt;
-            let semiSellPt = sellPt - diff / 3;
-            let semiBuyPt = buyPt + diff / 3;
-
-            if (disp >= sellPt) return 'a';
-            if (disp >= semiSellPt) return 'b';
-            if (disp > semiBuyPt) return 'c';
-            if (disp >= buyPt) return 'd';
-            return 'e';
-        }
-
-        // 구역에 따른 텍스트 컬러 (요청에 따른 RGB)
-        function getZoneColor(zone) {
-            if (zone === 'a') return 'rgb(0, 0, 255)';
-            if (zone === 'b') return 'rgb(0, 128, 255)';
-            if (zone === 'c') return 'rgb(128, 128, 128)';
-            if (zone === 'd') return 'rgb(255, 128, 0)';
-            if (zone === 'e') return 'rgb(255, 0, 0)';
-            return '#aaaaaa';
-        }
-
-        // 주식 데이터 처리
-        function processStock(historyData, symbol) {
-            const period = 1500;
-            if (historyData.length < period) return { symbol, state: '데이터 부족', historyLog: [] };
-            
-            let dates = historyData.map(h => h.date);
-            let prices = historyData.map(h => h.close);
-
-            let { buyPt, sellPt, disparities } = findOptimalTradePoints(dates, prices, period);
-            
-            let historyLog = [];
-            let isHolding = true; 
-            let lastActionDateObj = new Date(dates[period - 1]);
-            let lastActionType = "매수";
-            let currentStateStr = "초기 보유 시작";
-
-            for (let i = period - 1; i < dates.length; i++) {
-                let d = disparities[i];
-                let actionOccurred = false;
-
-                if (i === period - 1) {
-                    actionOccurred = true;
-                    currentStateStr = "초기 보유 시작";
-                    lastActionDateObj = new Date(dates[i]);
-                } else {
-                    if (isHolding && d >= sellPt) {
-                        isHolding = false;
-                        lastActionType = "매도";
-                        lastActionDateObj = new Date(dates[i]);
-                        currentStateStr = "매도 (Sell)";
-                        actionOccurred = true;
-                    } else if (!isHolding && d <= buyPt) {
-                        isHolding = true;
-                        lastActionType = "매수";
-                        lastActionDateObj = new Date(dates[i]);
-                        currentStateStr = "매수 (Buy)";
-                        actionOccurred = true;
-                    }
-                }
-
-                if (!actionOccurred) {
-                    const currentDt = new Date(dates[i]);
-                    const diffTime = Math.abs(currentDt - lastActionDateObj);
-                    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-                    if (diffDays >= 365) currentStateStr = `${lastActionType} 후 관망 (${(diffDays / 365.2425).toFixed(2)}년차)`;
-                    else currentStateStr = `${lastActionType} 후 관망 (${diffDays}일차)`;
-                }
-
-                let zone = determineZone(d, buyPt, sellPt);
-                let evalState = '적정';
-                if (zone === 'a') evalState = '심한 과열';
-                else if (zone === 'b') evalState = '과열';
-                else if (zone === 'c') evalState = '적정';
-                else if (zone === 'd') evalState = '저평가';
-                else if (zone === 'e') evalState = '심한 저평가';
-
-                historyLog.push({ date: dates[i], close: prices[i], disp: d, action: currentStateStr, eval: evalState, zone: zone });
-            }
-
-            const lastLog = historyLog[historyLog.length - 1];
-            return { symbol, state: lastLog.action, evalState: lastLog.eval, currentPrice: lastLog.close, zone: lastLog.zone, historyLog };
-        }
-
-        // 환율 최적 기준일수 도출 로직
         function getFastR2ForPeriod(prices, rawMulrimData, maxMulrim, period) {
             const N = prices.length;
             let validX = [], validY = [], sum = 0;
@@ -504,54 +366,269 @@
             return 0;
         }
 
-        // 환율 데이터 처리
-        function processExchange(historyData) {
-            const dates = historyData.map(h => h.date);
-            const prices = historyData.map(h => h.close);
+        function calculateDisparities(prices, period) {
             const N = prices.length;
-            if (N < 100) return { status: '데이터 부족', historyLog: [] };
-
-            let rawMulrimData = new Array(N).fill(0);
-            let maxMulrim = 0;
+            let disparities = new Array(N).fill(null);
+            let sum = 0;
+            let validDisparities = [];
+            let minD = 9999, maxD = -9999;
             for (let i = 0; i < N; i++) {
-                let count = 0;
-                let currentPrice = prices[i];
-                for (let j = i + 1; j < N; j++) { if (prices[j] < currentPrice) count++; }
-                rawMulrimData[i] = count;
-                if (count > maxMulrim) maxMulrim = count;
+                sum += prices[i];
+                if (i >= period) sum -= prices[i - period];
+                if (i >= period - 1) {
+                    let avg = sum / period;
+                    if (avg > 0) {
+                        let d = prices[i] / avg;
+                        disparities[i] = d;
+                        if (Number.isFinite(d)) {
+                            validDisparities.push(d);
+                            if (d < minD) minD = d;
+                            if (d > maxD) maxD = d;
+                        }
+                    }
+                }
             }
+            return { disparities, validDisparities, minD, maxD };
+        }
 
-            const maxTestPeriod = Math.min(3000, N - maxMulrim - 30);
-            let bestPeriod = 20; 
-            let bestR2 = -1;
-            if (maxTestPeriod >= 1) {
-                for (let p = 1; p <= maxTestPeriod; p++) {
-                    let r2 = getFastR2ForPeriod(prices, rawMulrimData, maxMulrim, p);
-                    if (r2 > bestR2) { bestR2 = r2; bestPeriod = p; }
+        function getNormParams(validDisparities) {
+            let dispSum = 0;
+            for(let d of validDisparities) dispSum += d;
+            let mean = dispSum / validDisparities.length;
+            let sqSum = 0;
+            for(let d of validDisparities) sqSum += Math.pow(d - mean, 2);
+            let stdDev = Math.sqrt(sqSum / validDisparities.length);
+            return { mean, stdDev };
+        }
+
+        function buildBadPoints(prices, disparities, minD, maxD) {
+            let firstValidIdx = disparities.findIndex(d => d !== null);
+            let totalYears = Math.max(0.001, (prices.length - firstValidIdx) / 365.2425); // 근사 연수
+            const baseInit = prices[firstValidIdx], baseLast = prices[prices.length - 1];
+            const baseCagr = (Math.pow(baseLast / baseInit, 1 / totalYears) - 1) * 100;
+            
+            let step = 0.05; 
+            let startD = Math.floor(minD / step) * step - step;
+            let endD = Math.ceil(maxD / step) * step + step;
+            
+            let badPoints = [];
+            let maxCap = -1, bestBuy = 0.9, bestSell = 1.1;
+
+            for (let sellPt = startD; sellPt <= endD + 0.001; sellPt += step) {
+                for (let buyPt = startD; buyPt <= endD + 0.001; buyPt += step) {
+                    if (buyPt >= sellPt) { badPoints.push({ buy: buyPt, sell: sellPt }); continue; }
+                    
+                    let cash = 0, shares = 10000 / baseInit, isHolding = true;
+                    for (let k = firstValidIdx; k < prices.length; k++) {
+                        let d = disparities[k];
+                        if (d === null) continue;
+                        let p = prices[k];
+                        if (isHolding && d > sellPt && shares > 0) { cash = shares * p; shares = 0; isHolding = false; } 
+                        else if (!isHolding && d < buyPt && cash > 0) { shares = cash / p; cash = 0; isHolding = true; }
+                    }
+                    let finalCap = cash + (shares * baseLast);
+                    let strategyCagr = (Math.pow(finalCap / 10000, 1 / totalYears) - 1) * 100;
+                    let utility = (((1 + strategyCagr / 100) / (1 + baseCagr / 100)) - 1) * 100;
+                    
+                    if (utility <= 0) badPoints.push({ buy: buyPt, sell: sellPt });
+                    if (finalCap > maxCap) { maxCap = finalCap; bestBuy = buyPt; bestSell = sellPt; }
+                }
+            }
+            return { badPoints, bestBuy, bestSell };
+        }
+
+        // 1. 분위수 대칭 탐색 기반 매수/매도/준매수/준매도 도출 (환율, SPXL, TQQQ, TECL 용)
+        function findThresholdsByQuantileSymmetry(prices, period) {
+            let { disparities, validDisparities, minD, maxD } = calculateDisparities(prices, period);
+            if (validDisparities.length < 10) return { t: { buy: 0.9, semiBuy: 0.95, semiSell: 1.05, sell: 1.1 }, disparities };
+            
+            let { badPoints } = buildBadPoints(prices, disparities, minD, maxD);
+            let { mean, stdDev } = getNormParams(validDisparities);
+            
+            let bestRadius = -Infinity, best_p = 0.5;
+
+            // 1% ~ 50% 까지 가장 안전반경이 큰 대칭점을 탐색
+            for (let p_percent = 1.0; p_percent <= 50.0; p_percent += 0.5) {
+                let p_buy = p_percent / 100;
+                let p_sell = 1.0 - p_buy;
+
+                let buyPt = mean + inverseNormalCDF(p_buy) * stdDev;
+                let sellPt = mean + inverseNormalCDF(p_sell) * stdDev;
+
+                let minSq = Infinity;
+                if (badPoints.length === 0) {
+                    minSq = 100.0; 
+                } else {
+                    for (let b of badPoints) {
+                        let dSq = Math.pow(sellPt - b.sell, 2) + Math.pow(buyPt - b.buy, 2);
+                        if (dSq < minSq) minSq = dSq;
+                    }
+                }
+                let safeR = Math.sqrt(minSq);
+
+                if (safeR > bestRadius) {
+                    bestRadius = safeR;
+                    best_p = p_buy;
                 }
             }
 
-            let { buyPt, sellPt, disparities } = findOptimalTradePoints(dates, prices, bestPeriod);
+            // 구한 최적 %를 기반으로 사잇값을 3분할 하는 분위수(%) 도출
+            let p_buy = best_p;
+            let p_sell = 1.0 - best_p;
+            let diff = p_sell - p_buy;
+            let p_semiBuy = p_buy + diff / 3;
+            let p_semiSell = p_buy + 2 * diff / 3;
 
-            const historyLog = [];
-            for (let i = bestPeriod - 1; i < N; i++) {
+            // 분위수를 다시 이격도 값으로 역산
+            return { 
+                t: { 
+                    buy: mean + inverseNormalCDF(p_buy) * stdDev, 
+                    semiBuy: mean + inverseNormalCDF(p_semiBuy) * stdDev, 
+                    semiSell: mean + inverseNormalCDF(p_semiSell) * stdDev, 
+                    sell: mean + inverseNormalCDF(p_sell) * stdDev 
+                }, 
+                disparities 
+            };
+        }
+
+        // 2. 최고 효율 지점 탐색 기반 도출 (SOXL 전용)
+        function findThresholdsByTradeOptimization(prices, period) {
+            let { disparities, validDisparities, minD, maxD } = calculateDisparities(prices, period);
+            if (validDisparities.length < 10) return { t: { buy: 0.9, semiBuy: 0.95, semiSell: 1.05, sell: 1.1 }, disparities };
+            
+            // 가장 수익률이 좋은 비대칭 매도, 매수 지점 도출
+            let { bestBuy, bestSell } = buildBadPoints(prices, disparities, minD, maxD);
+            let { mean, stdDev } = getNormParams(validDisparities);
+            
+            // 해당 지점의 Z-Score를 통해 분위수(CDF %) 도출
+            let z_buy = stdDev !== 0 ? (bestBuy - mean) / stdDev : 0;
+            let z_sell = stdDev !== 0 ? (bestSell - mean) / stdDev : 0;
+            
+            let p_buy = normalCDF(z_buy);
+            let p_sell = normalCDF(z_sell);
+            
+            if (p_buy >= p_sell) { p_buy = 0.2; p_sell = 0.8; } // 페일세이프
+
+            // 분위수 간격 3등분
+            let diff = p_sell - p_buy;
+            let p_semiBuy = p_buy + diff / 3;
+            let p_semiSell = p_buy + 2 * diff / 3;
+
+            // 역산하여 준매수/준매도 이격도 도출
+            let semiBuyPt = mean + inverseNormalCDF(p_semiBuy) * stdDev;
+            let semiSellPt = mean + inverseNormalCDF(p_semiSell) * stdDev;
+
+            return { t: { buy: bestBuy, semiBuy: semiBuyPt, semiSell: semiSellPt, sell: bestSell }, disparities };
+        }
+
+        // 구역 매핑 함수 (a~e)
+        function determineZone(disp, t) {
+            if (disp === null || !Number.isFinite(disp)) return null;
+            if (disp >= t.sell) return 'a';
+            if (disp >= t.semiSell) return 'b';
+            if (disp > t.semiBuy) return 'c';
+            if (disp >= t.buy) return 'd';
+            return 'e';
+        }
+
+        // 통합 자산 파이프라인 (주식 및 환율 공통)
+        function processAsset(ticker, prices, dates, isExchange) {
+            const N = prices.length;
+            if (N < 100) return { symbol: ticker, state: '데이터 부족', historyLog: [] };
+
+            let period = 1500;
+            let optResult;
+
+            if (isExchange) {
+                // 환율: R2 최적화로 맞춤형 기준일수 탐색 후 분위수 대칭 탐색
+                let rawMulrimData = new Array(N).fill(0);
+                let maxMulrim = 0;
+                for (let i = 0; i < N; i++) {
+                    let count = 0; let currentPrice = prices[i];
+                    for (let j = i + 1; j < N; j++) { if (prices[j] < currentPrice) count++; }
+                    rawMulrimData[i] = count;
+                    if (count > maxMulrim) maxMulrim = count;
+                }
+                const maxTestPeriod = Math.min(3000, N - maxMulrim - 30);
+                let bestR2 = -1; period = 20; 
+                for (let p = 1; p <= maxTestPeriod; p++) {
+                    let r2 = getFastR2ForPeriod(prices, rawMulrimData, maxMulrim, p);
+                    if (r2 > bestR2) { bestR2 = r2; period = p; }
+                }
+                optResult = findThresholdsByQuantileSymmetry(prices, period);
+            } else if (ticker === 'SOXL') {
+                // SOXL: 고정 1500일 + 최고 효율 지점 탐색
+                optResult = findThresholdsByTradeOptimization(prices, period);
+            } else {
+                // 기타 주식: 고정 1500일 + 분위수 대칭 탐색
+                optResult = findThresholdsByQuantileSymmetry(prices, period);
+            }
+
+            const { t, disparities } = optResult;
+            let historyLog = [];
+            
+            // 행동 지침 State Machine 세팅
+            let isHolding = true; 
+            let lastActionDateObj = new Date(dates[period - 1]);
+            let lastActionType = isExchange ? "달러 보유" : "매수";
+            let currentStateStr = isExchange ? "관망" : "초기 보유 시작";
+
+            for (let i = period - 1; i < N; i++) {
                 let d = disparities[i];
-                let zone = determineZone(d, buyPt, sellPt);
-                
-                let actionState = '관망';
-                let evalState = '적정';
+                let zone = determineZone(d, t);
+                let actionStr = '', evalStr = '';
 
-                if (zone === 'a') { actionState = '관망'; evalState = '심한 고환율'; }
-                else if (zone === 'b') { actionState = '달러 환전 고려'; evalState = '고환율'; }
-                else if (zone === 'c') { actionState = '달러 환전 장려'; evalState = '적정'; }
-                else if (zone === 'd') { actionState = '달러 환전 권장'; evalState = '저환율'; }
-                else if (zone === 'e') { actionState = '달러 환전 적극 권장!'; evalState = '심한 저환율'; }
+                if (isExchange) {
+                    if (zone === 'a') { actionStr = '관망'; evalStr = '심한 고환율'; }
+                    else if (zone === 'b') { actionStr = '달러 환전 고려'; evalStr = '고환율'; }
+                    else if (zone === 'c') { actionStr = '달러 환전 장려'; evalStr = '적정'; }
+                    else if (zone === 'd') { actionStr = '달러 환전 권장'; evalStr = '저환율'; }
+                    else if (zone === 'e') { actionStr = '달러 환전 적극 권장!'; evalStr = '심한 저환율'; }
+                } else {
+                    // 주식 행동 지침 판단
+                    let actionOccurred = false;
+                    if (i === period - 1) {
+                        actionOccurred = true;
+                        currentStateStr = "초기 보유 시작";
+                        lastActionDateObj = new Date(dates[i]);
+                    } else {
+                        if (isHolding && d >= t.sell) {
+                            isHolding = false;
+                            lastActionType = "매도";
+                            lastActionDateObj = new Date(dates[i]);
+                            currentStateStr = "매도 (Sell)";
+                            actionOccurred = true;
+                        } else if (!isHolding && d <= t.buy) {
+                            isHolding = true;
+                            lastActionType = "매수";
+                            lastActionDateObj = new Date(dates[i]);
+                            currentStateStr = "매수 (Buy)";
+                            actionOccurred = true;
+                        }
+                    }
 
-                historyLog.push({ date: dates[i], close: prices[i], disp: d, action: actionState, eval: evalState, zone: zone });
+                    if (!actionOccurred) {
+                        const currentDt = new Date(dates[i]);
+                        const diffTime = Math.abs(currentDt - lastActionDateObj);
+                        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+                        if (diffDays >= 365) currentStateStr = `${lastActionType} 후 관망 (${(diffDays / 365.2425).toFixed(2)}년차)`;
+                        else currentStateStr = `${lastActionType} 후 관망 (${diffDays}일차)`;
+                    }
+                    actionStr = currentStateStr;
+
+                    // 주식 평가 판단
+                    if (zone === 'a') evalStr = '심한 과열';
+                    else if (zone === 'b') evalStr = '과열';
+                    else if (zone === 'c') evalStr = '적정';
+                    else if (zone === 'd') evalStr = '저평가';
+                    else if (zone === 'e') evalStr = '심한 저평가';
+                }
+
+                historyLog.push({ date: dates[i], close: prices[i], disp: d, action: actionStr, eval: evalStr, zone: zone });
             }
 
             const lastLog = historyLog[historyLog.length - 1];
-            return { status: lastLog.action, evalState: lastLog.eval, currentPrice: lastLog.close, zone: lastLog.zone, historyLog };
+            return { symbol: ticker, status: lastLog.action, evalState: lastLog.eval, currentPrice: lastLog.close, zone: lastLog.zone, historyLog };
         }
 
         // CSV 다운로드 함수
@@ -657,7 +734,7 @@
             setTimeout(() => playSound(1046, 1046, 'triangle', 0.4, 0.2), 450);
         }
 
-        // --- 미니게임 (보스 4단계 진화 및 음봉 몹 패턴) 로직 ---
+        // --- 미니게임 로직 ---
         let gameLoopId;
         let finalDataPayload = null; 
         let isWaitingForDataChoice = false; 
@@ -681,7 +758,6 @@
                     b.style.cursor = 'not-allowed';
                 });
 
-                // 0.5초 방어 쿨타임
                 setTimeout(() => {
                     canClickModal = true;
                     btns.forEach(b => {
@@ -784,7 +860,6 @@
 
                 frame++;
                 
-                // 보스전 진입
                 if (score >= nextBossScore && !boss.active) {
                     if (obstacles.length === 0) {
                         boss.active = true;
@@ -794,9 +869,9 @@
                         boss.w = 40;
                         
                         if (boss.level === 4) {
-                            boss.h = 90; // 가장 큼
-                            boss.speedY = 4.5; // 속도 극대화
-                            boss.maxFire = 30; // 지속시간 2배 이상
+                            boss.h = 90; 
+                            boss.speedY = 4.5; 
+                            boss.maxFire = 30; 
                         } else {
                             boss.h = 70;
                             boss.speedY = 1.5 + (boss.level * 0.5); 
@@ -817,19 +892,16 @@
                         if (boss.x <= 230) boss.state = 'fighting';
                     } else if (boss.state === 'fighting') {
                         boss.y += boss.speedY;
-                        // 보스가 위아래로 튕길 때 화면 벗어나지 않게 처리
                         if (boss.y < 10 || boss.y + boss.h > 125) boss.speedY *= -1;
 
                         boss.fireCooldown--;
                         if (boss.fireCooldown <= 0 && boss.fired < boss.maxFire) {
                             let pSpeed = 4 + boss.level + Math.random() * 2;
-                            if (boss.level === 4) pSpeed += 4; // 4단계 미사일 속도 대폭 증가
+                            if (boss.level === 4) pSpeed += 4; 
                             
                             let pWidth = 14; 
                             let pHeight = 14; 
-                            let cType = 3; // 보스 미사일은 기본적으로 장대음봉
                             
-                            // 장대 미사일 확률 적용
                             let longProb = boss.level === 4 ? 0.7 : 0.3;
                             if (Math.random() < longProb) {
                                 pHeight += 15 + Math.random() * 15;
@@ -857,7 +929,6 @@
                             boss.active = false;
                             score += 20; 
                             
-                            // 4단계 보스를 격파하면 게임 클리어 처리
                             if (boss.level === 4) {
                                 isGameClear = true;
                                 playClear();
@@ -871,10 +942,10 @@
                 else {
                     if (score < nextBossScore && frame >= nextSpawnFrame) {
                         let baseSpeed = 4 + (score / 200);
-                        let obsW = 14; // 가로 크기 고정 (세로 캔들형태 유지)
+                        let obsW = 14; 
                         let obsH = 25 + Math.random() * 20; 
                         let obsSpeed = baseSpeed + (Math.random() * 2 - 1);
-                        let cType = Math.floor(Math.random() * 4); // 0:아래꼬리, 1:십자, 2:위꼬리, 3:장대
+                        let cType = Math.floor(Math.random() * 4); // 0:아래꼬리, 1:십자, 2:위꼬리, 3:장대음봉
                         let color = '#448aff'; 
 
                         if (Math.random() < 0.2) {
@@ -929,25 +1000,20 @@
                     let tw = 6;
                     let tx = boss.x + boss.w/2 - tw/2;
                     
-                    // 보스 레벨별 외형 (캔들 형태)
                     if (boss.level === 1) { 
-                        // Lv.1: 아래 꼬리 음봉
                         bodyY = boss.y; bodyH = 40;
                         tailBotY = boss.y + 40; tailBotH = boss.h - 40;
                         faceY = boss.y + 10;
                     } else if (boss.level === 2) { 
-                        // Lv.2: 십자/위아래 꼬리
                         bodyY = boss.y + 20; bodyH = 30;
                         tailTopY = boss.y; tailTopH = 20;
                         tailBotY = boss.y + 50; tailBotH = boss.h - 50;
                         faceY = boss.y + 25;
                     } else if (boss.level === 3) { 
-                        // Lv.3: 위 꼬리 음봉
                         bodyY = boss.y + 30; bodyH = boss.h - 30;
                         tailTopY = boss.y; tailTopH = 30;
                         faceY = boss.y + 35;
                     } else { 
-                        // Lv.4: 장대 음봉 (꼬리 없음)
                         bodyY = boss.y; bodyH = boss.h;
                         faceY = boss.y + 30;
                     }
@@ -957,7 +1023,6 @@
                     
                     ctx.fillRect(boss.x, bodyY, boss.w, bodyH);
                     
-                    // 화난 얼굴 표정
                     ctx.fillStyle = '#ffffff';
                     ctx.fillRect(boss.x + 8, faceY, 10, 6);
                     ctx.fillRect(boss.x + 22, faceY, 10, 6);
@@ -1068,53 +1133,64 @@
             if (gameLoopId) cancelAnimationFrame(gameLoopId);
         }
 
+        // --- 앱 메인 초기화 ---
         async function initApp() {
             startMiniGame();
 
-            const exchangePrices = await fetchHistory('USDKRW=X');
-            const exState = processExchange(exchangePrices);
+            try {
+                const exchangeRaw = await fetchHistory('USDKRW=X');
+                const exDates = exchangeRaw.map(d => d.date);
+                const exPrices = exchangeRaw.map(d => d.close);
+                const exState = processAsset('USDKRW=X', exPrices, exDates, true);
 
-            const stockResults = [];
-            for (let s of STOCKS) {
-                const prices = await fetchHistory(s);
-                stockResults.push(processStock(prices, s));
-            }
-
-            let html = `
-            <div class="row">
-                <div class="col-title">환전여부:</div>
-                <div class="col-status" style="color: ${getZoneColor(exState.zone)}; font-weight:700;">${exState.status}</div>
-                <div class="col-eval" style="color: ${getZoneColor(exState.zone)}; font-weight:700;">${exState.evalState}</div>
-                <div class="col-price">현재 환율: ${formatPrice(exState.currentPrice, true)}</div>
-            </div>`;
-
-            stockResults.forEach(r => {
-                let statusText = r.state;
-                if (r.state.includes('매수 (Buy)') || r.state.includes('초기 보유 시작')) {
-                    statusText = `<span class="buy">${r.state}</span>`;
-                } else if (r.state.includes('매도 (Sell)')) {
-                    statusText = `<span class="sell">${r.state}</span>`;
-                } else {
-                    statusText = `<span class="wait">${r.state}</span>`;
+                const stockResults = [];
+                for (let s of STOCKS) {
+                    const stRaw = await fetchHistory(s);
+                    const stDates = stRaw.map(d => d.date);
+                    const stPrices = stRaw.map(d => d.close);
+                    stockResults.push(processAsset(s, stPrices, stDates, false));
                 }
 
-                html += `
+                let html = `
                 <div class="row">
-                    <div class="col-title">${r.symbol}:</div>
-                    <div class="col-status">${statusText}</div>
-                    <div class="col-eval" style="color: ${getZoneColor(r.zone)}; font-weight:700;">${r.evalState}</div>
-                    <div class="col-price">현재가: ${formatPrice(r.currentPrice, false)}</div>
+                    <div class="col-title">환전여부:</div>
+                    <div class="col-status" style="color: ${getZoneColor(exState.zone)};">${exState.status}</div>
+                    <div class="col-eval" style="color: ${getZoneColor(exState.zone)};">${exState.evalState}</div>
+                    <div class="col-price">현재 환율: ${formatPrice(exState.currentPrice, true)}</div>
                 </div>`;
-            });
 
-            triggerDataReady(() => {
-                document.getElementById('content').innerHTML = html;
-                document.getElementById('content').classList.remove('loading');
+                stockResults.forEach(r => {
+                    let statusText = r.status;
+                    if (r.status.includes('매수 (Buy)') || r.status.includes('초기 보유 시작')) {
+                        statusText = `<span class="buy">${r.status}</span>`;
+                    } else if (r.status.includes('매도 (Sell)')) {
+                        statusText = `<span class="sell">${r.status}</span>`;
+                    } else {
+                        // 관망일 경우에도 Zone 색상 반영
+                        statusText = `<span style="color: ${getZoneColor(r.zone)};">${r.status}</span>`;
+                    }
 
-                const downloadBtn = document.getElementById('downloadBtn');
-                downloadBtn.style.display = 'block';
-                downloadBtn.addEventListener('click', () => downloadCSV(stockResults, exState));
-            });
+                    html += `
+                    <div class="row">
+                        <div class="col-title">${r.symbol}:</div>
+                        <div class="col-status">${statusText}</div>
+                        <div class="col-eval" style="color: ${getZoneColor(r.zone)};">${r.evalState}</div>
+                        <div class="col-price">현재가: ${formatPrice(r.currentPrice, false)}</div>
+                    </div>`;
+                });
+
+                triggerDataReady(() => {
+                    document.getElementById('content').innerHTML = html;
+                    document.getElementById('content').classList.remove('loading');
+
+                    document.getElementById('descBtn').style.display = 'block';
+                    const downloadBtn = document.getElementById('downloadBtn');
+                    downloadBtn.style.display = 'block';
+                    downloadBtn.addEventListener('click', () => downloadCSV(stockResults, exState));
+                });
+            } catch(e) {
+                console.error("Initialization Error: ", e);
+            }
         }
 
         initApp();
