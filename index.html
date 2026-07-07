@@ -212,7 +212,7 @@
             </div>
         </div>
         
-        <button id="descBtn" class="btn-common btn-desc" onclick="document.getElementById('descModal').style.display='flex'">📖 상세 설명 보기 (주린이 필독)</button>
+        <button id="descBtn" class="btn-common btn-desc" onclick="document.getElementById('descModal').style.display='flex'">📖 상세 설명 보기</button>
         <button id="downloadBtn" class="btn-common btn-download">📊 데이터 확인용 CSV 다운로드</button>
     </div>
 
@@ -447,7 +447,6 @@
             
             let bestRadius = -Infinity, best_p = 0.5;
 
-            // 1% ~ 50% 까지 가장 안전반경이 큰 대칭점을 탐색
             for (let p_percent = 1.0; p_percent <= 50.0; p_percent += 0.5) {
                 let p_buy = p_percent / 100;
                 let p_sell = 1.0 - p_buy;
@@ -472,14 +471,12 @@
                 }
             }
 
-            // 구한 최적 %를 기반으로 사잇값을 3분할 하는 분위수(%) 도출
             let p_buy = best_p;
             let p_sell = 1.0 - best_p;
             let diff = p_sell - p_buy;
             let p_semiBuy = p_buy + diff / 3;
             let p_semiSell = p_buy + 2 * diff / 3;
 
-            // 분위수를 다시 이격도 값으로 역산
             return { 
                 t: { 
                     buy: mean + inverseNormalCDF(p_buy) * stdDev, 
@@ -496,25 +493,21 @@
             let { disparities, validDisparities, minD, maxD } = calculateDisparities(prices, period);
             if (validDisparities.length < 10) return { t: { buy: 0.9, semiBuy: 0.95, semiSell: 1.05, sell: 1.1 }, disparities };
             
-            // 가장 수익률이 좋은 비대칭 매도, 매수 지점 도출
             let { bestBuy, bestSell } = buildBadPoints(prices, disparities, minD, maxD);
             let { mean, stdDev } = getNormParams(validDisparities);
             
-            // 해당 지점의 Z-Score를 통해 분위수(CDF %) 도출
             let z_buy = stdDev !== 0 ? (bestBuy - mean) / stdDev : 0;
             let z_sell = stdDev !== 0 ? (bestSell - mean) / stdDev : 0;
             
             let p_buy = normalCDF(z_buy);
             let p_sell = normalCDF(z_sell);
             
-            if (p_buy >= p_sell) { p_buy = 0.2; p_sell = 0.8; } // 페일세이프
+            if (p_buy >= p_sell) { p_buy = 0.2; p_sell = 0.8; } 
 
-            // 분위수 간격 3등분
             let diff = p_sell - p_buy;
             let p_semiBuy = p_buy + diff / 3;
             let p_semiSell = p_buy + 2 * diff / 3;
 
-            // 역산하여 준매수/준매도 이격도 도출
             let semiBuyPt = mean + inverseNormalCDF(p_semiBuy) * stdDev;
             let semiSellPt = mean + inverseNormalCDF(p_semiSell) * stdDev;
 
@@ -540,7 +533,6 @@
             let optResult;
 
             if (isExchange) {
-                // 환율: R2 최적화로 맞춤형 기준일수 탐색 후 분위수 대칭 탐색
                 let rawMulrimData = new Array(N).fill(0);
                 let maxMulrim = 0;
                 for (let i = 0; i < N; i++) {
@@ -557,17 +549,14 @@
                 }
                 optResult = findThresholdsByQuantileSymmetry(prices, period);
             } else if (ticker === 'SOXL') {
-                // SOXL: 고정 1500일 + 최고 효율 지점 탐색
                 optResult = findThresholdsByTradeOptimization(prices, period);
             } else {
-                // 기타 주식: 고정 1500일 + 분위수 대칭 탐색
                 optResult = findThresholdsByQuantileSymmetry(prices, period);
             }
 
             const { t, disparities } = optResult;
             let historyLog = [];
             
-            // 행동 지침 State Machine 세팅
             let isHolding = true; 
             let lastActionDateObj = new Date(dates[period - 1]);
             let lastActionType = isExchange ? "달러 보유" : "매수";
@@ -585,7 +574,6 @@
                     else if (zone === 'd') { actionStr = '달러 환전 권장'; evalStr = '저환율'; }
                     else if (zone === 'e') { actionStr = '달러 환전 적극 권장!'; evalStr = '심한 저환율'; }
                 } else {
-                    // 주식 행동 지침 판단
                     let actionOccurred = false;
                     if (i === period - 1) {
                         actionOccurred = true;
@@ -616,7 +604,6 @@
                     }
                     actionStr = currentStateStr;
 
-                    // 주식 평가 판단
                     if (zone === 'a') evalStr = '심한 과열';
                     else if (zone === 'b') evalStr = '과열';
                     else if (zone === 'c') evalStr = '적정';
@@ -1151,18 +1138,20 @@
                     stockResults.push(processAsset(s, stPrices, stDates, false));
                 }
 
-                // 행동 지침 전용 색상 함수 (결단이 필요한 상황 예외 처리)
+                const latestDateStr = exDates.length > 0 ? exDates[exDates.length - 1] : '데이터 없음';
+
                 function getActionColor(actionStr) {
-                    if (actionStr === '매수 (Buy)' || actionStr === '초기 보유 시작' || actionStr === '달러 환전 적극 권장!') {
-                        return 'rgb(255, 0, 0)'; // 매수 결단 (빨강)
+                    if (actionStr.includes('매수 (Buy)') || actionStr.includes('초기 보유 시작') || actionStr.includes('달러 환전 적극 권장!')) {
+                        return 'rgb(255, 0, 0)'; 
                     }
-                    if (actionStr === '매도 (Sell)') {
-                        return 'rgb(0, 0, 255)'; // 매도 결단 (파랑)
+                    if (actionStr.includes('매도 (Sell)')) {
+                        return 'rgb(0, 0, 255)'; 
                     }
-                    return 'rgb(128, 128, 128)'; // 그 외 모든 관망 및 대기 (회색)
+                    return 'rgb(128, 128, 128)'; 
                 }
 
                 let html = `
+                <div style="text-align: right; font-size: 12px; color: #888; margin-bottom: 5px;">최신 기준일: ${latestDateStr}</div>
                 <div class="row">
                     <div class="col-title">환전여부:</div>
                     <div class="col-status" style="color: ${getActionColor(exState.status)};">${exState.status}</div>
