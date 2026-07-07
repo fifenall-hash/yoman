@@ -1151,24 +1151,27 @@
                     stockResults.push(processAsset(s, stPrices, stDates, false));
                 }
 
+                // 행동 지침 전용 색상 함수 (결단이 필요한 상황 예외 처리)
+                function getActionColor(actionStr) {
+                    if (actionStr === '매수 (Buy)' || actionStr === '초기 보유 시작' || actionStr === '달러 환전 적극 권장!') {
+                        return 'rgb(255, 0, 0)'; // 매수 결단 (빨강)
+                    }
+                    if (actionStr === '매도 (Sell)') {
+                        return 'rgb(0, 0, 255)'; // 매도 결단 (파랑)
+                    }
+                    return 'rgb(128, 128, 128)'; // 그 외 모든 관망 및 대기 (회색)
+                }
+
                 let html = `
                 <div class="row">
                     <div class="col-title">환전여부:</div>
-                    <div class="col-status" style="color: ${getZoneColor(exState.zone)};">${exState.status}</div>
+                    <div class="col-status" style="color: ${getActionColor(exState.status)};">${exState.status}</div>
                     <div class="col-eval" style="color: ${getZoneColor(exState.zone)};">${exState.evalState}</div>
                     <div class="col-price">현재 환율: ${formatPrice(exState.currentPrice, true)}</div>
                 </div>`;
 
                 stockResults.forEach(r => {
-                    let statusText = r.status;
-                    if (r.status.includes('매수 (Buy)') || r.status.includes('초기 보유 시작')) {
-                        statusText = `<span class="buy">${r.status}</span>`;
-                    } else if (r.status.includes('매도 (Sell)')) {
-                        statusText = `<span class="sell">${r.status}</span>`;
-                    } else {
-                        // 관망일 경우에도 Zone 색상 반영
-                        statusText = `<span style="color: ${getZoneColor(r.zone)};">${r.status}</span>`;
-                    }
+                    let statusText = `<span style="color: ${getActionColor(r.status)};">${r.status}</span>`;
 
                     html += `
                     <div class="row">
