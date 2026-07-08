@@ -150,8 +150,8 @@
         .btn-stop { background: #e74c3c; color: white; }
         .btn-stop:hover { background: #c0392b; }
 
-        /* 상세 설명 모달창 */
-        #descModal {
+        /* 모달창 공통 CSS */
+        .full-modal {
             display: none; 
             position: fixed; 
             top: 0; left: 0; 
@@ -163,7 +163,7 @@
             padding: 20px; 
             box-sizing: border-box;
         }
-        .desc-content {
+        .modal-content-box {
             background: #1e1e1e; 
             color: #ddd; 
             border-radius: 12px; 
@@ -176,9 +176,24 @@
             line-height: 1.6;
             font-size: 14px;
         }
-        .desc-content h2 { margin-top: 0; color: #ffd740; font-size: 20px; text-align: center; }
-        .desc-content strong { color: #fff; }
-        .desc-content hr { border: 0; border-top: 1px solid #333; margin: 15px 0; }
+        .modal-content-box h2 { margin-top: 0; color: #ffd740; font-size: 20px; text-align: center; }
+        .modal-content-box strong { color: #fff; }
+        .modal-content-box hr { border: 0; border-top: 1px solid #333; margin: 15px 0; }
+        
+        /* 시각화 모달 전용 CSS */
+        .v-bar-container { margin-bottom: 25px; }
+        .v-bar-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 8px; font-size: 14px; }
+        .v-bar-wrapper { position: relative; width: 100%; height: 24px; border-radius: 12px; background: #333; overflow: hidden; display: flex; }
+        .v-zone-e { background: rgb(255, 0, 0); }
+        .v-zone-d { background: rgb(255, 128, 0); }
+        .v-zone-c { background: rgb(128, 128, 128); }
+        .v-zone-b { background: rgb(0, 128, 255); }
+        .v-zone-a { background: rgb(0, 0, 255); }
+        .v-marker {
+            position: absolute; top: -4px; width: 4px; height: 32px; background: #fff; 
+            border: 1px solid #000; box-shadow: 0 0 5px rgba(0,0,0,0.8);
+            z-index: 2; transform: translateX(-50%); border-radius: 2px;
+        }
     </style>
 </head>
 <body>
@@ -213,12 +228,13 @@
         </div>
         
         <button id="descBtn" class="btn-common btn-desc" onclick="document.getElementById('descModal').style.display='flex'">📖 상세 설명 보기</button>
+        <button id="visualBtn" class="btn-common btn-desc" style="background-color: #2980b9;" onclick="showVisualModal()">📊 현재 평가 위치 시각화</button>
         <button id="downloadBtn" class="btn-common btn-download">📊 데이터 확인용 CSV 다운로드</button>
     </div>
 
     <!-- 상세 설명 모달 -->
-    <div id="descModal">
-        <div class="desc-content">
+    <div id="descModal" class="full-modal">
+        <div class="modal-content-box">
             <h2>📖 지금 사요? 상세 설명</h2>
             <p><strong>주린이도 안심하고 쓰는 수학적 투자 나침반!</strong><br>이 앱은 단순한 감이나 사람의 고정된 수치에 의존하지 않습니다. 야후 파이낸스로부터 과거의 모든 주가 및 환율 데이터를 끌어와 통계적으로 분석한 뒤, 최적의 타점을 <strong>자율적으로 역산</strong>해내는 수학적 알고리즘을 사용합니다.</p>
             <hr>
@@ -237,6 +253,15 @@
         </div>
     </div>
 
+    <!-- 시각화 모달 -->
+    <div id="visualModal" class="full-modal">
+        <div class="modal-content-box">
+            <h2>📈 현재 평가 위치 시각화</h2>
+            <div id="visualBars" style="margin-top: 25px;"></div>
+            <button onclick="document.getElementById('visualModal').style.display='none'" style="width:100%; margin-top:15px; background:#e74c3c; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">닫기</button>
+        </div>
+    </div>
+
     <script>
         // PWA 서비스 워커 등록
         if ('serviceWorker' in navigator) {
@@ -245,6 +270,10 @@
 
         // 종목 배열 (SPXL 추가)
         const STOCKS = ['SPXL', 'TQQQ', 'TECL', 'SOXL'];
+
+        // 전역 상태 저장용 변수
+        let globalExState = null;
+        let globalStockResults = [];
 
         function formatPrice(price, isKrw = false) {
             if (!price) return '데이터 없음';
@@ -263,6 +292,50 @@
             if (zone === 'd') return 'rgb(255, 128, 0)';    // 주황
             if (zone === 'e') return 'rgb(255, 0, 0)';      // 빨강 (매수/기회)
             return '#aaaaaa';
+        }
+
+        function showVisualModal() {
+            let html = '';
+            const assets = [globalExState, ...globalStockResults];
+            assets.forEach(asset => {
+                if (!asset || !asset.t) return;
+                let t = asset.t;
+                let disp = asset.currentDisp;
+                
+                // 표시 구간: 매수선(buy)에서 0.5배폭을 빼고 매도선(sell)에서 0.5배폭을 더한 구간
+                let W = t.sell - t.buy;
+                let minD = t.buy - W * 0.5;
+                let maxD = t.sell + W * 0.5;
+                
+                let percent = ((disp - minD) / (maxD - minD)) * 100;
+                if (percent < 0) percent = 0;
+                if (percent > 100) percent = 100;
+                
+                html += `
+                <div class="v-bar-container">
+                    <div class="v-bar-header">
+                        <span style="color:${getZoneColor(asset.zone)}">${asset.symbol === 'USDKRW=X' ? '환율' : asset.symbol}</span>
+                        <span style="color:${getZoneColor(asset.zone)}">${asset.evalState} (${disp.toFixed(2)}x)</span>
+                    </div>
+                    <div class="v-bar-wrapper">
+                        <!-- 각 구역의 너비: 전체(W*2) 대비 차지하는 비율 -->
+                        <div class="v-zone-e" style="width: 25%;"></div>
+                        <div class="v-zone-d" style="width: 16.66%;"></div>
+                        <div class="v-zone-c" style="width: 16.66%;"></div>
+                        <div class="v-zone-b" style="width: 16.66%;"></div>
+                        <div class="v-zone-a" style="width: 25%;"></div>
+                        <div class="v-marker" style="left: ${percent}%;"></div>
+                    </div>
+                    <div style="display:flex; justify-content: space-between; font-size: 11px; color: #888; margin-top:4px;">
+                        <span>저평가/저환율</span>
+                        <span>과열/고환율</span>
+                    </div>
+                </div>
+                `;
+            });
+            
+            document.getElementById('visualBars').innerHTML = html;
+            document.getElementById('visualModal').style.display = 'flex';
         }
 
         // Yahoo Finance 데이터 패치
@@ -437,15 +510,23 @@
             return { badPoints, bestBuy, bestSell };
         }
 
-        // 1. 분위수 대칭 탐색 기반 매수/매도/준매수/준매도 도출 (환율, SPXL, TQQQ, TECL 용)
+        // 1. 분위수 대칭 탐색 기반 매수/매도/준매수/준매도 도출 (환율, SPXL, TQQQ, TECL 용) - 3단계 타이 브레이커 적용
         function findThresholdsByQuantileSymmetry(prices, period) {
             let { disparities, validDisparities, minD, maxD } = calculateDisparities(prices, period);
             if (validDisparities.length < 10) return { t: { buy: 0.9, semiBuy: 0.95, semiSell: 1.05, sell: 1.1 }, disparities };
             
             let { badPoints } = buildBadPoints(prices, disparities, minD, maxD);
             let { mean, stdDev } = getNormParams(validDisparities);
+
+            let firstValidIdx = disparities.findIndex(d => d !== null);
+            let totalYears = Math.max(0.001, (prices.length - firstValidIdx) / 365.2425);
+            const baseInitialPrice = prices[firstValidIdx];
+            const baseLatestPrice = prices[prices.length - 1];
+            const baseCagr = (Math.pow(baseLatestPrice / baseInitialPrice, 1 / totalYears) - 1) * 100;
+            const initCap = 10000;
             
-            let bestRadius = -Infinity, best_p = 0.5;
+            let bestCandidates = [];
+            let maxRadius = -Infinity;
 
             for (let p_percent = 1.0; p_percent <= 50.0; p_percent += 0.5) {
                 let p_buy = p_percent / 100;
@@ -465,14 +546,44 @@
                 }
                 let safeR = Math.sqrt(minSq);
 
-                if (safeR > bestRadius) {
-                    bestRadius = safeR;
-                    best_p = p_buy;
+                // 효용성 산출
+                let cash = 0, shares = initCap / baseInitialPrice, isHolding = true;
+                for (let k = firstValidIdx; k < prices.length; k++) {
+                    let d = disparities[k];
+                    if (d === null) continue;
+                    let p = prices[k];
+                    if (isHolding && d > sellPt && shares > 0) { cash = shares * p; shares = 0; isHolding = false; } 
+                    else if (!isHolding && d < buyPt && cash > 0) { shares = cash / p; cash = 0; isHolding = true; }
+                }
+                let finalCap = cash + (shares * baseLatestPrice);
+                let strategyCagr = (Math.pow(finalCap / initCap, 1 / totalYears) - 1) * 100;
+                let utility = (((1 + strategyCagr / 100) / (1 + baseCagr / 100)) - 1) * 100;
+
+                if (safeR > maxRadius + 1e-6) {
+                    maxRadius = safeR;
+                    bestCandidates = [{ p_buy, safeR, utility }];
+                } else if (Math.abs(safeR - maxRadius) <= 1e-6) {
+                    bestCandidates.push({ p_buy, safeR, utility });
                 }
             }
 
-            let p_buy = best_p;
-            let p_sell = 1.0 - best_p;
+            // 3단계 타이 브레이커 (안전반경 -> 효용성 -> 분위수)
+            let selectedPBuy = bestCandidates[0].p_buy;
+            if (bestCandidates.length > 1) {
+                bestCandidates.sort((a, b) => b.utility - a.utility); // 효용성 내림차순 정렬
+                let topUtility = bestCandidates[0].utility;
+                let topUtilityCandidates = bestCandidates.filter(c => Math.abs(c.utility - topUtility) <= 1e-6);
+                
+                if (topUtilityCandidates.length > 1) {
+                    topUtilityCandidates.sort((a, b) => b.p_buy - a.p_buy); // 분위수(p_buy) 내림차순 정렬
+                    selectedPBuy = topUtilityCandidates[0].p_buy;
+                } else {
+                    selectedPBuy = topUtilityCandidates[0].p_buy;
+                }
+            }
+
+            let p_buy = selectedPBuy;
+            let p_sell = 1.0 - p_buy;
             let diff = p_sell - p_buy;
             let p_semiBuy = p_buy + diff / 3;
             let p_semiSell = p_buy + 2 * diff / 3;
@@ -615,7 +726,7 @@
             }
 
             const lastLog = historyLog[historyLog.length - 1];
-            return { symbol: ticker, status: lastLog.action, evalState: lastLog.eval, currentPrice: lastLog.close, zone: lastLog.zone, historyLog };
+            return { symbol: ticker, status: lastLog.action, evalState: lastLog.eval, currentPrice: lastLog.close, zone: lastLog.zone, historyLog, t: t, currentDisp: lastLog.disp };
         }
 
         // CSV 다운로드 함수
@@ -1045,17 +1156,17 @@
                     let tw = 4;
                     let tx = obs.x + bw/2 - tw/2;
 
-                    if (obs.candleType === 0) { // 아래꼬리
+                    if (obs.candleType === 0) { 
                         bh = obs.h * 0.4; by = obs.y;
                         tby = obs.y + bh; tbh = obs.h * 0.6;
-                    } else if (obs.candleType === 1) { // 십자형
+                    } else if (obs.candleType === 1) { 
                         bh = obs.h * 0.3; by = obs.y + obs.h * 0.35;
                         tty = obs.y; tth = obs.h * 0.35;
                         tby = obs.y + obs.h * 0.65; tbh = obs.h * 0.35;
-                    } else if (obs.candleType === 2) { // 위꼬리
+                    } else if (obs.candleType === 2) { 
                         bh = obs.h * 0.4; by = obs.y + obs.h * 0.6;
                         tty = obs.y; tth = obs.h * 0.6;
-                    } else { // 장대음봉
+                    } else { 
                         bh = obs.h; by = obs.y;
                     }
 
@@ -1138,6 +1249,10 @@
                     stockResults.push(processAsset(s, stPrices, stDates, false));
                 }
 
+                // 데이터 처리 후 글로벌 변수 업데이트
+                globalExState = exState;
+                globalStockResults = stockResults;
+
                 const latestDateStr = exDates.length > 0 ? exDates[exDates.length - 1] : '데이터 없음';
 
                 function getActionColor(actionStr) {
@@ -1176,6 +1291,7 @@
                     document.getElementById('content').classList.remove('loading');
 
                     document.getElementById('descBtn').style.display = 'block';
+                    document.getElementById('visualBtn').style.display = 'block'; // 시각화 버튼 표시
                     const downloadBtn = document.getElementById('downloadBtn');
                     downloadBtn.style.display = 'block';
                     downloadBtn.addEventListener('click', () => downloadCSV(stockResults, exState));
