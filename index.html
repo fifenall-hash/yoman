@@ -38,15 +38,18 @@
             margin: 0;
             color: #ffffff;
         }
+        
+        .asset-block {
+            padding: 16px 0;
+            border-bottom: 1px solid #333;
+        }
+        .asset-block:last-child {
+            border-bottom: none;
+        }
         .row {
             display: flex;
             align-items: center;
-            padding: 16px 0;
-            border-bottom: 1px solid #333;
             font-size: 15px;
-        }
-        .row:last-child {
-            border-bottom: none;
         }
         .col-title {
             flex: 0 0 60px;
@@ -150,7 +153,7 @@
         .btn-stop { background: #e74c3c; color: white; }
         .btn-stop:hover { background: #c0392b; }
 
-        /* 모달창 공통 CSS */
+        /* 상세 설명 모달창 공통 CSS */
         .full-modal {
             display: none; 
             position: fixed; 
@@ -180,17 +183,16 @@
         .modal-content-box strong { color: #fff; }
         .modal-content-box hr { border: 0; border-top: 1px solid #333; margin: 15px 0; }
         
-        /* 시각화 모달 전용 CSS */
-        .v-bar-container { margin-bottom: 25px; }
-        .v-bar-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 8px; font-size: 14px; }
-        .v-bar-wrapper { position: relative; width: 100%; height: 24px; border-radius: 12px; background: #333; overflow: hidden; display: flex; }
-        .v-zone-e { background: rgb(255, 0, 0); }
-        .v-zone-d { background: rgb(255, 128, 0); }
-        .v-zone-c { background: rgb(128, 128, 128); }
-        .v-zone-b { background: rgb(0, 128, 255); }
-        .v-zone-a { background: rgb(0, 0, 255); }
+        /* 시각화 게이지 바 CSS (메인 화면 적용) */
+        .v-bar-container { margin-top: 12px; margin-bottom: 4px; }
+        .v-bar-wrapper { position: relative; width: 100%; height: 18px; border-radius: 9px; background: #333; overflow: hidden; display: flex; }
+        .v-zone-e { background: rgb(255, 0, 0); width: 20%; }
+        .v-zone-d { background: rgb(255, 128, 0); width: 20%; }
+        .v-zone-c { background: rgb(128, 128, 128); width: 20%; }
+        .v-zone-b { background: rgb(0, 128, 255); width: 20%; }
+        .v-zone-a { background: rgb(0, 0, 255); width: 20%; }
         .v-marker {
-            position: absolute; top: -4px; width: 4px; height: 32px; background: #fff; 
+            position: absolute; top: -2px; width: 4px; height: 22px; background: #fff; 
             border: 1px solid #000; box-shadow: 0 0 5px rgba(0,0,0,0.8);
             z-index: 2; transform: translateX(-50%); border-radius: 2px;
         }
@@ -228,7 +230,6 @@
         </div>
         
         <button id="descBtn" class="btn-common btn-desc" onclick="document.getElementById('descModal').style.display='flex'">📖 상세 설명 보기</button>
-        <button id="visualBtn" class="btn-common btn-desc" style="background-color: #2980b9;" onclick="showVisualModal()">📊 현재 평가 위치 시각화</button>
         <button id="downloadBtn" class="btn-common btn-download">📊 데이터 확인용 CSV 다운로드</button>
     </div>
 
@@ -250,15 +251,6 @@
             <p><strong>💡 왜 신뢰할 수 있나요?</strong><br>
             본 앱의 로직은 단순 무지성 보유(Buy & Hold) 전략 대비 하락장(MDD)의 타격을 압도적으로 방어하며, 복리로 자산을 거대하게 불릴 수 있는지 수만 번 교차 시뮬레이션한 결과를 기반으로 합니다. 표시되는 색상(빨간색이 가장 좋은 진입 찬스)과 지침만 따라가도 최악의 고점에 물리는 일은 피할 수 있습니다!</p>
             <button onclick="document.getElementById('descModal').style.display='none'" style="width:100%; margin-top:15px; background:#e74c3c; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">닫기</button>
-        </div>
-    </div>
-
-    <!-- 시각화 모달 -->
-    <div id="visualModal" class="full-modal">
-        <div class="modal-content-box">
-            <h2>📈 현재 평가 위치 시각화</h2>
-            <div id="visualBars" style="margin-top: 25px;"></div>
-            <button onclick="document.getElementById('visualModal').style.display='none'" style="width:100%; margin-top:15px; background:#e74c3c; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">닫기</button>
         </div>
     </div>
 
@@ -286,56 +278,44 @@
 
         // 구역 분할 색상 지정 (a~e)
         function getZoneColor(zone) {
-            if (zone === 'a') return 'rgb(0, 0, 255)';      // 파랑 (매도/위험)
-            if (zone === 'b') return 'rgb(0, 128, 255)';    // 연파랑
-            if (zone === 'c') return 'rgb(128, 128, 128)';  // 회색 (중립/적정)
-            if (zone === 'd') return 'rgb(255, 128, 0)';    // 주황
-            if (zone === 'e') return 'rgb(255, 0, 0)';      // 빨강 (매수/기회)
+            if (zone === 'a') return 'rgb(0, 0, 255)';      
+            if (zone === 'b') return 'rgb(0, 128, 255)';    
+            if (zone === 'c') return 'rgb(128, 128, 128)';  
+            if (zone === 'd') return 'rgb(255, 128, 0)';    
+            if (zone === 'e') return 'rgb(255, 0, 0)';      
             return '#aaaaaa';
         }
 
-        function showVisualModal() {
-            let html = '';
-            const assets = [globalExState, ...globalStockResults];
-            assets.forEach(asset => {
-                if (!asset || !asset.t) return;
-                let t = asset.t;
-                let disp = asset.currentDisp;
-                
-                // 표시 구간: 매수선(buy)에서 0.5배폭을 빼고 매도선(sell)에서 0.5배폭을 더한 구간
-                let W = t.sell - t.buy;
-                let minD = t.buy - W * 0.5;
-                let maxD = t.sell + W * 0.5;
-                
-                let percent = ((disp - minD) / (maxD - minD)) * 100;
-                if (percent < 0) percent = 0;
-                if (percent > 100) percent = 100;
-                
-                html += `
-                <div class="v-bar-container">
-                    <div class="v-bar-header">
-                        <span style="color:${getZoneColor(asset.zone)}">${asset.symbol === 'USDKRW=X' ? '환율' : asset.symbol}</span>
-                        <span style="color:${getZoneColor(asset.zone)}">${asset.evalState} (${disp.toFixed(2)}x)</span>
-                    </div>
-                    <div class="v-bar-wrapper">
-                        <!-- 각 구역의 너비: 전체(W*2) 대비 차지하는 비율 -->
-                        <div class="v-zone-e" style="width: 25%;"></div>
-                        <div class="v-zone-d" style="width: 16.66%;"></div>
-                        <div class="v-zone-c" style="width: 16.66%;"></div>
-                        <div class="v-zone-b" style="width: 16.66%;"></div>
-                        <div class="v-zone-a" style="width: 25%;"></div>
-                        <div class="v-marker" style="left: ${percent}%;"></div>
-                    </div>
-                    <div style="display:flex; justify-content: space-between; font-size: 11px; color: #888; margin-top:4px;">
-                        <span>저평가/저환율</span>
-                        <span>과열/고환율</span>
-                    </div>
-                </div>
-                `;
-            });
+        // 게이지 바 퍼센트(%) 계산 (5개 구역이 20%씩 동등하게 나눠지도록 비례 매핑)
+        function getVisualPercent(disp, t) {
+            let W = t.sell - t.buy;
+            let step = W / 3;
+            if (step <= 0) step = 0.01; // 방어 코드
             
-            document.getElementById('visualBars').innerHTML = html;
-            document.getElementById('visualModal').style.display = 'flex';
+            let percent = 0;
+            
+            if (disp <= t.buy) {
+                // e 구역 (0 ~ 20%)
+                let ratio = (disp - (t.buy - step)) / step;
+                percent = Math.max(0, ratio * 20);
+            } else if (disp <= t.semiBuy) {
+                // d 구역 (20 ~ 40%)
+                let ratio = (disp - t.buy) / (t.semiBuy - t.buy);
+                percent = 20 + ratio * 20;
+            } else if (disp <= t.semiSell) {
+                // c 구역 (40 ~ 60%)
+                let ratio = (disp - t.semiBuy) / (t.semiSell - t.semiBuy);
+                percent = 40 + ratio * 20;
+            } else if (disp <= t.sell) {
+                // b 구역 (60 ~ 80%)
+                let ratio = (disp - t.semiSell) / (t.sell - t.semiSell);
+                percent = 60 + ratio * 20;
+            } else {
+                // a 구역 (80 ~ 100%)
+                let ratio = (disp - t.sell) / step;
+                percent = 80 + Math.min(1, ratio) * 20;
+            }
+            return percent;
         }
 
         // Yahoo Finance 데이터 패치
@@ -570,12 +550,12 @@
             // 3단계 타이 브레이커 (안전반경 -> 효용성 -> 분위수)
             let selectedPBuy = bestCandidates[0].p_buy;
             if (bestCandidates.length > 1) {
-                bestCandidates.sort((a, b) => b.utility - a.utility); // 효용성 내림차순 정렬
+                bestCandidates.sort((a, b) => b.utility - a.utility); 
                 let topUtility = bestCandidates[0].utility;
                 let topUtilityCandidates = bestCandidates.filter(c => Math.abs(c.utility - topUtility) <= 1e-6);
                 
                 if (topUtilityCandidates.length > 1) {
-                    topUtilityCandidates.sort((a, b) => b.p_buy - a.p_buy); // 분위수(p_buy) 내림차순 정렬
+                    topUtilityCandidates.sort((a, b) => b.p_buy - a.p_buy); 
                     selectedPBuy = topUtilityCandidates[0].p_buy;
                 } else {
                     selectedPBuy = topUtilityCandidates[0].p_buy;
@@ -1265,25 +1245,55 @@
                     return 'rgb(128, 128, 128)'; 
                 }
 
-                let html = `
-                <div style="text-align: right; font-size: 12px; color: #888; margin-bottom: 5px;">최신 기준일: ${latestDateStr}</div>
-                <div class="row">
-                    <div class="col-title">환전여부:</div>
-                    <div class="col-status" style="color: ${getActionColor(exState.status)};">${exState.status}</div>
-                    <div class="col-eval" style="color: ${getZoneColor(exState.zone)};">${exState.evalState}</div>
-                    <div class="col-price">현재 환율: ${formatPrice(exState.currentPrice, true)}</div>
-                </div>`;
+                // 공통된 자산 블록 생성 헬퍼 함수
+                function createAssetBlock(asset, isExchange) {
+                    let statusText = `<span style="color: ${getActionColor(asset.status)};">${asset.status}</span>`;
+                    if (isExchange) {
+                        statusText = `<span style="color: ${getActionColor(asset.status)}; font-weight:700;">${asset.status}</span>`;
+                    }
+                    
+                    let leftLabel = isExchange ? '저환율' : '저평가';
+                    let rightLabel = isExchange ? '고환율' : '과열';
+                    let titleName = isExchange ? '환전여부' : asset.symbol;
+                    let priceName = isExchange ? '현재 환율' : '현재가';
+                    let priceFormatted = formatPrice(asset.currentPrice, isExchange);
+                    
+                    let percent = getVisualPercent(asset.currentDisp, asset.t);
 
+                    return `
+                    <div class="asset-block">
+                        <div class="row" style="padding: 0; border-bottom: none;">
+                            <div class="col-title">${titleName}:</div>
+                            <div class="col-status">${statusText}</div>
+                            <div class="col-eval" style="color: ${getZoneColor(asset.zone)};">${asset.evalState}</div>
+                            <div class="col-price">${priceName}: ${priceFormatted}</div>
+                        </div>
+                        <div class="v-bar-container">
+                            <div class="v-bar-wrapper">
+                                <div class="v-zone-e"></div>
+                                <div class="v-zone-d"></div>
+                                <div class="v-zone-c"></div>
+                                <div class="v-zone-b"></div>
+                                <div class="v-zone-a"></div>
+                                <div class="v-marker" style="left: ${percent}%;"></div>
+                            </div>
+                            <div style="display:flex; justify-content: space-between; font-size: 11px; color: #888; margin-top:4px;">
+                                <span>${leftLabel}</span>
+                                <span>${rightLabel}</span>
+                            </div>
+                        </div>
+                    </div>
+                    `;
+                }
+
+                let html = `<div style="text-align: right; font-size: 12px; color: #888; margin-bottom: 5px;">최신 기준일: ${latestDateStr}</div>`;
+                
+                // 환율 렌더링
+                html += createAssetBlock(exState, true);
+                
+                // 주식 렌더링
                 stockResults.forEach(r => {
-                    let statusText = `<span style="color: ${getActionColor(r.status)};">${r.status}</span>`;
-
-                    html += `
-                    <div class="row">
-                        <div class="col-title">${r.symbol}:</div>
-                        <div class="col-status">${statusText}</div>
-                        <div class="col-eval" style="color: ${getZoneColor(r.zone)};">${r.evalState}</div>
-                        <div class="col-price">현재가: ${formatPrice(r.currentPrice, false)}</div>
-                    </div>`;
+                    html += createAssetBlock(r, false);
                 });
 
                 triggerDataReady(() => {
@@ -1291,7 +1301,6 @@
                     document.getElementById('content').classList.remove('loading');
 
                     document.getElementById('descBtn').style.display = 'block';
-                    document.getElementById('visualBtn').style.display = 'block'; // 시각화 버튼 표시
                     const downloadBtn = document.getElementById('downloadBtn');
                     downloadBtn.style.display = 'block';
                     downloadBtn.addEventListener('click', () => downloadCSV(stockResults, exState));
