@@ -181,18 +181,17 @@
             text-align: left;
         }
         .modal-content-box h2 { margin-top: 0; color: #ffd740; font-size: 20px; text-align: center; }
-        .modal-content-box h3 { color: #ffd740; font-size: 16px; margin-top: 20px; margin-bottom: 10px; }
         .modal-content-box strong { color: #fff; }
         .modal-content-box hr { border: 0; border-top: 1px solid #333; margin: 15px 0; }
         
         /* 시각화 게이지 바 CSS (메인 화면 적용) */
         .v-bar-container { margin-top: 12px; margin-bottom: 4px; }
         .v-bar-wrapper { position: relative; width: 100%; height: 18px; border-radius: 9px; background: #333; overflow: hidden; display: flex; }
-        .v-zone-e { background: rgb(255, 0, 0); width: 20%; }
-        .v-zone-d { background: rgb(255, 128, 0); width: 20%; }
-        .v-zone-c { background: rgb(128, 128, 128); width: 20%; }
-        .v-zone-b { background: rgb(0, 128, 255); width: 20%; }
-        .v-zone-a { background: rgb(0, 0, 255); width: 20%; }
+        .v-zone-e { background: rgb(255, 0, 0); width: 20%; transition: opacity 0.3s; }
+        .v-zone-d { background: rgb(255, 128, 0); width: 20%; transition: opacity 0.3s; }
+        .v-zone-c { background: rgb(128, 128, 128); width: 20%; transition: opacity 0.3s; }
+        .v-zone-b { background: rgb(0, 128, 255); width: 20%; transition: opacity 0.3s; }
+        .v-zone-a { background: rgb(0, 0, 255); width: 20%; transition: opacity 0.3s; }
         .v-marker {
             position: absolute; top: -2px; width: 4px; height: 22px; background: #fff; 
             border: 1px solid #000; box-shadow: 0 0 5px rgba(0,0,0,0.8);
@@ -251,7 +250,7 @@
             
             <ol style="padding-left: 20px; line-height: 1.8;">
                 <li>과거 데이터를 수만 번 복기하여, 샀을 때 물리고 팔았을 때 손해를 보는 '나쁜 타점'들을 전부 찾아냅니다.</li>
-                <li>그리고 이 나쁜 타점들을 피해 가는 가장 넓은 안전지대(가장 확률이 높은 매수선과 매도선)를 역산해 냅니다.</li>
+                <li>그리고 이 나쁜 타점들을 완벽하게 피해 가는 가장 넓은 안전지대(가장 확률이 높은 매수선과 매도선)를 앱이 스스로 역산해 냅니다.</li>
                 <li>이렇게 찾은 안전한 매도선과 매수선을 기준으로, 그 사이를 정확히 3등분하여 총 5개의 구역(심한 과열 ~ 과열 ~ 적정 ~ 저평가 ~ 심한 저평가)으로 나눕니다.</li>
             </ol>
 
@@ -1312,6 +1311,13 @@
                     
                     let percent = getVisualPercent(asset.currentDisp, asset.t);
 
+                    // 현재 구간의 시각적 강조 효과 적용 로직
+                    let opE = asset.zone === 'e' ? '1' : '0.25';
+                    let opD = asset.zone === 'd' ? '1' : '0.25';
+                    let opC = asset.zone === 'c' ? '1' : '0.25';
+                    let opB = asset.zone === 'b' ? '1' : '0.25';
+                    let opA = asset.zone === 'a' ? '1' : '0.25';
+
                     return `
                     <div class="asset-block">
                         <div class="row" style="padding: 0; border-bottom: none;">
@@ -1322,11 +1328,11 @@
                         </div>
                         <div class="v-bar-container">
                             <div class="v-bar-wrapper">
-                                <div class="v-zone-e"></div>
-                                <div class="v-zone-d"></div>
-                                <div class="v-zone-c"></div>
-                                <div class="v-zone-b"></div>
-                                <div class="v-zone-a"></div>
+                                <div class="v-zone-e" style="opacity: ${opE};"></div>
+                                <div class="v-zone-d" style="opacity: ${opD};"></div>
+                                <div class="v-zone-c" style="opacity: ${opC};"></div>
+                                <div class="v-zone-b" style="opacity: ${opB};"></div>
+                                <div class="v-zone-a" style="opacity: ${opA};"></div>
                                 <div class="v-marker" style="left: ${percent}%;"></div>
                             </div>
                             <div style="display:flex; justify-content: space-between; font-size: 11px; color: #888; margin-top:4px;">
