@@ -333,6 +333,8 @@
         // 전역 상태 저장용 변수
         let globalExState = null;
         let globalStockResults = [];
+        let globalAvailableDates = [];
+        let currentDateIndex = -1;
 
         function formatPrice(price, isKrw = false) {
             if (!price) return '데이터 없음';
@@ -1292,7 +1294,9 @@
                 globalExState = exState;
                 globalStockResults = stockResults;
 
-                const latestDateStr = exDates.length > 0 ? exDates[exDates.length - 1] : '데이터 없음';
+                // 기준일(날짜) 배열 추출 (SPXL 기준이 가장 무난)
+                globalAvailableDates = stockResults[0].historyLog.map(l => l.date);
+                currentDateIndex = globalAvailableDates.length - 1;
 
                 function getActionColor(actionStr) {
                     if (actionStr.includes('매수 (Buy)') || actionStr.includes('초기 보유 시작') || actionStr.includes('달러 환전 적극 권장!')) {
@@ -1304,33 +1308,50 @@
                     return 'rgb(128, 128, 128)'; 
                 }
 
-                function createAssetBlock(asset, isExchange) {
-                    let statusText = `<span style="color: ${getActionColor(asset.status)};">${asset.status}</span>`;
+                // 타겟 날짜에 해당하는(혹은 가장 가까운 과거) 로그를 가져오는 함수
+                function getLogByDate(historyLog, targetDate) {
+                    if (!historyLog || historyLog.length === 0) return null;
+                    let closest = historyLog[0];
+                    for (let i = 0; i < historyLog.length; i++) {
+                        if (historyLog[i].date <= targetDate) {
+                            closest = historyLog[i];
+                        } else {
+                            break;
+                        }
+                    }
+                    return closest;
+                }
+
+                function createAssetBlock(asset, isExchange, targetDate) {
+                    const log = getLogByDate(asset.historyLog, targetDate);
+                    if (!log) return '';
+
+                    let statusText = `<span style="color: ${getActionColor(log.action)};">${log.action}</span>`;
                     if (isExchange) {
-                        statusText = `<span style="color: ${getActionColor(asset.status)}; font-weight:700;">${asset.status}</span>`;
+                        statusText = `<span style="color: ${getActionColor(log.action)}; font-weight:700;">${log.action}</span>`;
                     }
                     
                     let leftLabel = isExchange ? '저환율' : '저평가';
                     let rightLabel = isExchange ? '고환율' : '과열';
                     let titleName = isExchange ? '환전여부' : asset.symbol;
-                    let priceName = isExchange ? '현재 환율' : '현재가';
-                    let priceFormatted = formatPrice(asset.currentPrice, isExchange);
+                    let priceName = isExchange ? '당시 환율' : '당시 가격';
+                    let priceFormatted = formatPrice(log.close, isExchange);
                     
-                    let percent = getVisualPercent(asset.currentDisp, asset.t);
+                    let percent = getVisualPercent(log.disp, asset.t);
 
                     // 불투명도 처리를 위해 현재 속한 구역 파악
-                    let oE = asset.zone === 'e' ? 1.0 : 0.2;
-                    let oD = asset.zone === 'd' ? 1.0 : 0.2;
-                    let oC = asset.zone === 'c' ? 1.0 : 0.2;
-                    let oB = asset.zone === 'b' ? 1.0 : 0.2;
-                    let oA = asset.zone === 'a' ? 1.0 : 0.2;
+                    let oE = log.zone === 'e' ? 1.0 : 0.2;
+                    let oD = log.zone === 'd' ? 1.0 : 0.2;
+                    let oC = log.zone === 'c' ? 1.0 : 0.2;
+                    let oB = log.zone === 'b' ? 1.0 : 0.2;
+                    let oA = log.zone === 'a' ? 1.0 : 0.2;
 
                     return `
                     <div class="asset-block">
                         <div class="row" style="padding: 0; border-bottom: none;">
                             <div class="col-title">${titleName}:</div>
                             <div class="col-status">${statusText}</div>
-                            <div class="col-eval" style="color: ${getZoneColor(asset.zone)};">${asset.evalState}</div>
+                            <div class="col-eval" style="color: ${getZoneColor(log.zone)};">${log.eval}</div>
                             <div class="col-price">${priceName}: ${priceFormatted}</div>
                         </div>
                         <div class="v-bar-container">
@@ -1351,18 +1372,67 @@
                     `;
                 }
 
-                let html = `<div style="text-align: right; font-size: 12px; color: #888; margin-bottom: 5px;">최신 기준일: ${latestDateStr}</div>`;
-                
-                html += createAssetBlock(exState, true);
-                
-                stockResults.forEach(r => {
-                    html += createAssetBlock(r, false);
-                });
-
-                triggerDataReady(() => {
+                // 뷰를 새로고침(렌더링)하는 함수
+                function renderView() {
+                    const targetDate = globalAvailableDates[currentDateIndex];
+                    
+                    let html = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #333;">
+                        <div style="font-size: 13px; color: #aaa; font-weight: 600;">조회 기준일</div>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <button id="btn-prev-day" style="background: #2a2a2a; color: #fff; border: 1px solid #444; width: 28px; height: 28px; border-radius: 4px; cursor: pointer; display:flex; align-items:center; justify-content:center; opacity: ${currentDateIndex === 0 ? '0.3' : '1'};" ${currentDateIndex === 0 ? 'disabled' : ''}>◀</button>
+                            <input type="date" id="history-date-picker" value="${targetDate}" min="${globalAvailableDates[0]}" max="${globalAvailableDates[globalAvailableDates.length - 1]}" style="background: #1e1e1e; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 3px 6px; font-size: 13px; color-scheme: dark; font-family: inherit;">
+                            <button id="btn-next-day" style="background: #2a2a2a; color: #fff; border: 1px solid #444; width: 28px; height: 28px; border-radius: 4px; cursor: pointer; display:flex; align-items:center; justify-content:center; opacity: ${currentDateIndex === globalAvailableDates.length - 1 ? '0.3' : '1'};" ${currentDateIndex === globalAvailableDates.length - 1 ? 'disabled' : ''}>▶</button>
+                            <button id="btn-latest-day" style="background: #e74c3c; color: #fff; border: none; padding: 0 10px; height: 28px; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer; margin-left: 4px;">최신</button>
+                        </div>
+                    </div>
+                    <div id="assets-container"></div>
+                    `;
+                    
                     document.getElementById('content').innerHTML = html;
                     document.getElementById('content').classList.remove('loading');
 
+                    let assetsHtml = createAssetBlock(globalExState, true, targetDate);
+                    globalStockResults.forEach(r => {
+                        assetsHtml += createAssetBlock(r, false, targetDate);
+                    });
+                    document.getElementById('assets-container').innerHTML = assetsHtml;
+
+                    // 이벤트 리스너 재등록
+                    document.getElementById('btn-prev-day').addEventListener('click', () => {
+                        if (currentDateIndex > 0) {
+                            currentDateIndex--;
+                            renderView();
+                        }
+                    });
+                    document.getElementById('btn-next-day').addEventListener('click', () => {
+                        if (currentDateIndex < globalAvailableDates.length - 1) {
+                            currentDateIndex++;
+                            renderView();
+                        }
+                    });
+                    document.getElementById('btn-latest-day').addEventListener('click', () => {
+                        currentDateIndex = globalAvailableDates.length - 1;
+                        renderView();
+                    });
+                    document.getElementById('history-date-picker').addEventListener('change', (e) => {
+                        let selected = e.target.value;
+                        // 선택한 날짜와 가장 가까운 과거(혹은 일치)의 영업일을 찾음
+                        let closestIdx = 0;
+                        for(let i=0; i<globalAvailableDates.length; i++) {
+                            if(globalAvailableDates[i] <= selected) {
+                                closestIdx = i;
+                            } else {
+                                break;
+                            }
+                        }
+                        currentDateIndex = closestIdx;
+                        renderView();
+                    });
+                }
+
+                triggerDataReady(() => {
+                    renderView();
                     document.getElementById('descBtn').style.display = 'block';
                     const downloadBtn = document.getElementById('downloadBtn');
                     downloadBtn.style.display = 'block';
