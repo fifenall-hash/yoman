@@ -1334,7 +1334,9 @@
                     let leftLabel = isExchange ? '저환율' : '저평가';
                     let rightLabel = isExchange ? '고환율' : '과열';
                     let titleName = isExchange ? '환전여부' : asset.symbol;
-                    let priceName = isExchange ? '당시 환율' : '당시 가격';
+                    
+                    const isLatest = targetDate === globalAvailableDates[globalAvailableDates.length - 1];
+                    let priceName = isExchange ? (isLatest ? '현재 환율' : '당시 환율') : (isLatest ? '현재가' : '당시 가격');
                     let priceFormatted = formatPrice(log.close, isExchange);
                     
                     let percent = getVisualPercent(log.disp, asset.t);
@@ -1375,6 +1377,7 @@
                 // 뷰를 새로고침(렌더링)하는 함수
                 function renderView() {
                     const targetDate = globalAvailableDates[currentDateIndex];
+                    const isLatestDay = currentDateIndex === globalAvailableDates.length - 1;
                     
                     let html = `
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #333;">
@@ -1382,8 +1385,8 @@
                         <div style="display: flex; align-items: center; gap: 6px;">
                             <button id="btn-prev-day" style="background: #2a2a2a; color: #fff; border: 1px solid #444; width: 28px; height: 28px; border-radius: 4px; cursor: pointer; display:flex; align-items:center; justify-content:center; opacity: ${currentDateIndex === 0 ? '0.3' : '1'};" ${currentDateIndex === 0 ? 'disabled' : ''}>◀</button>
                             <input type="date" id="history-date-picker" value="${targetDate}" min="${globalAvailableDates[0]}" max="${globalAvailableDates[globalAvailableDates.length - 1]}" style="background: #1e1e1e; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 3px 6px; font-size: 13px; color-scheme: dark; font-family: inherit;">
-                            <button id="btn-next-day" style="background: #2a2a2a; color: #fff; border: 1px solid #444; width: 28px; height: 28px; border-radius: 4px; cursor: pointer; display:flex; align-items:center; justify-content:center; opacity: ${currentDateIndex === globalAvailableDates.length - 1 ? '0.3' : '1'};" ${currentDateIndex === globalAvailableDates.length - 1 ? 'disabled' : ''}>▶</button>
-                            <button id="btn-latest-day" style="background: #e74c3c; color: #fff; border: none; padding: 0 10px; height: 28px; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer; margin-left: 4px;">최신</button>
+                            <button id="btn-next-day" style="background: #2a2a2a; color: #fff; border: 1px solid #444; width: 28px; height: 28px; border-radius: 4px; cursor: pointer; display:flex; align-items:center; justify-content:center; opacity: ${isLatestDay ? '0.3' : '1'};" ${isLatestDay ? 'disabled' : ''}>▶</button>
+                            <button id="btn-latest-day" style="background: #e74c3c; color: #fff; border: none; padding: 0 10px; height: 28px; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: ${isLatestDay ? 'default' : 'pointer'}; margin-left: 4px; opacity: ${isLatestDay ? '0.3' : '1'};" ${isLatestDay ? 'disabled' : ''}>최신</button>
                         </div>
                     </div>
                     <div id="assets-container"></div>
