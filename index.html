@@ -336,6 +336,12 @@
         let globalAvailableDates = [];
         let currentDateIndex = -1;
 
+        // 자동 재생(타임머신) 상태 변수
+        let playIntervalId = null;
+        let isPlayingForward = false;
+        let isPlayingBackward = false;
+        let currentPlaySpeed = 500; // 기본 0.5초
+
         function formatPrice(price, isKrw = false) {
             if (!price) return '데이터 없음';
             if (isKrw) {
@@ -1358,11 +1364,11 @@
                         </div>
                         <div class="v-bar-container">
                             <div class="v-bar-wrapper">
-                                <div class="v-zone-e" style="opacity: ${oE};"></div>
-                                <div class="v-zone-d" style="opacity: ${oD};"></div>
-                                <div class="v-zone-c" style="opacity: ${oC};"></div>
-                                <div class="v-zone-b" style="opacity: ${oB};"></div>
-                                <div class="v-zone-a" style="opacity: ${oA};"></div>
+                                <div class="v-zone-e" style="width: 20%; opacity: ${oE};"></div>
+                                <div class="v-zone-d" style="width: 20%; opacity: ${oD};"></div>
+                                <div class="v-zone-c" style="width: 20%; opacity: ${oC};"></div>
+                                <div class="v-zone-b" style="width: 20%; opacity: ${oB};"></div>
+                                <div class="v-zone-a" style="width: 20%; opacity: ${oA};"></div>
                                 <div class="v-marker" style="left: ${percent}%;"></div>
                             </div>
                             <div style="display:flex; justify-content: space-between; font-size: 11px; color: #888; margin-top:4px;">
@@ -1374,87 +1380,201 @@
                     `;
                 }
 
-                // 뷰를 새로고침(렌더링)하는 함수
-                function renderView() {
+                // --- 자동 재생(타임머신) 로직 ---
+                function stopAutoPlay() {
+                    if (playIntervalId) {
+                        clearInterval(playIntervalId);
+                        playIntervalId = null;
+                    }
+                    isPlayingForward = false;
+                    isPlayingBackward = false;
+                    updateView(); 
+                }
+
+                function startAutoPlay(direction) {
+                    stopAutoPlay(); // 기존 재생 정지
+                    
+                    if (direction === 'forward') {
+                        if (currentDateIndex >= globalAvailableDates.length - 1) return;
+                        isPlayingForward = true;
+                    } else {
+                        if (currentDateIndex <= 0) return;
+                        isPlayingBackward = true;
+                    }
+                    
+                    updateView(); // 일시정지 아이콘 즉각 반영
+
+                    playIntervalId = setInterval(() => {
+                        if (isPlayingForward) {
+                            if (currentDateIndex < globalAvailableDates.length - 1) {
+                                currentDateIndex++;
+                                updateView();
+                            } else {
+                                stopAutoPlay();
+                            }
+                        } else if (isPlayingBackward) {
+                            if (currentDateIndex > 0) {
+                                currentDateIndex--;
+                                updateView();
+                            } else {
+                                stopAutoPlay();
+                            }
+                        }
+                    }, currentPlaySpeed);
+                }
+
+                // UI를 갱신하는 최적화된 함수 (DOM을 파괴하지 않고 값만 업데이트)
+                function updateView() {
                     const targetDate = globalAvailableDates[currentDateIndex];
                     const isLatestDay = currentDateIndex === globalAvailableDates.length - 1;
+                    const isFirstDay = currentDateIndex === 0;
                     
-                    let html = `
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #333;">
-                        <div style="font-size: 13px; color: #aaa; font-weight: 600;">조회 기준일</div>
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            <button id="btn-prev-day" style="background: #2a2a2a; color: #fff; border: 1px solid #444; width: 28px; height: 28px; border-radius: 4px; cursor: pointer; display:flex; align-items:center; justify-content:center; opacity: ${currentDateIndex === 0 ? '0.3' : '1'};" ${currentDateIndex === 0 ? 'disabled' : ''}>◀</button>
-                            <input type="date" id="history-date-picker" value="${targetDate}" min="${globalAvailableDates[0]}" max="${globalAvailableDates[globalAvailableDates.length - 1]}" style="background: #1e1e1e; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 3px 6px; font-size: 13px; color-scheme: dark; font-family: inherit;">
-                            <button id="btn-next-day" style="background: #2a2a2a; color: #fff; border: 1px solid #444; width: 28px; height: 28px; border-radius: 4px; cursor: pointer; display:flex; align-items:center; justify-content:center; opacity: ${isLatestDay ? '0.3' : '1'};" ${isLatestDay ? 'disabled' : ''}>▶</button>
-                            <button id="btn-latest-day" style="background: #e74c3c; color: #fff; border: none; padding: 0 10px; height: 28px; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: ${isLatestDay ? 'default' : 'pointer'}; margin-left: 4px; opacity: ${isLatestDay ? '0.3' : '1'};" ${isLatestDay ? 'disabled' : ''}>최신</button>
-                        </div>
-                    </div>
-                    <div id="assets-container"></div>
-                    `;
-                    
-                    document.getElementById('content').innerHTML = html;
-                    document.getElementById('content').classList.remove('loading');
+                    // 재생 경계에 도달하면 자동 정지
+                    if (isLatestDay && isPlayingForward) stopAutoPlay();
+                    if (isFirstDay && isPlayingBackward) stopAutoPlay();
 
+                    // 컨트롤 요소들 상태 업데이트
+                    const btnPrev = document.getElementById('btn-prev-day');
+                    const btnNext = document.getElementById('btn-next-day');
+                    const btnLatest = document.getElementById('btn-latest-day');
+                    const datePicker = document.getElementById('history-date-picker');
+                    const btnPlay = document.getElementById('btn-play');
+                    const btnRewind = document.getElementById('btn-rewind');
+
+                    if (datePicker) datePicker.value = targetDate;
+
+                    if (btnPrev) {
+                        btnPrev.disabled = isFirstDay;
+                        btnPrev.style.opacity = isFirstDay ? '0.3' : '1';
+                    }
+                    if (btnNext) {
+                        btnNext.disabled = isLatestDay;
+                        btnNext.style.opacity = isLatestDay ? '0.3' : '1';
+                    }
+                    if (btnLatest) {
+                        btnLatest.disabled = isLatestDay;
+                        btnLatest.style.opacity = isLatestDay ? '0.3' : '1';
+                        btnLatest.style.cursor = isLatestDay ? 'default' : 'pointer';
+                    }
+                    
+                    if (btnPlay) {
+                        btnPlay.disabled = isLatestDay && !isPlayingForward;
+                        btnPlay.style.opacity = (isLatestDay && !isPlayingForward) ? '0.3' : '1';
+                        btnPlay.innerHTML = isPlayingForward ? '⏸' : '⏩';
+                        btnPlay.style.background = isPlayingForward ? '#e74c3c' : '#2a2a2a';
+                    }
+                    if (btnRewind) {
+                        btnRewind.disabled = isFirstDay && !isPlayingBackward;
+                        btnRewind.style.opacity = (isFirstDay && !isPlayingBackward) ? '0.3' : '1';
+                        btnRewind.innerHTML = isPlayingBackward ? '⏸' : '⏪';
+                        btnRewind.style.background = isPlayingBackward ? '#e74c3c' : '#2a2a2a';
+                    }
+
+                    // 종목 데이터 블록 갱신
                     let assetsHtml = createAssetBlock(globalExState, true, targetDate);
                     globalStockResults.forEach(r => {
                         assetsHtml += createAssetBlock(r, false, targetDate);
                     });
-                    document.getElementById('assets-container').innerHTML = assetsHtml;
-
-                    // 이벤트 리스너 재등록
-                    document.getElementById('btn-prev-day').addEventListener('click', () => {
-                        if (currentDateIndex > 0) {
-                            currentDateIndex--;
-                            renderView();
-                        }
-                    });
-                    document.getElementById('btn-next-day').addEventListener('click', () => {
-                        if (currentDateIndex < globalAvailableDates.length - 1) {
-                            currentDateIndex++;
-                            renderView();
-                        }
-                    });
-                    document.getElementById('btn-latest-day').addEventListener('click', () => {
-                        currentDateIndex = globalAvailableDates.length - 1;
-                        renderView();
-                    });
-                    document.getElementById('history-date-picker').addEventListener('change', (e) => {
-                        let selected = e.target.value;
-                        // 선택한 날짜와 가장 가까운 과거(혹은 일치)의 영업일을 찾음
-                        let closestIdx = 0;
-                        for(let i=0; i<globalAvailableDates.length; i++) {
-                            if(globalAvailableDates[i] <= selected) {
-                                closestIdx = i;
-                            } else {
-                                break;
-                            }
-                        }
-                        currentDateIndex = closestIdx;
-                        renderView();
-                    });
+                    
+                    const assetsContainer = document.getElementById('assets-container');
+                    if (assetsContainer) assetsContainer.innerHTML = assetsHtml;
                 }
 
-                // --- 키보드 방향키 조작 이벤트 추가 ---
+                // --- 키보드 방향키 조작 이벤트 ---
                 document.addEventListener('keydown', (e) => {
-                    // 데이터 조회 화면이 렌더링되지 않았거나, 날짜 입력칸(달력)을 조작 중일 때는 무시
                     if (!document.getElementById('btn-prev-day')) return;
-                    if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+                    if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT')) return;
 
                     if (e.key === 'ArrowLeft') {
+                        stopAutoPlay(); // 방향키 조작 시 재생 정지
                         if (currentDateIndex > 0) {
                             currentDateIndex--;
-                            renderView();
+                            updateView();
                         }
                     } else if (e.key === 'ArrowRight') {
+                        stopAutoPlay(); // 방향키 조작 시 재생 정지
                         if (currentDateIndex < globalAvailableDates.length - 1) {
                             currentDateIndex++;
-                            renderView();
+                            updateView();
                         }
                     }
                 });
 
                 triggerDataReady(() => {
-                    renderView();
+                    // 최초 레이아웃 렌더링 (재생 속도 조절 UI 포함)
+                    let baseHtml = `
+                    <div style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #333;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <div style="font-size: 13px; color: #aaa; font-weight: 600;">조회 기준일</div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <select id="play-speed-select" style="background: #1e1e1e; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 3px; font-size: 12px; outline: none; font-family: inherit;">
+                                    <option value="1000">1.0초</option>
+                                    <option value="500" selected>0.5초</option>
+                                    <option value="200">0.2초</option>
+                                    <option value="100">0.1초</option>
+                                    <option value="50">0.05초</option>
+                                </select>
+                                <button id="btn-latest-day" style="background: #e74c3c; color: #fff; border: none; padding: 0 10px; height: 26px; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer;">최신</button>
+                            </div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 4px;">
+                            <button id="btn-rewind" style="background: #2a2a2a; color: #fff; border: 1px solid #444; width: 34px; height: 32px; border-radius: 4px; cursor: pointer; display:flex; align-items:center; justify-content:center; font-size: 12px;">⏪</button>
+                            <button id="btn-prev-day" style="background: #2a2a2a; color: #fff; border: 1px solid #444; width: 34px; height: 32px; border-radius: 4px; cursor: pointer; display:flex; align-items:center; justify-content:center;">◀</button>
+                            <input type="date" id="history-date-picker" min="${globalAvailableDates[0]}" max="${globalAvailableDates[globalAvailableDates.length - 1]}" style="flex: 1; min-width: 0; background: #1e1e1e; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 0 5px; height: 32px; font-size: 14px; text-align: center; color-scheme: dark; font-family: inherit;">
+                            <button id="btn-next-day" style="background: #2a2a2a; color: #fff; border: 1px solid #444; width: 34px; height: 32px; border-radius: 4px; cursor: pointer; display:flex; align-items:center; justify-content:center;">▶</button>
+                            <button id="btn-play" style="background: #2a2a2a; color: #fff; border: 1px solid #444; width: 34px; height: 32px; border-radius: 4px; cursor: pointer; display:flex; align-items:center; justify-content:center; font-size: 12px;">⏩</button>
+                        </div>
+                    </div>
+                    <div id="assets-container"></div>
+                    `;
+                    
+                    document.getElementById('content').innerHTML = baseHtml;
+                    document.getElementById('content').classList.remove('loading');
+
+                    // 버튼 이벤트 등록
+                    document.getElementById('btn-prev-day').addEventListener('click', () => {
+                        stopAutoPlay();
+                        if (currentDateIndex > 0) { currentDateIndex--; updateView(); }
+                    });
+                    document.getElementById('btn-next-day').addEventListener('click', () => {
+                        stopAutoPlay();
+                        if (currentDateIndex < globalAvailableDates.length - 1) { currentDateIndex++; updateView(); }
+                    });
+                    document.getElementById('btn-latest-day').addEventListener('click', () => {
+                        stopAutoPlay();
+                        currentDateIndex = globalAvailableDates.length - 1; updateView();
+                    });
+                    
+                    document.getElementById('history-date-picker').addEventListener('change', (e) => {
+                        stopAutoPlay();
+                        let selected = e.target.value;
+                        let closestIdx = 0;
+                        for(let i=0; i<globalAvailableDates.length; i++) {
+                            if(globalAvailableDates[i] <= selected) { closestIdx = i; } else { break; }
+                        }
+                        currentDateIndex = closestIdx; updateView();
+                    });
+
+                    // 자동 재생 버튼 이벤트
+                    document.getElementById('btn-play').addEventListener('click', () => {
+                        if (isPlayingForward) stopAutoPlay();
+                        else startAutoPlay('forward');
+                    });
+                    document.getElementById('btn-rewind').addEventListener('click', () => {
+                        if (isPlayingBackward) stopAutoPlay();
+                        else startAutoPlay('backward');
+                    });
+                    
+                    // 재생 속도 변경 이벤트
+                    document.getElementById('play-speed-select').addEventListener('change', (e) => {
+                        currentPlaySpeed = parseInt(e.target.value);
+                        if (isPlayingForward) startAutoPlay('forward'); // 속도 즉각 반영
+                        if (isPlayingBackward) startAutoPlay('backward');
+                    });
+
+                    // 최초 뷰 강제 렌더링
+                    updateView();
+
                     document.getElementById('descBtn').style.display = 'block';
                     const downloadBtn = document.getElementById('downloadBtn');
                     downloadBtn.style.display = 'block';
