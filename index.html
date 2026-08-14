@@ -1431,6 +1431,25 @@
                     });
                 }
 
+                // --- 키보드 방향키 조작 이벤트 추가 ---
+                document.addEventListener('keydown', (e) => {
+                    // 데이터 조회 화면이 렌더링되지 않았거나, 날짜 입력칸(달력)을 조작 중일 때는 무시
+                    if (!document.getElementById('btn-prev-day')) return;
+                    if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+
+                    if (e.key === 'ArrowLeft') {
+                        if (currentDateIndex > 0) {
+                            currentDateIndex--;
+                            renderView();
+                        }
+                    } else if (e.key === 'ArrowRight') {
+                        if (currentDateIndex < globalAvailableDates.length - 1) {
+                            currentDateIndex++;
+                            renderView();
+                        }
+                    }
+                });
+
                 triggerDataReady(() => {
                     renderView();
                     document.getElementById('descBtn').style.display = 'block';
