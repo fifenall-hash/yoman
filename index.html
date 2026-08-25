@@ -448,7 +448,8 @@
                     }
                 } catch (error) { 
                     lastError = error.message;
-                    console.warn(`프록시 실패 (${ticker}):`, proxy, error.message); 
+                    // 불필요한 빨간 에러창 대신 조용히 다음으로 넘기기 원하면 아래 콘솔 로그를 주석 처리할 수 있습니다.
+                    // console.warn(`프록시 실패 (${ticker}):`, proxy, error.message); 
                 }
             }
             
