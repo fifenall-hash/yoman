@@ -394,19 +394,29 @@
             const targetUrl1 = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?period1=0&period2=${currentUnixTime}&interval=1d&events=history`;
             const targetUrl2 = `https://query2.finance.yahoo.com/v8/finance/chart/${ticker}?period1=0&period2=${currentUnixTime}&interval=1d&events=history`;
 
+            // 생존율이 높은 프록시 리스트 대폭 추가 및 다변화
             const proxyList = [
                 `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl1)}`,
                 `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl1)}`,
                 `https://corsproxy.io/?${encodeURIComponent(targetUrl1)}`,
+                `https://corsproxy.io/?url=${encodeURIComponent(targetUrl1)}`, // 파라미터 방식 추가
+                `https://thingproxy.freeboard.io/fetch/${targetUrl1}`,
                 `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl2)}`,
-                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl2)}`,
-                `https://thingproxy.freeboard.io/fetch/${targetUrl1}`
+                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl2)}`
             ];
 
             let history = [];
+            let lastError = null;
+
             for (let proxy of proxyList) {
                 try {
-                    const response = await fetch(proxy, { method: 'GET', headers: { 'Accept': 'application/json' }});
+                    // console.log(`접속 시도 중: ${proxy}`); // 진단용 로그 (필요시 주석 해제)
+                    const response = await fetch(proxy, { 
+                        method: 'GET', 
+                        headers: { 'Accept': 'application/json' },
+                        signal: AbortSignal.timeout(8000) // 8초 이상 걸리면 다음 프록시로 넘김 (무한 대기 방지)
+                    });
+                    
                     if (response.ok) {
                         const textData = await response.text();
                         let data;
@@ -431,11 +441,21 @@
                                     history.push({ date: `${yyyy}-${mm}-${dd}`, close: p });
                                 }
                             }
-                            if (history.length > 0) break; 
+                            if (history.length > 0) break; // 성공하면 즉시 반복문 탈출
                         }
+                    } else {
+                        lastError = `HTTP 에러: ${response.status}`;
                     }
-                } catch (error) { console.warn(`Proxy fail:`, proxy, error); }
+                } catch (error) { 
+                    lastError = error.message;
+                    console.warn(`프록시 실패 (${ticker}):`, proxy, error.message); 
+                }
             }
+            
+            if (history.length === 0) {
+                console.error(`[오류] ${ticker}의 모든 프록시 접속이 실패했습니다. 마지막 에러: ${lastError}`);
+            }
+            
             return history;
         }
 
