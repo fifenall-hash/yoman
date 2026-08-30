@@ -388,20 +388,17 @@
             return percent;
         }
 
-        // Yahoo Finance 데이터 패치 (차단 방지 우회 로직 강화)
+        // Yahoo Finance 데이터 패치 (다이렉트 접속 + 프록시 우회)
         async function fetchHistory(ticker) {
             const currentUnixTime = Math.floor(Date.now() / 1000); 
             const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?period1=0&period2=${currentUnixTime}&interval=1d&events=history`;
 
-            // 생존율이 가장 높은 프록시 전략으로 재구성
+            // 0순위에 '다이렉트 접속' 추가 (Allow CORS 확장 프로그램이 켜져있으면 0.1초만에 바로 성공함)
             const proxyList = [
-                // 1순위: allorigins의 get 방식 (데이터를 JSON 안에 한 번 더 감싸서 CORS 검사를 완벽 우회함)
+                { url: targetUrl, isWrapped: false }, // 0순위: 확장프로그램용 다이렉트
                 { url: `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`, isWrapped: true },
-                // 2순위: codetabs
                 { url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`, isWrapped: false },
-                // 3순위: allorigins raw
                 { url: `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`, isWrapped: false },
-                // 4순위: thingproxy
                 { url: `https://thingproxy.freeboard.io/fetch/${targetUrl}`, isWrapped: false }
             ];
 
@@ -409,7 +406,7 @@
             for (let proxy of proxyList) {
                 try {
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8초 타임아웃 (무한 로딩 방지)
+                    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8초 타임아웃
 
                     const response = await fetch(proxy.url, { 
                         method: 'GET', 
@@ -420,7 +417,6 @@
                     if (response.ok) {
                         let data;
                         if (proxy.isWrapped) {
-                            // JSON으로 감싸진 데이터를 꺼내서 다시 파싱
                             const wrapperJson = await response.json();
                             data = JSON.parse(wrapperJson.contents);
                         } else {
@@ -446,7 +442,7 @@
                                     history.push({ date: `${yyyy}-${mm}-${dd}`, close: p });
                                 }
                             }
-                            if (history.length > 0) break; // 성공하면 즉시 반복문 탈출
+                            if (history.length > 0) break; 
                         }
                     }
                 } catch (error) { 
@@ -455,7 +451,7 @@
             }
             
             if (history.length === 0) {
-                console.error(`[오류] ${ticker} 데이터 로드 실패. 모든 프록시가 차단되었거나 응답이 없습니다.`);
+                console.error(`[오류] ${ticker} 데이터 로드 실패. 모든 접속 경로가 막혔습니다.`);
             }
             
             return history;
