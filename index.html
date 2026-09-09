@@ -54,6 +54,7 @@
             align-items: center;
             font-size: 15px;
         }
+        /* 분석 버튼이 들어갈 수 있도록 width 수정 */
         .col-title {
             flex: 0 0 95px; 
             font-weight: 600;
@@ -188,7 +189,7 @@
         .modal-content-box strong { color: #fff; }
         .modal-content-box hr { border: 0; border-top: 1px solid #333; margin: 15px 0; }
         
-        /* 시각화 게이지 바 CSS */
+        /* 시각화 게이지 바 CSS (메인 화면 적용) */
         .v-bar-container { margin-top: 12px; margin-bottom: 4px; }
         .v-bar-wrapper { position: relative; width: 100%; height: 18px; border-radius: 9px; background: #333; overflow: hidden; display: flex; }
         .v-zone-e { background: rgb(255, 0, 0); width: 20%; transition: opacity 0.3s; }
@@ -221,6 +222,7 @@
             <div id="game-container">
                 <canvas id="gameCanvas" width="300" height="150"></canvas>
                 
+                <!-- 데이터 준비 완료 선택창 -->
                 <div id="dataReadyModal">
                     <p style="font-size: 13px; color: white; margin: 0 0 12px 0; text-align: center; line-height: 1.4;">
                         데이터 준비가 완료되었습니다.<br>게임을 계속 하시겠습니까?
@@ -239,7 +241,7 @@
 
     <!-- 전략 분석 모달 (차트 영역) -->
     <div id="analysisModal" class="full-modal">
-        <div class="modal-content-box" style="max-width: 700px;">
+        <div class="modal-content-box" style="max-width: 650px;">
             <h2 id="analysisTitle" style="color: #3498db; margin-bottom: 5px;">전략별 수익률 비교</h2>
             <div style="position: relative; height: 320px; width: 100%; margin-top: 15px;">
                 <canvas id="analysisChart"></canvas>
@@ -255,33 +257,85 @@
         <div class="modal-content-box">
             <h2>📖 '지금 사요?' 상세 설명</h2>
             <p><strong>"지금 사도 될까요? 아니면 팔아야 할까요?"</strong><br>주식을 하면서 가장 많이 하는 고민입니다. 이 앱은 누군가의 막연한 '감'이나 '예측'에 의존하지 않습니다. 과거의 모든 주가 및 환율 데이터를 끌어와 통계적으로 수만 번 시뮬레이션한 뒤, 가장 안전하고 확률 높은 타점을 계산합니다.</p>
+            <p>이 앱이 처음이신 분들을 위해 어떤 방식으로 작동하는지 차근차근 설명해 드릴게요.</p>
             <hr>
+            
             <p><strong>1. 매수와 매도 타이밍은 어떻게 정하나요? (안전 반경 & 5구역 분할)</strong></p>
-            <p>이 앱은 10년 이상의 과거 데이터를 바탕으로 이격도를 구하고 과적합을 방지하는 '안전 반경 최대화 알고리즘'을 돌립니다.</p>
+            <p>"대충 많이 올랐을 때 팔고, 많이 내렸을 때 사면 되나요?" 아닙니다.<br>사람의 '감'으로 판단하는 "많이 내렸다" 혹은 "많이 올랐다"는 매우 주관적입니다. 끝없이 추락하는 폭락장이나 비정상적으로 치솟는 거품장 앞에서는 얄팍한 경험이나 감이 무용지물이 되기 일쑤입니다. 특히 3배 레버리지 상품은 어설픈 감으로 진입했다가 순식간에 원금이 녹아내릴 수 있습니다.</p>
+            <p><strong>그렇기 때문에 흔들리지 않는 명확한 수학적 기준이 필요합니다.</strong><br>이 앱은 10년 이상의 과거 데이터를 바탕으로 이격도를 구하고 과적합을 방지하는 '안전 반경 최대화 알고리즘'을 돌립니다.</p>
+            
             <p><strong>💡 안전 반경 최대화 알고리즘이란? (과적합 방지)</strong><br>
-            과거에 샀을 때 손해를 봤던 '위험한 타점(지뢰밭)'들로부터 가장 멀리 떨어져 있는(즉, 여유 공간인 '안전 반경'이 가장 넓은) 튼튼한 매수/매도 기준선을 찾아냅니다.</p>
+            과적합(Overfitting)이란 과거의 데이터에만 공식을 너무 억지로 완벽하게 끼워 맞춰서, 막상 알 수 없는 미래의 실전 투자에서는 전혀 들어맞지 않는 현상을 말합니다.<br>
+            이 앱은 단순히 과거 수익률이 가장 높았던 우연한 특정 타점을 맹목적으로 쫓지 않습니다. 대신, 과거에 샀을 때 손해를 봤던 '위험한 타점(지뢰밭)'들로부터 가장 멀리 떨어져 있는(즉, 여유 공간인 '안전 반경'이 가장 넓은) 튼튼한 매수/매도 기준선을 찾아냅니다. 이렇게 안전거리를 최대로 확보함으로써, 미래에 예상치 못한 변동성이 찾아와도 쉽게 무너지지 않도록 과적합을 철저하게 방지하는 것입니다.</p>
+
             <ol>
                 <li>과거 데이터를 수만 번 복기하여, 샀을 때 물리고 팔았을 때 손해를 보는 '나쁜 타점'들을 전부 찾아냅니다.</li>
                 <li>그리고 이 나쁜 타점들을 완벽하게 피해 가는 가장 넓은 안전지대(가장 확률이 높은 매수선과 매도선)를 앱이 스스로 역산해 냅니다.</li>
                 <li>이렇게 찾은 안전한 매도선과 매수선을 기준으로, 그 사이를 정확히 3등분하여 총 5개의 구역(심한 과열 ~ 과열 ~ 적정 ~ 저평가 ~ 심한 저평가)으로 나눕니다.</li>
             </ol>
+
             <p><strong>※ SOXL(반도체)의 예외적 적용</strong><br>
-            반도체(SOXL)는 사이클이 극단적이므로, 과거 역사상 "최종적으로 내 계좌의 돈을 가장 많이 불려주었던 극강의 효율 지점"을 딥 시뮬레이션으로 찾아내는 맞춤형 방식을 적용했습니다.</p>
+            SPXL, TQQQ, TECL은 위아래가 대칭적인 수학적 확률분포를 따르는 것이 가장 안전합니다. 하지만 <strong>반도체(SOXL)는 사이클(호황과 불황)이 너무나도 극단적</strong>입니다.<br>
+            그래서 SOXL만큼은 대칭성을 포기하고, 과거 역사상 "최종적으로 내 계좌의 돈을 가장 많이 불려주었던 극강의 효율 지점"을 딥 시뮬레이션으로 찾아내는 예외적인 맞춤형 방식을 적용했습니다. 변동성을 수익으로 바꾸기 위한 특단 조치입니다.</p>
+            
             <hr>
+
             <p><strong>2. 계산의 핵심 기준인 '이격도'가 도대체 뭔가요?</strong></p>
-            <p>이 앱은 타이밍을 잡기 위해 '1500일 이격도'를 핵심 기준으로 사용합니다.</p>
+            <p>이 앱은 타이밍을 잡기 위해 '1500일 이격도'를 핵심 기준으로 사용합니다.<br>
+            주식의 본질인 쌀 때 사서 비쌀 때 파는 것을 돕기 위해 오로지 주가 자체를 가지고 과거의 1500일간의 평균으로부터 어느 정도에 위치에 있는 지를 기반으로 '싸다'와 '비싸다'를 정의합니다.</p>
             <ul>
                 <li>주가와 이동평균선은 <strong>고무줄</strong>과 같습니다.</li>
-                <li>위로 너무 팽팽하게 당겨지면 반드시 다시 아래로 튕겨져 내려옵니다. 이때가 <strong>매도(Sell)</strong> 타이밍입니다.</li>
-                <li>아래로 너무 심하게 쳐지면 다시 위로 강하게 튀어 오릅니다. 이때가 <strong>매수(Buy)</strong> 타이밍입니다.</li>
+                <li>위로 너무 팽팽하게 당겨지면(이격도가 높으면 = 과열) 반드시 다시 아래로 튕겨져 내려옵니다. 이때가 <strong>매도(Sell)</strong> 타이밍입니다.</li>
+                <li>아래로 너무 심하게 쳐지면(이격도가 낮으면 = 저평가) 다시 위로 강하게 튀어 오릅니다. 이때가 <strong>매수(Buy)</strong> 타이밍입니다.</li>
             </ul>
+
+            <p><strong>💡 왜 하필 1500일인가요?</strong><br>
+            장기적인 관점을 보기 위해 기준일수를 3000일처럼 너무 길게 잡으면, 과거 데이터 중 실제 시뮬레이션과 검증에 사용할 수 있는 데이터 기간이 턱없이 줄어들게 됩니다. 따라서 시장의 장기 사이클(약 6년)을 충분히 반영하면서도, 알고리즘이 검증할 수 있는 과거 데이터를 최대한 확보하기 위해 <strong>1500일을 최적의 타협점</strong>으로 채택했습니다.</p>
+            
             <hr>
-            <p><strong>3. 환율(달러) 기준은 어떻게 계산되나요? (R² 회귀 분석)</strong></p>
-            <p>환율은 당신이 접속한 바로 오늘 과거의 환율 데이터 중 현재 시장 흐름과 가장 '찰떡같이 맞아떨어지는' 최적의 기준일수(예: 약 1200일 등)를 스스로 탐색합니다(R² 결괏값 회귀 분석).</p>
+
+            <p><strong>3. 구체적인 계산 예시 (TQQQ의 경우)</strong></p>
+            <p>이해를 돕기 위해 가상의 데이터로 TQQQ의 평가 구역이 어떻게 나뉘는지 계산해 보겠습니다.</p>
+            <ol>
+                <li><strong>이격도 계산</strong>: TQQQ의 현재 주가가 $36이고, 과거 1500일간의 평균 주가가 $20라고 가정해 보겠습니다.
+                    <br>▶ 이격도 = 36 / 20 = <strong>1.80x</strong></li>
+                <li><strong>안전 반경 확보</strong>: 앱이 과거 데이터를 시뮬레이션하여 가장 넓은 안전지대를 갖는 기준선을 찾습니다.
+                    <br>▶ 도출된 최적 매수선: <strong>1.50x</strong>
+                    <br>▶ 도출된 최적 매도선: <strong>3.00x</strong></li>
+                <li><strong>5구역 분할</strong>: 매도선과 매수선 사이의 간격(1.50)을 정확히 3등분(0.50씩)하여 구역을 나눕니다.
+                    <br>▶ <strong>심한 과열 (매도 구간)</strong>: 3.00x 이상
+                    <br>▶ <strong>과열 (준매도 구간)</strong>: 2.50x ~ 3.00x
+                    <br>▶ <strong>적정 (중립 구간)</strong>: 2.00x ~ 2.50x
+                    <br>▶ <strong>저평가 (준매수 구간)</strong>: 1.50x ~ 2.00x
+                    <br>▶ <strong>심한 저평가 (매수 구간)</strong>: 1.50x 미만</li>
+                <li><strong>최종 평가</strong>: 현재 이격도가 <strong>1.80x</strong>이므로, 1.50x ~ 2.00x 사이에 속하여 TQQQ는 <strong>'저평가'</strong> 구간에 위치해 있다고 판단하며 주황색으로 표시합니다.</li>
+            </ol>
+
             <hr>
-            <p><strong>4. 그냥 쭉 들고 있는 것(Buy & Hold)보다 좋은가요?</strong></p>
+
+            <p><strong>4. 환율(달러) 기준은 어떻게 계산되나요? (R² 회귀 분석)</strong></p>
+            <p>환율은 주식처럼 고정된 1500일 평균선을 쓰지 않습니다.<br>
+            앱은 당신이 접속한 바로 오늘! 과거의 환율 데이터 중 현재 시장 흐름과 가장 '찰떡같이 맞아떨어지는' 최적의 기준일수(예: 약 1200일 등)를 스스로 탐색합니다(R² 결괏값 회귀 분석). 그 후 주식과 동일한 안전지대 탐색 알고리즘을 거쳐 '지금 달러로 환전해도 물리지 않을지'를 5단계로 알려줍니다.</p>
+
+            <hr>
+
+            <p><strong>5. 여기서 다루는 4가지 주식(ETF)은 무엇인가요?</strong></p>
+            <p>이 앱은 철저하게 '미국 우량주 3배 레버리지 ETF'에 특화되어 있습니다. 레버리지란 지수가 1% 오를 때 3% 오르고, 1% 내릴 때 3% 내리는 고위험·고수익 상품입니다.</p>
+            <ul>
+                <li><strong>SPXL</strong>: 미국을 대표하는 500대 기업(S&P 500)에 3배 투자 (가장 안정적)</li>
+                <li><strong>TQQQ</strong>: 미국 나스닥 100대 기업(애플, 마이크로소프트 등)에 3배 투자</li>
+                <li><strong>TECL</strong>: 미국 최고 기술 기업들에만 집중적으로 3배 투자</li>
+                <li><strong>SOXL</strong>: 엔비디아 등 미국 핵심 반도체 기업들에 3배 투자 (변동성 최상)</li>
+            </ul>
+
+            <hr>
+
+            <p><strong>6. 그냥 쭉 들고 있는 것(Buy & Hold)보다 좋은가요?</strong></p>
             <p>3배 레버리지는 주가가 횡보하거나 하락할 때 계좌가 녹아내리는 '음의 복리' 현상이 발생합니다. 단순히 사서 기도하며 버티는 '무지성 장기투자'는 고점에서 샀을 경우 원금을 회복하는 데 수년이 걸릴 수도 있습니다.</p>
-            <p>이 앱의 전략은 <strong>최악의 고점에 들어가는 것을 원천 차단</strong>하고, 공포심이 극에 달한 <strong>최고의 저점에서 줍게 만들어줍니다.</strong> 실제 백테스트 결과, 이 앱의 지침을 따랐을 때가 단순히 주식을 들고만 있었을 때보다 마음고생(최대 낙폭)은 절반 이하로 줄어들고, 복리로 쌓이는 최종 자산은 압도적으로 높아진다는 것을 확인했습니다.</p>
+            <p>이 앱의 전략은 <strong>최악의 고점에 들어가는 것을 원천 차단</strong>하고, 공포심이 극에 달한 <strong>최고의 저점에서 줍게 만들어줍니다.</strong> 실제 백테스트 결과, 이 앱의 지침을 따랐을 때가 단순히 주식을 들고만 있었을 때보다 <strong>마음고생(최대 낙폭)은 절반 이하로 줄어들고, 복리로 쌓이는 최종 자산은 압도적으로 높아진다는 것을 확인했습니다.</strong></p>
+            <p>이제 앱이 보여주는 게이지 바의 위치와 지침을 나침반 삼아, 편안하고 안전하게 투자해 보세요!</p>
+
+            <p style="font-size:12px; color:#aaa;">*(주의: 본 알고리즘은 과거의 통계적 최적값을 제공하는 강력한 도구이지만, 그 결과로 이어지기까지 10여 년 정도의 긴 시간이 필요할 수 있습니다.)*</p>
             <button onclick="document.getElementById('descModal').style.display='none'" style="width:100%; margin-top:15px; background:#e74c3c; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">닫기</button>
         </div>
     </div>
@@ -292,18 +346,22 @@
             navigator.serviceWorker.register('sw.js').catch(err => console.error("SW 등록 실패:", err));
         }
 
+        // 종목 배열 (SPXL 추가)
         const STOCKS = ['SPXL', 'TQQQ', 'TECL', 'SOXL'];
 
+        // 전역 상태 저장용 변수
         let globalExState = null;
         let globalStockResults = [];
         let globalAvailableDates = [];
         let currentDateIndex = -1;
 
+        // 자동 재생(타임머신) 상태 변수
         let playIntervalId = null;
         let isPlayingForward = false;
         let isPlayingBackward = false;
-        let currentPlaySpeed = 500; 
+        let currentPlaySpeed = 500; // 기본 0.5초
         
+        // 차트 객체 변수
         let analysisChartInstance = null;
 
         function formatPrice(price, isKrw = false) {
@@ -315,6 +373,7 @@
             }
         }
 
+        // 구역 분할 색상 지정 (a~e)
         function getZoneColor(zone) {
             if (zone === 'a') return 'rgb(0, 0, 255)';      
             if (zone === 'b') return 'rgb(0, 128, 255)';    
@@ -324,6 +383,7 @@
             return '#aaaaaa';
         }
 
+        // 게이지 바 퍼센트 계산
         function getVisualPercent(disp, t) {
             let W = t.sell - t.buy;
             let step = W / 3;
@@ -350,12 +410,14 @@
             return percent;
         }
 
+        // Yahoo Finance 데이터 패치 (다이렉트 접속 + 프록시 우회)
         async function fetchHistory(ticker) {
             const currentUnixTime = Math.floor(Date.now() / 1000); 
             const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?period1=0&period2=${currentUnixTime}&interval=1d&events=history`;
 
+            // 0순위에 '다이렉트 접속' 추가 (Allow CORS 확장 프로그램이 켜져있으면 0.1초만에 바로 성공함)
             const proxyList = [
-                { url: targetUrl, isWrapped: false }, 
+                { url: targetUrl, isWrapped: false }, // 0순위: 확장프로그램용 다이렉트
                 { url: `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`, isWrapped: true },
                 { url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`, isWrapped: false },
                 { url: `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`, isWrapped: false },
@@ -366,9 +428,12 @@
             for (let proxy of proxyList) {
                 try {
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 8000);
+                    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8초 타임아웃
 
-                    const response = await fetch(proxy.url, { method: 'GET', signal: controller.signal });
+                    const response = await fetch(proxy.url, { 
+                        method: 'GET', 
+                        signal: controller.signal 
+                    });
                     clearTimeout(timeoutId);
 
                     if (response.ok) {
@@ -406,7 +471,11 @@
                     console.warn(`Proxy fail (${ticker}):`, proxy.url, error.message); 
                 }
             }
-            if (history.length === 0) console.error(`[오류] ${ticker} 데이터 로드 실패. 모든 접속 경로가 막혔습니다.`);
+            
+            if (history.length === 0) {
+                console.error(`[오류] ${ticker} 데이터 로드 실패. 모든 접속 경로가 막혔습니다.`);
+            }
+            
             return history;
         }
 
@@ -531,6 +600,7 @@
             return { badPoints, bestBuy, bestSell };
         }
 
+        // 1. 분위수 대칭 탐색 기반 매수/매도/준매수/준매도 도출
         function findThresholdsByQuantileSymmetry(prices, period) {
             let { disparities, validDisparities, minD, maxD } = calculateDisparities(prices, period);
             if (validDisparities.length < 10) return { t: { buy: 0.9, semiBuy: 0.95, semiSell: 1.05, sell: 1.1 }, disparities };
@@ -617,6 +687,7 @@
             };
         }
 
+        // 2. 최고 효율 지점 탐색 기반 도출 (SOXL 전용)
         function findThresholdsByTradeOptimization(prices, period) {
             let { disparities, validDisparities, minD, maxD } = calculateDisparities(prices, period);
             if (validDisparities.length < 10) return { t: { buy: 0.9, semiBuy: 0.95, semiSell: 1.05, sell: 1.1 }, disparities };
@@ -642,6 +713,7 @@
             return { t: { buy: bestBuy, semiBuy: semiBuyPt, semiSell: semiSellPt, sell: bestSell }, disparities };
         }
 
+        // 구역 매핑 함수 (a~e)
         function determineZone(disp, t) {
             if (disp === null || !Number.isFinite(disp)) return null;
             if (disp >= t.sell) return 'a';
@@ -649,49 +721,6 @@
             if (disp > t.semiBuy) return 'c';
             if (disp >= t.buy) return 'd';
             return 'e';
-        }
-
-        // 최적화 연산 전용 고속 함수 (배열 할당 없이 결과만 리턴)
-        function getFinalValOnly(assetLog, t, extreme_sell_100, rA, rB, rC, rD) {
-            let shares = 10000 / assetLog[0].close;
-            let cash = 0;
-            let swA = false, swB = false, swC = false, swD = false;
-
-            for (let i = 1; i < assetLog.length; i++) {
-                let price = assetLog[i].close;
-                let disp = assetLog[i].disp;
-
-                if (swA && disp < t.sell) swA = false;
-                if (swB && disp < t.semiSell) swB = false;
-                if (swC && disp >= t.semiSell) swC = false;
-                if (swD && disp > t.semiBuy) swD = false;
-
-                if (!swA && disp >= extreme_sell_100) {
-                    swA = true;
-                    let toSell = shares * rA;
-                    cash += toSell * price;
-                    shares -= toSell;
-                }
-                if (!swB && disp >= t.sell) {
-                    swB = true;
-                    let toSell = shares * rB;
-                    cash += toSell * price;
-                    shares -= toSell;
-                }
-                if (!swC && disp <= t.semiBuy) {
-                    swC = true;
-                    let toSpend = cash * rC;
-                    shares += toSpend / price;
-                    cash -= toSpend;
-                }
-                if (!swD && disp < t.buy) {
-                    swD = true;
-                    let toSpend = cash * rD;
-                    shares += toSpend / price;
-                    cash -= toSpend;
-                }
-            }
-            return cash + shares * assetLog[assetLog.length - 1].close;
         }
 
         // 전략 분석 실행 함수
@@ -705,39 +734,20 @@
             const t = asset.t;
             const step = (t.sell - t.buy) / 3;
             if (step <= 0) return;
-            const extreme_sell_100 = t.sell + step; 
-
-            // 최적화 스위치 비율 찾기 (14,641회 백그라운드 연산)
-            let bestFinal = -1;
-            let bestRatios = { a: 0, b: 0, c: 0, d: 0 };
-            
-            for (let a = 0; a <= 10; a++) {
-                for (let b = 0; b <= 10; b++) {
-                    for (let c = 0; c <= 10; c++) {
-                        for (let d = 0; d <= 10; d++) {
-                            let fv = getFinalValOnly(asset.historyLog, t, extreme_sell_100, a/10, b/10, c/10, d/10);
-                            if (fv > bestFinal) {
-                                bestFinal = fv;
-                                bestRatios.a = a/10;
-                                bestRatios.b = b/10;
-                                bestRatios.c = c/10;
-                                bestRatios.d = d/10;
-                            }
-                        }
-                    }
-                }
-            }
+            const extreme_sell_100 = t.sell + step; // 게이지바 100% (심한 과열 끝)
 
             const N = asset.historyLog.length;
             const dates = [];
-            const bnhVals = [], origVals = [], splitVals = [], optVals = [];
+            const bnhVals = [];
+            const origVals = [];
+            const splitVals = [];
 
-            const initCap = 10000;
-            
             let bnhShares = 0;
             let origShares = 0, origCash = 0, origIsHolding = true;
-            let splitShares = 0, splitCash = 0, swA = false, swB = false, swC = false, swD = false;
-            let optShares = 0, optCash = 0, optSwA = false, optSwB = false, optSwC = false, optSwD = false;
+            let splitShares = 0, splitCash = 0;
+            let swA = false, swB = false, swC = false, swD = false;
+
+            const initCap = 10000; // 가상의 초기 자본
 
             for (let i = 0; i < N; i++) {
                 let rec = asset.historyLog[i];
@@ -747,12 +757,12 @@
                 dates.push(rec.date);
 
                 if (i === 0) {
+                    // 최초 1500일 시점에 100% 주식 매수 후 시작
                     bnhShares = initCap / price;
                     origShares = initCap / price;
                     splitShares = initCap / price;
-                    optShares = initCap / price;
                 } else {
-                    // 1. 기존 전략
+                    // 1. 기존 전략 (Original Strategy)
                     if (origIsHolding && disp >= t.sell) {
                         origCash = origShares * price;
                         origShares = 0;
@@ -763,58 +773,67 @@
                         origIsHolding = true;
                     }
 
-                    // 2. 분할 전략 (고정 비율: a=0.5, b=0.33, c=0.5, d=1.0)
-                    if (swA && disp < t.sell) swA = false;             
-                    if (swB && disp < t.semiSell) swB = false;         
-                    if (swC && disp >= t.semiSell) swC = false;        
-                    if (swD && disp > t.semiBuy) swD = false;          
+                    // 2. 분할 전략 (Split Strategy)
+                    // 스위치 끄기 (Turn OFF) 조건들을 먼저 확인
+                    if (swA && disp < t.sell) swA = false;             // 과열 이하(Zone b,c,d,e)
+                    if (swB && disp < t.semiSell) swB = false;         // 적정 이하(Zone c,d,e)
+                    if (swC && disp >= t.semiSell) swC = false;        // 과열 이상(Zone b,a)
+                    if (swD && disp > t.semiBuy) swD = false;          // 적정 이상(Zone c,b,a)
 
-                    if (!swA && disp >= extreme_sell_100) { swA = true; let toSell = splitShares * 0.5; splitCash += toSell * price; splitShares -= toSell; }
-                    if (!swB && disp >= t.sell) { swB = true; let toSell = splitShares * (1 / 3); splitCash += toSell * price; splitShares -= toSell; }
-                    if (!swC && disp <= t.semiBuy) { swC = true; let toSpend = splitCash * 0.5; splitShares += toSpend / price; splitCash -= toSpend; }
-                    if (!swD && disp < t.buy) { swD = true; let toSpend = splitCash * 1.0; splitShares += toSpend / price; splitCash -= toSpend; }
-
-                    // 3. 최적화 분할 전략
-                    if (optSwA && disp < t.sell) optSwA = false;
-                    if (optSwB && disp < t.semiSell) optSwB = false;
-                    if (optSwC && disp >= t.semiSell) optSwC = false;
-                    if (optSwD && disp > t.semiBuy) optSwD = false;
-
-                    if (!optSwA && disp >= extreme_sell_100) { optSwA = true; let toSell = optShares * bestRatios.a; optCash += toSell * price; optShares -= toSell; }
-                    if (!optSwB && disp >= t.sell) { optSwB = true; let toSell = optShares * bestRatios.b; optCash += toSell * price; optShares -= toSell; }
-                    if (!optSwC && disp <= t.semiBuy) { optSwC = true; let toSpend = optCash * bestRatios.c; optShares += toSpend / price; optCash -= toSpend; }
-                    if (!optSwD && disp < t.buy) { optSwD = true; let toSpend = optCash * bestRatios.d; optShares += toSpend / price; optCash -= toSpend; }
+                    // 스위치 켜기 (Turn ON) 조건 확인 및 작동
+                    if (!swA && disp >= extreme_sell_100) {            // 심한 과열 끝 (100% 초과)
+                        swA = true;
+                        let toSell = splitShares * 0.5;                // 주식의 1/2 매도
+                        splitCash += toSell * price;
+                        splitShares -= toSell;
+                    }
+                    if (!swB && disp >= t.sell) {                      // 심한 과열
+                        swB = true;
+                        let toSell = splitShares * (1 / 3);            // 주식의 1/3 매도
+                        splitCash += toSell * price;
+                        splitShares -= toSell;
+                    }
+                    if (!swC && disp <= t.semiBuy) {                   // 저평가
+                        swC = true;
+                        let toSpend = splitCash * 0.5;                 // 현금의 1/2 매수
+                        splitShares += toSpend / price;
+                        splitCash -= toSpend;
+                    }
+                    if (!swD && disp < t.buy) {                        // 심한 저평가
+                        swD = true;
+                        let toSpend = splitCash * 1.0;                 // 현금 모두 매수
+                        splitShares += toSpend / price;
+                        splitCash -= toSpend;
+                    }
                 }
 
+                // 매일의 평가 자산 기록
                 bnhVals.push(bnhShares * price);
                 origVals.push(origCash + origShares * price);
                 splitVals.push(splitCash + splitShares * price);
-                optVals.push(optCash + optShares * price);
             }
 
+            // CAGR(연평균 복리 수익률) 계산
             const totalYears = Math.max(0.001, (new Date(dates[N - 1]) - new Date(dates[0])) / (1000 * 60 * 60 * 24 * 365.2425));
             const calcCAGR = (finalVal) => ((Math.pow(finalVal / initCap, 1 / totalYears) - 1) * 100).toFixed(2);
 
             const cagrBnH = calcCAGR(bnhVals[N - 1]);
             const cagrOrig = calcCAGR(origVals[N - 1]);
             const cagrSplit = calcCAGR(splitVals[N - 1]);
-            const cagrOpt = calcCAGR(optVals[N - 1]);
 
+            // 모달 정보 업데이트
             document.getElementById('analysisTitle').innerText = `${ticker} 전략별 수익률 분석`;
             document.getElementById('analysisResult').innerHTML = `
-                <div style="display:flex; justify-content:space-between; padding: 12px; background: #2a2a2a; border-radius: 8px; flex-wrap: wrap; gap: 8px;">
-                    <div style="flex: 1; text-align: center;"><strong style="color:#aaaaaa; font-size:12px;">Buy & Hold</strong><br><span style="color:#fff; font-size: 15px;">${cagrBnH}%</span></div>
-                    <div style="flex: 1; text-align: center;"><strong style="color:#3498db; font-size:12px;">기존 전략</strong><br><span style="color:#fff; font-size: 15px;">${cagrOrig}%</span></div>
-                    <div style="flex: 1; text-align: center;"><strong style="color:#e74c3c; font-size:12px;">분할 전략</strong><br><span style="color:#fff; font-size: 15px;">${cagrSplit}%</span></div>
-                    <div style="flex: 1; text-align: center;"><strong style="color:#f1c40f; font-size:12px;">최적화 전략</strong><br><span style="color:#fff; font-size: 15px;">${cagrOpt}%</span></div>
-                </div>
-                <div style="margin-top: 10px; font-size: 12px; color: #f1c40f; background: #333; padding: 8px; border-radius: 6px;">
-                    💡 최적화 매매 작용 비율: A(${Math.round(bestRatios.a*100)}%) / B(${Math.round(bestRatios.b*100)}%) / C(${Math.round(bestRatios.c*100)}%) / D(${Math.round(bestRatios.d*100)}%)
+                <div style="display:flex; justify-content:space-around; padding: 12px; background: #2a2a2a; border-radius: 8px;">
+                    <div><strong style="color:#aaaaaa;">Buy & Hold</strong><br><span style="color:#fff; font-size: 16px;">${cagrBnH}%</span></div>
+                    <div><strong style="color:#3498db;">기존 전략</strong><br><span style="color:#fff; font-size: 16px;">${cagrOrig}%</span></div>
+                    <div><strong style="color:#e74c3c;">분할 전략</strong><br><span style="color:#fff; font-size: 16px;">${cagrSplit}%</span></div>
                 </div>
             `;
 
             document.getElementById('analysisModal').style.display = 'flex';
 
+            // Chart.js 그래프 그리기
             const ctx = document.getElementById('analysisChart').getContext('2d');
             if (analysisChartInstance) analysisChartInstance.destroy();
 
@@ -825,8 +844,7 @@
                     datasets: [
                         { label: 'Buy & Hold', data: bnhVals, borderColor: '#aaaaaa', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5] },
                         { label: '기존 전략', data: origVals, borderColor: '#3498db', borderWidth: 2, pointRadius: 0 },
-                        { label: '분할 전략', data: splitVals, borderColor: '#e74c3c', borderWidth: 2, pointRadius: 0 },
-                        { label: '최적화 전략', data: optVals, borderColor: '#f1c40f', borderWidth: 2.5, pointRadius: 0 }
+                        { label: '분할 전략', data: splitVals, borderColor: '#e74c3c', borderWidth: 2, pointRadius: 0 }
                     ]
                 },
                 options: {
@@ -834,8 +852,15 @@
                     maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
                     scales: {
-                        y: { type: 'logarithmic', grid: { color: '#333' }, ticks: { color: '#aaa' } },
-                        x: { grid: { display: false }, ticks: { maxTicksLimit: 8, color: '#aaa' } }
+                        y: { 
+                            type: 'logarithmic', // 로그 스케일
+                            grid: { color: '#333' },
+                            ticks: { color: '#aaa' }
+                        },
+                        x: { 
+                            grid: { display: false }, 
+                            ticks: { maxTicksLimit: 8, color: '#aaa' } 
+                        }
                     },
                     plugins: { 
                         legend: { labels: { color: '#fff' } },
@@ -843,7 +868,9 @@
                             callbacks: {
                                 label: function(context) {
                                     let label = context.dataset.label || '';
-                                    if (label) label += ': ';
+                                    if (label) {
+                                        label += ': ';
+                                    }
                                     if (context.parsed.y !== null) {
                                         label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
                                     }
@@ -856,6 +883,7 @@
             });
         }
 
+        // 통합 자산 파이프라인 (주식 및 환율 공통)
         function processAsset(ticker, prices, dates, isExchange) {
             const N = prices.length;
             if (N < 100) return { symbol: ticker, state: '데이터 부족', historyLog: [] };
@@ -949,6 +977,7 @@
             return { symbol: ticker, status: lastLog.action, evalState: lastLog.eval, currentPrice: lastLog.close, zone: lastLog.zone, historyLog, t: t, currentDisp: lastLog.disp };
         }
 
+        // CSV 다운로드 함수
         function downloadCSV(stockResults, exState) {
             const dateMap = {};
             
@@ -1010,6 +1039,7 @@
             document.body.removeChild(link);
         }
 
+        // --- 오디오 (효과음) 합성 ---
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         let audioCtx;
 
@@ -1037,7 +1067,11 @@
 
         function playJump() { initAudio(); playSound(320, 600, 'triangle', 0.15, 0.15); } 
         function playHit() { initAudio(); playSound(150, 40, 'sawtooth', 0.4, 0.2); }
-        function playBoss() { initAudio(); playSound(200, 100, 'square', 0.8, 0.15); setTimeout(() => playSound(250, 120, 'square', 0.8, 0.15), 200); }
+        function playBoss() { 
+            initAudio(); 
+            playSound(200, 100, 'square', 0.8, 0.15); 
+            setTimeout(() => playSound(250, 120, 'square', 0.8, 0.15), 200); 
+        }
         function playClear() {
             initAudio();
             setTimeout(() => playSound(523, 523, 'triangle', 0.15, 0.15), 0);
@@ -1046,6 +1080,7 @@
             setTimeout(() => playSound(1046, 1046, 'triangle', 0.4, 0.2), 450);
         }
 
+        // --- 미니게임 로직 ---
         let gameLoopId;
         let finalDataPayload = null; 
         let isWaitingForDataChoice = false; 
@@ -1064,8 +1099,18 @@
                 modal.style.display = 'flex';
                 canClickModal = false; 
                 
-                btns.forEach(b => { b.style.opacity = '0.4'; b.style.cursor = 'not-allowed'; });
-                setTimeout(() => { canClickModal = true; btns.forEach(b => { b.style.opacity = '1'; b.style.cursor = 'pointer'; }); }, 500);
+                btns.forEach(b => {
+                    b.style.opacity = '0.4';
+                    b.style.cursor = 'not-allowed';
+                });
+
+                setTimeout(() => {
+                    canClickModal = true;
+                    btns.forEach(b => {
+                        b.style.opacity = '1';
+                        b.style.cursor = 'pointer';
+                    });
+                }, 500);
             }
         }
 
@@ -1170,9 +1215,13 @@
                         boss.w = 40;
                         
                         if (boss.level === 4) {
-                            boss.h = 90; boss.speedY = 4.5; boss.maxFire = 30; 
+                            boss.h = 90; 
+                            boss.speedY = 4.5; 
+                            boss.maxFire = 30; 
                         } else {
-                            boss.h = 70; boss.speedY = 1.5 + (boss.level * 0.5); boss.maxFire = 5 + (boss.level * 3); 
+                            boss.h = 70;
+                            boss.speedY = 1.5 + (boss.level * 0.5); 
+                            boss.maxFire = 5 + (boss.level * 3); 
                         }
                         
                         boss.fired = 0;
@@ -1210,22 +1259,33 @@
                             obstacles.push({ x: boss.x, y: projY, w: pWidth, h: pHeight, speed: pSpeed, color: '#448aff', passed: true, isBossProj: true, candleType: 3 });
                             boss.fired++;
                             
-                            if (boss.level === 4) { boss.fireCooldown = Math.max(12, 25 - Math.random() * 5); } 
-                            else { boss.fireCooldown = Math.max(15, 50 - (boss.level * 5)); }
+                            if (boss.level === 4) {
+                                boss.fireCooldown = Math.max(12, 25 - Math.random() * 5); 
+                            } else {
+                                boss.fireCooldown = Math.max(15, 50 - (boss.level * 5)); 
+                            }
                         }
 
-                        if (boss.fired >= boss.maxFire && obstacles.length === 0) boss.state = 'leaving';
+                        if (boss.fired >= boss.maxFire && obstacles.length === 0) {
+                            boss.state = 'leaving';
+                        }
                     } else if (boss.state === 'leaving') {
                         boss.x += 3;
                         if (boss.x > 300) {
                             boss.active = false;
                             score += 20; 
                             
-                            if (boss.level === 4) { isGameClear = true; playClear(); } 
-                            else { nextBossScore = score - (score % 100) + 100; updateScoreBoard(); }
+                            if (boss.level === 4) {
+                                isGameClear = true;
+                                playClear();
+                            } else {
+                                nextBossScore = score - (score % 100) + 100; 
+                                updateScoreBoard();
+                            }
                         }
                     }
-                } else {
+                } 
+                else {
                     if (score < nextBossScore && frame >= nextSpawnFrame) {
                         let baseSpeed = 4 + (score / 200);
                         let obsW = 14; 
@@ -1234,7 +1294,9 @@
                         let cType = Math.floor(Math.random() * 4); 
                         let color = '#448aff'; 
 
-                        if (Math.random() < 0.2) { obsSpeed += 3; color = '#0d47a1'; }
+                        if (Math.random() < 0.2) {
+                            obsSpeed += 3; color = '#0d47a1'; 
+                        }
 
                         obstacles.push({ x: 300, y: 130 - obsH, w: obsW, h: obsH, speed: obsSpeed, color: color, passed: false, candleType: cType });
 
@@ -1253,7 +1315,11 @@
                         score += 10;
                         updateScoreBoard();
                     }
-                    if (obs.x + obs.w < 0) obstacles.splice(i, 1);
+
+                    if (obs.x + obs.w < 0) {
+                        obstacles.splice(i, 1);
+                    }
+                    
                     if (player.x + 4 < obs.x + obs.w && player.x + player.w - 4 > obs.x &&
                         player.y + 4 < obs.y + obs.h && player.y + player.h - 4 > obs.y) {
                         if (!isGameOver) playHit();
@@ -1275,35 +1341,55 @@
 
                 if (boss.active) {
                     ctx.fillStyle = '#1565c0'; 
+                    
                     let bodyY, bodyH, tailTopY = 0, tailTopH = 0, tailBotY = 0, tailBotH = 0, faceY;
                     let tw = 6;
                     let tx = boss.x + boss.w/2 - tw/2;
                     
                     if (boss.level === 1) { 
-                        bodyY = boss.y; bodyH = 40; tailBotY = boss.y + 40; tailBotH = boss.h - 40; faceY = boss.y + 10;
+                        bodyY = boss.y; bodyH = 40;
+                        tailBotY = boss.y + 40; tailBotH = boss.h - 40;
+                        faceY = boss.y + 10;
                     } else if (boss.level === 2) { 
-                        bodyY = boss.y + 20; bodyH = 30; tailTopY = boss.y; tailTopH = 20; tailBotY = boss.y + 50; tailBotH = boss.h - 50; faceY = boss.y + 25;
+                        bodyY = boss.y + 20; bodyH = 30;
+                        tailTopY = boss.y; tailTopH = 20;
+                        tailBotY = boss.y + 50; tailBotH = boss.h - 50;
+                        faceY = boss.y + 25;
                     } else if (boss.level === 3) { 
-                        bodyY = boss.y + 30; bodyH = boss.h - 30; tailTopY = boss.y; tailTopH = 30; faceY = boss.y + 35;
+                        bodyY = boss.y + 30; bodyH = boss.h - 30;
+                        tailTopY = boss.y; tailTopH = 30;
+                        faceY = boss.y + 35;
                     } else { 
-                        bodyY = boss.y; bodyH = boss.h; faceY = boss.y + 30;
+                        bodyY = boss.y; bodyH = boss.h;
+                        faceY = boss.y + 30;
                     }
                     
                     if (tailTopH > 0) ctx.fillRect(tx, tailTopY, tw, tailTopH);
                     if (tailBotH > 0) ctx.fillRect(tx, tailBotY, tw, tailBotH);
+                    
                     ctx.fillRect(boss.x, bodyY, boss.w, bodyH);
+                    
                     ctx.fillStyle = '#ffffff';
                     ctx.fillRect(boss.x + 8, faceY, 10, 6);
                     ctx.fillRect(boss.x + 22, faceY, 10, 6);
                     ctx.fillStyle = '#ff0000'; 
                     ctx.fillRect(boss.x + 10, faceY + 2, 4, 4);
                     ctx.fillRect(boss.x + 24, faceY + 2, 4, 4);
+
                     ctx.strokeStyle = '#000000';
                     ctx.lineWidth = 2;
-                    ctx.beginPath(); ctx.moveTo(boss.x + 6, faceY - 5); ctx.lineTo(boss.x + 18, faceY); ctx.stroke();
-                    ctx.beginPath(); ctx.moveTo(boss.x + 34, faceY - 5); ctx.lineTo(boss.x + 22, faceY); ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(boss.x + 6, faceY - 5);
+                    ctx.lineTo(boss.x + 18, faceY);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(boss.x + 34, faceY - 5);
+                    ctx.lineTo(boss.x + 22, faceY);
+                    ctx.stroke();
+
                     ctx.fillStyle = '#000000';
                     ctx.fillRect(boss.x + 12, faceY + 20, 16, 6);
+                    
                     ctx.fillStyle = '#ffffff';
                     ctx.font = 'bold 10px sans-serif';
                     ctx.textAlign = 'center';
@@ -1312,18 +1398,25 @@
 
                 for (let obs of obstacles) {
                     ctx.fillStyle = obs.color;
+                    
                     let bw = obs.w;
                     let bh, by, tty=0, tth=0, tby=0, tbh=0;
                     let tw = 4;
                     let tx = obs.x + bw/2 - tw/2;
 
                     if (obs.candleType === 0) { 
-                        bh = obs.h * 0.4; by = obs.y; tby = obs.y + bh; tbh = obs.h * 0.6;
+                        bh = obs.h * 0.4; by = obs.y;
+                        tby = obs.y + bh; tbh = obs.h * 0.6;
                     } else if (obs.candleType === 1) { 
-                        bh = obs.h * 0.3; by = obs.y + obs.h * 0.35; tty = obs.y; tth = obs.h * 0.35; tby = obs.y + obs.h * 0.65; tbh = obs.h * 0.35;
+                        bh = obs.h * 0.3; by = obs.y + obs.h * 0.35;
+                        tty = obs.y; tth = obs.h * 0.35;
+                        tby = obs.y + obs.h * 0.65; tbh = obs.h * 0.35;
                     } else if (obs.candleType === 2) { 
-                        bh = obs.h * 0.4; by = obs.y + obs.h * 0.6; tty = obs.y; tth = obs.h * 0.6;
-                    } else { bh = obs.h; by = obs.y; }
+                        bh = obs.h * 0.4; by = obs.y + obs.h * 0.6;
+                        tty = obs.y; tth = obs.h * 0.6;
+                    } else { 
+                        bh = obs.h; by = obs.y;
+                    }
 
                     ctx.fillRect(obs.x, by, bw, bh); 
                     if (tth > 0) ctx.fillRect(tx, tty, tw, tth); 
@@ -1331,28 +1424,62 @@
                 }
 
                 if (isGameOver) {
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; ctx.fillRect(0, 0, 300, 150); ctx.fillStyle = '#fff';
-                    ctx.font = 'bold 22px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('Game Over', 150, 60);
-                    ctx.font = '14px sans-serif'; ctx.fillText('고점에서 물렸습니다!', 150, 85);
-                    ctx.font = '12px sans-serif'; ctx.fillStyle = '#aaaaaa';
-                    if (continueGameAfterData && finalDataPayload) ctx.fillText('터치하여 데이터 결과 보기', 150, 110);
-                    else ctx.fillText('다시 하려면 터치하세요', 150, 110);
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                    ctx.fillRect(0, 0, 300, 150);
+                    ctx.fillStyle = '#fff';
+                    
+                    ctx.font = 'bold 22px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('Game Over', 150, 60);
+
+                    ctx.font = '14px sans-serif';
+                    ctx.fillText('고점에서 물렸습니다!', 150, 85);
+                    
+                    ctx.font = '12px sans-serif';
+                    ctx.fillStyle = '#aaaaaa';
+                    if (continueGameAfterData && finalDataPayload) {
+                        ctx.fillText('터치하여 데이터 결과 보기', 150, 110);
+                    } else {
+                        ctx.fillText('다시 하려면 터치하세요', 150, 110);
+                    }
                 } else if (isGameClear) {
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; ctx.fillRect(0, 0, 300, 150); ctx.fillStyle = '#ffd740'; 
-                    ctx.font = 'bold 24px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('Game Clear!', 150, 60);
-                    ctx.fillStyle = '#ffffff'; ctx.font = '14px sans-serif'; ctx.fillText('모든 하락장을 견뎌냈습니다!', 150, 85);
-                    ctx.font = '12px sans-serif'; ctx.fillStyle = '#aaaaaa';
-                    if (continueGameAfterData && finalDataPayload) ctx.fillText('터치하여 데이터 결과 보기', 150, 110);
-                    else ctx.fillText('새 게임을 하려면 터치하세요', 150, 110);
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                    ctx.fillRect(0, 0, 300, 150);
+                    
+                    ctx.fillStyle = '#ffd740'; 
+                    ctx.font = 'bold 24px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('Game Clear!', 150, 60);
+
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = '14px sans-serif';
+                    ctx.fillText('모든 하락장을 견뎌냈습니다!', 150, 85);
+                    
+                    ctx.font = '12px sans-serif';
+                    ctx.fillStyle = '#aaaaaa';
+                    if (continueGameAfterData && finalDataPayload) {
+                        ctx.fillText('터치하여 데이터 결과 보기', 150, 110);
+                    } else {
+                        ctx.fillText('새 게임을 하려면 터치하세요', 150, 110);
+                    }
                 }
             }
 
-            function loop() { update(); draw(); gameLoopId = requestAnimationFrame(loop); }
-            updateScoreBoard(); loop();
+            function loop() {
+                update();
+                draw();
+                gameLoopId = requestAnimationFrame(loop);
+            }
+            
+            updateScoreBoard();
+            loop();
         }
 
-        function stopMiniGame() { if (gameLoopId) cancelAnimationFrame(gameLoopId); }
+        function stopMiniGame() {
+            if (gameLoopId) cancelAnimationFrame(gameLoopId);
+        }
 
+        // --- 앱 메인 초기화 ---
         async function initApp() {
             startMiniGame();
 
@@ -1372,21 +1499,31 @@
 
                 globalExState = exState;
                 globalStockResults = stockResults;
+
+                // 기준일(날짜) 배열 추출 (SPXL 기준이 가장 무난)
                 globalAvailableDates = stockResults[0].historyLog.map(l => l.date);
                 currentDateIndex = globalAvailableDates.length - 1;
 
                 function getActionColor(actionStr) {
-                    if (actionStr.includes('매수') || actionStr.includes('초기 보유 시작') || actionStr.includes('권장!')) return 'rgb(255, 0, 0)'; 
-                    if (actionStr.includes('매도 (Sell)')) return 'rgb(0, 0, 255)'; 
+                    if (actionStr.includes('매수 (Buy)') || actionStr.includes('초기 보유 시작') || actionStr.includes('달러 환전 적극 권장!')) {
+                        return 'rgb(255, 0, 0)'; 
+                    }
+                    if (actionStr.includes('매도 (Sell)')) {
+                        return 'rgb(0, 0, 255)'; 
+                    }
                     return 'rgb(128, 128, 128)'; 
                 }
 
+                // 타겟 날짜에 해당하는(혹은 가장 가까운 과거) 로그를 가져오는 함수
                 function getLogByDate(historyLog, targetDate) {
                     if (!historyLog || historyLog.length === 0) return null;
                     let closest = historyLog[0];
                     for (let i = 0; i < historyLog.length; i++) {
-                        if (historyLog[i].date <= targetDate) closest = historyLog[i];
-                        else break;
+                        if (historyLog[i].date <= targetDate) {
+                            closest = historyLog[i];
+                        } else {
+                            break;
+                        }
                     }
                     return closest;
                 }
@@ -1396,12 +1533,15 @@
                     if (!log) return '';
 
                     let statusText = `<span style="color: ${getActionColor(log.action)};">${log.action}</span>`;
-                    if (isExchange) statusText = `<span style="color: ${getActionColor(log.action)}; font-weight:700;">${log.action}</span>`;
+                    if (isExchange) {
+                        statusText = `<span style="color: ${getActionColor(log.action)}; font-weight:700;">${log.action}</span>`;
+                    }
                     
                     let leftLabel = isExchange ? '저환율' : '저평가';
                     let rightLabel = isExchange ? '고환율' : '과열';
                     let titleName = isExchange ? '환전여부' : asset.symbol;
                     
+                    // 분석 버튼 추가 로직
                     let titleHtml = '';
                     if (!isExchange) {
                         titleHtml = `<button onclick="runAnalysis('${asset.symbol}')" style="margin-right: 6px; padding: 3px 6px; font-size: 10px; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; display: inline-block;">분석</button>${titleName}:`;
@@ -1412,10 +1552,15 @@
                     const isLatest = targetDate === globalAvailableDates[globalAvailableDates.length - 1];
                     let priceName = isExchange ? (isLatest ? '현재 환율' : '당시 환율') : (isLatest ? '현재가' : '당시 가격');
                     let priceFormatted = formatPrice(log.close, isExchange);
+                    
                     let percent = getVisualPercent(log.disp, asset.t);
 
-                    let oE = log.zone === 'e' ? 1.0 : 0.2; let oD = log.zone === 'd' ? 1.0 : 0.2; let oC = log.zone === 'c' ? 1.0 : 0.2;
-                    let oB = log.zone === 'b' ? 1.0 : 0.2; let oA = log.zone === 'a' ? 1.0 : 0.2;
+                    // 불투명도 처리를 위해 현재 속한 구역 파악
+                    let oE = log.zone === 'e' ? 1.0 : 0.2;
+                    let oD = log.zone === 'd' ? 1.0 : 0.2;
+                    let oC = log.zone === 'c' ? 1.0 : 0.2;
+                    let oB = log.zone === 'b' ? 1.0 : 0.2;
+                    let oA = log.zone === 'a' ? 1.0 : 0.2;
 
                     return `
                     <div class="asset-block">
@@ -1435,20 +1580,28 @@
                                 <div class="v-marker" style="left: ${percent}%;"></div>
                             </div>
                             <div style="display:flex; justify-content: space-between; font-size: 11px; color: #888; margin-top:4px;">
-                                <span>${leftLabel}</span><span>${rightLabel}</span>
+                                <span>${leftLabel}</span>
+                                <span>${rightLabel}</span>
                             </div>
                         </div>
                     </div>
                     `;
                 }
 
+                // --- 자동 재생(타임머신) 로직 ---
                 function stopAutoPlay() {
-                    if (playIntervalId) { clearInterval(playIntervalId); playIntervalId = null; }
-                    isPlayingForward = false; isPlayingBackward = false; updateView(); 
+                    if (playIntervalId) {
+                        clearInterval(playIntervalId);
+                        playIntervalId = null;
+                    }
+                    isPlayingForward = false;
+                    isPlayingBackward = false;
+                    updateView(); 
                 }
 
                 function startAutoPlay(direction) {
-                    stopAutoPlay();
+                    stopAutoPlay(); // 기존 재생 정지
+                    
                     if (direction === 'forward') {
                         if (currentDateIndex >= globalAvailableDates.length - 1) return;
                         isPlayingForward = true;
@@ -1456,35 +1609,61 @@
                         if (currentDateIndex <= 0) return;
                         isPlayingBackward = true;
                     }
-                    updateView(); 
+                    
+                    updateView(); // 일시정지 아이콘 즉각 반영
+
                     playIntervalId = setInterval(() => {
                         if (isPlayingForward) {
-                            if (currentDateIndex < globalAvailableDates.length - 1) { currentDateIndex++; updateView(); }
-                            else stopAutoPlay();
+                            if (currentDateIndex < globalAvailableDates.length - 1) {
+                                currentDateIndex++;
+                                updateView();
+                            } else {
+                                stopAutoPlay();
+                            }
                         } else if (isPlayingBackward) {
-                            if (currentDateIndex > 0) { currentDateIndex--; updateView(); }
-                            else stopAutoPlay();
+                            if (currentDateIndex > 0) {
+                                currentDateIndex--;
+                                updateView();
+                            } else {
+                                stopAutoPlay();
+                            }
                         }
                     }, currentPlaySpeed);
                 }
 
+                // UI를 갱신하는 최적화된 함수 (DOM을 파괴하지 않고 값만 업데이트)
                 function updateView() {
                     const targetDate = globalAvailableDates[currentDateIndex];
                     const isLatestDay = currentDateIndex === globalAvailableDates.length - 1;
                     const isFirstDay = currentDateIndex === 0;
                     
+                    // 재생 경계에 도달하면 자동 정지
                     if (isLatestDay && isPlayingForward) stopAutoPlay();
                     if (isFirstDay && isPlayingBackward) stopAutoPlay();
 
-                    const btnPrev = document.getElementById('btn-prev-day'); const btnNext = document.getElementById('btn-next-day');
-                    const btnLatest = document.getElementById('btn-latest-day'); const datePicker = document.getElementById('history-date-picker');
-                    const btnPlay = document.getElementById('btn-play'); const btnRewind = document.getElementById('btn-rewind');
+                    // 컨트롤 요소들 상태 업데이트
+                    const btnPrev = document.getElementById('btn-prev-day');
+                    const btnNext = document.getElementById('btn-next-day');
+                    const btnLatest = document.getElementById('btn-latest-day');
+                    const datePicker = document.getElementById('history-date-picker');
+                    const btnPlay = document.getElementById('btn-play');
+                    const btnRewind = document.getElementById('btn-rewind');
 
                     if (datePicker) datePicker.value = targetDate;
 
-                    if (btnPrev) { btnPrev.disabled = isFirstDay; btnPrev.style.opacity = isFirstDay ? '0.3' : '1'; }
-                    if (btnNext) { btnNext.disabled = isLatestDay; btnNext.style.opacity = isLatestDay ? '0.3' : '1'; }
-                    if (btnLatest) { btnLatest.disabled = isLatestDay; btnLatest.style.opacity = isLatestDay ? '0.3' : '1'; btnLatest.style.cursor = isLatestDay ? 'default' : 'pointer'; }
+                    if (btnPrev) {
+                        btnPrev.disabled = isFirstDay;
+                        btnPrev.style.opacity = isFirstDay ? '0.3' : '1';
+                    }
+                    if (btnNext) {
+                        btnNext.disabled = isLatestDay;
+                        btnNext.style.opacity = isLatestDay ? '0.3' : '1';
+                    }
+                    if (btnLatest) {
+                        btnLatest.disabled = isLatestDay;
+                        btnLatest.style.opacity = isLatestDay ? '0.3' : '1';
+                        btnLatest.style.cursor = isLatestDay ? 'default' : 'pointer';
+                    }
                     
                     if (btnPlay) {
                         btnPlay.disabled = isLatestDay && !isPlayingForward;
@@ -1499,26 +1678,38 @@
                         btnRewind.style.background = isPlayingBackward ? '#e74c3c' : '#2a2a2a';
                     }
 
+                    // 종목 데이터 블록 갱신
                     let assetsHtml = createAssetBlock(globalExState, true, targetDate);
-                    globalStockResults.forEach(r => { assetsHtml += createAssetBlock(r, false, targetDate); });
+                    globalStockResults.forEach(r => {
+                        assetsHtml += createAssetBlock(r, false, targetDate);
+                    });
+                    
                     const assetsContainer = document.getElementById('assets-container');
                     if (assetsContainer) assetsContainer.innerHTML = assetsHtml;
                 }
 
+                // --- 키보드 방향키 조작 이벤트 ---
                 document.addEventListener('keydown', (e) => {
                     if (!document.getElementById('btn-prev-day')) return;
                     if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT')) return;
 
                     if (e.key === 'ArrowLeft') {
-                        stopAutoPlay(); 
-                        if (currentDateIndex > 0) { currentDateIndex--; updateView(); }
+                        stopAutoPlay(); // 방향키 조작 시 재생 정지
+                        if (currentDateIndex > 0) {
+                            currentDateIndex--;
+                            updateView();
+                        }
                     } else if (e.key === 'ArrowRight') {
-                        stopAutoPlay();
-                        if (currentDateIndex < globalAvailableDates.length - 1) { currentDateIndex++; updateView(); }
+                        stopAutoPlay(); // 방향키 조작 시 재생 정지
+                        if (currentDateIndex < globalAvailableDates.length - 1) {
+                            currentDateIndex++;
+                            updateView();
+                        }
                     }
                 });
 
                 triggerDataReady(() => {
+                    // 최초 레이아웃 렌더링 (재생 속도 조절 UI 포함)
                     let baseHtml = `
                     <div style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #333;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
@@ -1548,26 +1739,48 @@
                     document.getElementById('content').innerHTML = baseHtml;
                     document.getElementById('content').classList.remove('loading');
 
-                    document.getElementById('btn-prev-day').addEventListener('click', () => { stopAutoPlay(); if (currentDateIndex > 0) { currentDateIndex--; updateView(); } });
-                    document.getElementById('btn-next-day').addEventListener('click', () => { stopAutoPlay(); if (currentDateIndex < globalAvailableDates.length - 1) { currentDateIndex++; updateView(); } });
-                    document.getElementById('btn-latest-day').addEventListener('click', () => { stopAutoPlay(); currentDateIndex = globalAvailableDates.length - 1; updateView(); });
+                    // 버튼 이벤트 등록
+                    document.getElementById('btn-prev-day').addEventListener('click', () => {
+                        stopAutoPlay();
+                        if (currentDateIndex > 0) { currentDateIndex--; updateView(); }
+                    });
+                    document.getElementById('btn-next-day').addEventListener('click', () => {
+                        stopAutoPlay();
+                        if (currentDateIndex < globalAvailableDates.length - 1) { currentDateIndex++; updateView(); }
+                    });
+                    document.getElementById('btn-latest-day').addEventListener('click', () => {
+                        stopAutoPlay();
+                        currentDateIndex = globalAvailableDates.length - 1; updateView();
+                    });
                     
                     document.getElementById('history-date-picker').addEventListener('change', (e) => {
                         stopAutoPlay();
-                        let selected = e.target.value; let closestIdx = 0;
-                        for(let i=0; i<globalAvailableDates.length; i++) { if(globalAvailableDates[i] <= selected) { closestIdx = i; } else { break; } }
+                        let selected = e.target.value;
+                        let closestIdx = 0;
+                        for(let i=0; i<globalAvailableDates.length; i++) {
+                            if(globalAvailableDates[i] <= selected) { closestIdx = i; } else { break; }
+                        }
                         currentDateIndex = closestIdx; updateView();
                     });
 
-                    document.getElementById('btn-play').addEventListener('click', () => { if (isPlayingForward) stopAutoPlay(); else startAutoPlay('forward'); });
-                    document.getElementById('btn-rewind').addEventListener('click', () => { if (isPlayingBackward) stopAutoPlay(); else startAutoPlay('backward'); });
+                    // 자동 재생 버튼 이벤트
+                    document.getElementById('btn-play').addEventListener('click', () => {
+                        if (isPlayingForward) stopAutoPlay();
+                        else startAutoPlay('forward');
+                    });
+                    document.getElementById('btn-rewind').addEventListener('click', () => {
+                        if (isPlayingBackward) stopAutoPlay();
+                        else startAutoPlay('backward');
+                    });
                     
+                    // 재생 속도 변경 이벤트
                     document.getElementById('play-speed-select').addEventListener('change', (e) => {
                         currentPlaySpeed = parseInt(e.target.value);
-                        if (isPlayingForward) startAutoPlay('forward'); 
+                        if (isPlayingForward) startAutoPlay('forward'); // 속도 즉각 반영
                         if (isPlayingBackward) startAutoPlay('backward');
                     });
 
+                    // 최초 뷰 강제 렌더링
                     updateView();
 
                     document.getElementById('descBtn').style.display = 'block';
