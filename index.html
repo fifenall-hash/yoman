@@ -87,7 +87,7 @@
         .loading {
             text-align: center;
             color: #aaaaaa;
-            margin-top: 50px;
+            margin-top: 30px;
         }
 
         /* 하단 버튼들 스타일 */
@@ -107,57 +107,6 @@
         .btn-desc:hover { background-color: #732d91; }
         .btn-download { background-color: #1e1e1e; color: #666; border: 1px solid #333; }
         .btn-download:hover { background-color: #2a2a2a; color: #aaa; }
-
-        /* 미니게임 스타일 */
-        #game-container {
-            position: relative; 
-            width: 300px;
-            margin: 20px auto 0 auto;
-            text-align: center;
-        }
-        #gameCanvas {
-            background-color: #1e1e1e;
-            border: 1px solid #333;
-            border-radius: 8px;
-            display: block;
-            touch-action: none; 
-            cursor: pointer;
-        }
-        #scoreBoard {
-            margin-top: 10px;
-            font-size: 13px;
-            color: #ffd740;
-            font-weight: 600;
-        }
-
-        /* 데이터 준비 완료 모달 스타일 */
-        #dataReadyModal {
-            display: none;
-            position: absolute;
-            top: 0; left: 0; width: 300px; height: 150px;
-            background: rgba(0, 0, 0, 0.85);
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            border-radius: 8px;
-            z-index: 10;
-        }
-        .modal-btn {
-            font-family: inherit;
-            font-size: 12px;
-            margin-bottom: 8px;
-            padding: 8px 12px;
-            cursor: pointer;
-            border: none;
-            border-radius: 4px;
-            font-weight: 600;
-            width: 80%;
-            transition: background-color 0.2s, opacity 0.2s;
-        }
-        .btn-cont { background: #3498db; color: white; }
-        .btn-cont:hover { background: #2980b9; }
-        .btn-stop { background: #e74c3c; color: white; }
-        .btn-stop:hover { background: #c0392b; }
 
         /* 상세 설명 모달창 공통 CSS */
         .full-modal {
@@ -211,27 +160,25 @@
             <h1>지금 사요?</h1>
         </header>
         <div id="content" class="loading">
-            <div style="margin-bottom: 15px;">
-                주식 및 환율 데이터를 분석 중입니다...<br><span style="font-size: 12px; color: #666;">(야후 파이낸스 접속 및 타점 탐색 중)</span><br><br>
-                <span style="font-size: 13px; color: #ff5252; line-height: 1.4; display: inline-block;">
-                    로딩 시간이 좀 걸립니다. 모바일 환경인 경우 화면이 꺼지면 연산이 멈추고 데이터가 나오지 않을 수 있으니 미니 게임을 하면서 기다려주세요.<br>pc환경은 브라우저를 켜 놓기만 하면 됩니다.
-                </span>
+            <div style="margin-bottom: 20px; font-size: 15px; font-weight: bold;">
+                주식 및 환율 데이터를 분석 중입니다...<br>
+                <span style="font-size: 12px; color: #666; font-weight: normal;">(야후 파이낸스 실시간 접속 및 타점 탐색 중)</span>
             </div>
             
-            <!-- 미니게임 영역 -->
-            <div id="game-container">
-                <canvas id="gameCanvas" width="300" height="150"></canvas>
+            <!-- CORS 필요성 및 설치 안내 영역 -->
+            <div style="background-color: #1a1a1a; padding: 20px; border-radius: 12px; border: 1px solid #333; text-align: left; font-size: 13px; line-height: 1.6; max-width: 450px; margin: 0 auto; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+                <h3 style="color: #ffd740; margin-top: 0; text-align: center; font-size: 16px;">⚠️ 빠르고 안정적인 로딩을 위한 필수 설정 안내</h3>
+                <p>이 앱은 정확한 분석을 위해 수십 년 치의 방대한 주가 및 환율 데이터를 실시간으로 가져와 수만 번의 시뮬레이션을 돌립니다.</p>
+                <p>하지만 브라우저의 기본 보안 정책(CORS)으로 인해 직접 데이터를 불러오는 것이 차단될 수 있습니다. 이 경우 부득이하게 무료 우회 서버를 거치게 되어 <strong>로딩이 매우 오래 걸리거나 중간에 실패</strong>할 수 있습니다.</p>
                 
-                <!-- 데이터 준비 완료 선택창 -->
-                <div id="dataReadyModal">
-                    <p style="font-size: 13px; color: white; margin: 0 0 12px 0; text-align: center; line-height: 1.4;">
-                        데이터 준비가 완료되었습니다.<br>게임을 계속 하시겠습니까?
-                    </p>
-                    <button id="btn-continue-game" class="modal-btn btn-cont">이번판만 하고 데이터 보러 가기.</button>
-                    <button id="btn-show-data" class="modal-btn btn-stop">바로 데이터 보러 가기.</button>
-                </div>
+                <hr style="border: 0; border-top: 1px dashed #444; margin: 15px 0;">
                 
-                <div id="scoreBoard">터치/클릭 점프 (더블 점프!) | 수익률: +0%</div>
+                <h4 style="color: #3498db; margin: 0 0 10px 0; font-size: 14px;">💡 해결 방법: CORS 확장 프로그램 설치 (PC 환경 권장)</h4>
+                <ol style="padding-left: 20px; margin-bottom: 0; color: #ccc;">
+                    <li style="margin-bottom: 8px;">크롬 웹 스토어에서 <strong>'Allow CORS: Access-Control-Allow-Origin'</strong> 확장 프로그램을 검색하여 설치합니다.</li>
+                    <li style="margin-bottom: 8px;">브라우저 우측 상단의 <strong>확장 프로그램 아이콘(퍼즐 모양)</strong>을 클릭하여 해당 앱을 활성화합니다. <br>(비활성화 상태인 흑백 기호를 클릭해 컬러가 되게 켭니다.)</li>
+                    <li>켜진 상태에서 이 창을 새로고침하시면, <strong>우회 없이 0.1초 만에 즉시 데이터 분석이 완료</strong>됩니다!</li>
+                </ol>
             </div>
         </div>
         
@@ -239,14 +186,41 @@
         <button id="downloadBtn" class="btn-common btn-download">📊 데이터 확인용 CSV 다운로드</button>
     </div>
 
-    <!-- 전략 분석 모달 (차트 영역) -->
+    <!-- 전략 분석 모달 (차트 및 전략 설명 영역) -->
     <div id="analysisModal" class="full-modal">
         <div class="modal-content-box" style="max-width: 650px;">
             <h2 id="analysisTitle" style="color: #3498db; margin-bottom: 5px;">전략별 수익률 비교</h2>
             <div style="position: relative; height: 320px; width: 100%; margin-top: 15px;">
                 <canvas id="analysisChart"></canvas>
             </div>
+            
             <div id="analysisResult" style="margin-top: 20px; font-size: 14px; text-align: center;"></div>
+            
+            <!-- 전략 상세 설명 추가 영역 -->
+            <div id="strategyExplanation" style="margin-top: 20px; background: #2a2a2a; padding: 15px; border-radius: 8px; text-align: left; font-size: 13px; line-height: 1.5; border: 1px solid #333;">
+                <h4 style="color: #ffd740; margin-top: 0; margin-bottom: 12px; font-size: 15px; text-align: center;">📊 전략별 매매 방식 안내</h4>
+                <ul style="padding-left: 20px; margin: 0; color: #ddd;">
+                    <li style="margin-bottom: 10px;">
+                        <strong style="color: #aaaaaa;">Buy & Hold:</strong><br>
+                        분석 시작일(과거 1500일 이후 시점)에 주식을 100% 매수한 후, 한 번도 팔지 않고 끝까지 보유했을 때의 수익률입니다.
+                    </li>
+                    <li style="margin-bottom: 10px;">
+                        <strong style="color: #3498db;">기존 전략:</strong><br>
+                        안전 반경 알고리즘에 따라 도출된 <strong>'심한 과열(Sell)'</strong> 선을 넘으면 보유 주식을 전량(100%) 매도하여 현금화하고, <strong>'심한 저평가(Buy)'</strong> 선 아래로 떨어지면 보유 현금으로 전량(100%) 매수하는 극단적 스위칭 전략입니다.
+                    </li>
+                    <li>
+                        <strong style="color: #e74c3c;">분할 전략:</strong><br>
+                        모 아니면 도 식의 리스크를 줄이기 위해, 구역에 따라 유연하게 분할 진입/청산합니다.
+                        <ul style="padding-left: 15px; margin-top: 6px; color: #bbb; list-style-type: circle;">
+                            <li style="margin-bottom: 4px;"><strong>'저평가' 진입 시:</strong> 보유 현금의 50% 분할 매수</li>
+                            <li style="margin-bottom: 4px;"><strong>'심한 저평가' 진입 시:</strong> 남은 현금 100% 전량 매수</li>
+                            <li style="margin-bottom: 4px;"><strong>'심한 과열' 진입 시:</strong> 보유 주식의 33%(1/3) 분할 매도</li>
+                            <li><strong>'심한 과열 끝' 한계치 돌파 시:</strong> 보유 주식의 50% 추가 매도</li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+
             <p style="font-size: 11px; color: #888; margin-top: 15px; text-align: center;">* 모든 전략은 해당 주식의 분석 시작점(1500일)에서 주식을 100% 보유한 상태로 시작합니다.</p>
             <button onclick="document.getElementById('analysisModal').style.display='none'" style="width:100%; margin-top:15px; background:#e74c3c; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">닫기</button>
         </div>
@@ -1039,451 +1013,10 @@
             document.body.removeChild(link);
         }
 
-        // --- 오디오 (효과음) 합성 ---
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        let audioCtx;
-
-        function initAudio() { if (!audioCtx) audioCtx = new AudioContext(); }
-
-        function playSound(freqStart, freqEnd, type, duration, vol = 0.1) {
-            if (!audioCtx) return;
-            try {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = type;
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                
-                osc.frequency.setValueAtTime(freqStart, audioCtx.currentTime);
-                if (freqEnd) osc.frequency.exponentialRampToValueAtTime(freqEnd, audioCtx.currentTime + duration);
-                
-                gain.gain.setValueAtTime(vol, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-                
-                osc.start(audioCtx.currentTime);
-                osc.stop(audioCtx.currentTime + duration);
-            } catch (e) { console.error("Audio error:", e); }
-        }
-
-        function playJump() { initAudio(); playSound(320, 600, 'triangle', 0.15, 0.15); } 
-        function playHit() { initAudio(); playSound(150, 40, 'sawtooth', 0.4, 0.2); }
-        function playBoss() { 
-            initAudio(); 
-            playSound(200, 100, 'square', 0.8, 0.15); 
-            setTimeout(() => playSound(250, 120, 'square', 0.8, 0.15), 200); 
-        }
-        function playClear() {
-            initAudio();
-            setTimeout(() => playSound(523, 523, 'triangle', 0.15, 0.15), 0);
-            setTimeout(() => playSound(659, 659, 'triangle', 0.15, 0.15), 150);
-            setTimeout(() => playSound(783, 783, 'triangle', 0.15, 0.15), 300);
-            setTimeout(() => playSound(1046, 1046, 'triangle', 0.4, 0.2), 450);
-        }
-
-        // --- 미니게임 로직 ---
-        let gameLoopId;
-        let finalDataPayload = null; 
-        let isWaitingForDataChoice = false; 
-        let continueGameAfterData = false; 
-        let canClickModal = false; 
-
-        function triggerDataReady(renderCallback) {
-            finalDataPayload = renderCallback;
-            if (isGameOver || isGameClear) {
-                finishGameAndShowData();
-            } else {
-                isWaitingForDataChoice = true;
-                const modal = document.getElementById('dataReadyModal');
-                const btns = document.querySelectorAll('.modal-btn');
-                
-                modal.style.display = 'flex';
-                canClickModal = false; 
-                
-                btns.forEach(b => {
-                    b.style.opacity = '0.4';
-                    b.style.cursor = 'not-allowed';
-                });
-
-                setTimeout(() => {
-                    canClickModal = true;
-                    btns.forEach(b => {
-                        b.style.opacity = '1';
-                        b.style.cursor = 'pointer';
-                    });
-                }, 500);
-            }
-        }
-
-        function finishGameAndShowData() {
-            stopMiniGame();
-            if (finalDataPayload) finalDataPayload();
-        }
-
-        document.getElementById('btn-continue-game').addEventListener('click', (e) => {
-            e.stopPropagation(); 
-            if (!canClickModal) return; 
-            isWaitingForDataChoice = false;
-            continueGameAfterData = true; 
-            document.getElementById('dataReadyModal').style.display = 'none';
-        });
-
-        document.getElementById('btn-show-data').addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (!canClickModal) return;
-            isWaitingForDataChoice = false;
-            document.getElementById('dataReadyModal').style.display = 'none';
-            finishGameAndShowData();
-        });
-
-        let score = 0; 
-        let nextBossScore = 100; 
-        let isGameOver = false;
-        let isGameClear = false;
-        let frame = 0;
-        let nextSpawnFrame = 50; 
-        let obstacles = [];
-
-        const player = { x: 30, y: 100, w: 20, h: 20, dy: 0, gravity: 0.6, jumpPow: -8.5, grounded: false, jumps: 0, maxJumps: 2 };
-        let boss = { active: false, x: 300, y: 30, w: 40, h: 70, speedY: 2, level: 1, fireCooldown: 0, fired: 0, maxFire: 0, state: 'entering' };
-
-        function updateScoreBoard() {
-            const board = document.getElementById('scoreBoard');
-            if (boss.active) {
-                board.innerHTML = `<span style="color:#ff5252;">⚠️ [Lv.${boss.level} 거대 하락장 등장!] ⚠️</span> | 수익률: +${score}%`;
-            } else {
-                board.innerText = `터치/클릭 점프 (더블 점프!) | 수익률: +${score}%`;
-            }
-        }
-
-        function startMiniGame() {
-            const canvas = document.getElementById('gameCanvas');
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-
-            function jump(e) {
-                if (e) e.preventDefault();
-                initAudio(); 
-                
-                if (isWaitingForDataChoice) return; 
-
-                if (isGameOver || isGameClear) {
-                    if (continueGameAfterData && finalDataPayload) {
-                        finishGameAndShowData();
-                        return;
-                    }
-                    obstacles = [];
-                    score = 0;
-                    nextBossScore = 100;
-                    frame = 0;
-                    nextSpawnFrame = 50;
-                    isGameOver = false;
-                    isGameClear = false;
-                    boss.active = false;
-                    updateScoreBoard();
-                } else if (player.jumps < player.maxJumps) {
-                    player.dy = player.jumpPow;
-                    player.grounded = false;
-                    player.jumps++;
-                    playJump(); 
-                }
-            }
-
-            canvas.addEventListener('mousedown', jump);
-            canvas.addEventListener('touchstart', jump, {passive: false});
-
-            function update() {
-                if (isGameOver || isGameClear || isWaitingForDataChoice) return; 
-                
-                player.dy += player.gravity;
-                player.y += player.dy;
-                
-                if (player.y + player.h >= 130) {
-                    player.y = 130 - player.h;
-                    player.dy = 0;
-                    player.grounded = true;
-                    player.jumps = 0;
-                }
-
-                frame++;
-                
-                if (score >= nextBossScore && !boss.active) {
-                    if (obstacles.length === 0) {
-                        boss.active = true;
-                        boss.x = 300;
-                        boss.y = 40;
-                        boss.level = Math.min(4, Math.floor(score / 100));
-                        boss.w = 40;
-                        
-                        if (boss.level === 4) {
-                            boss.h = 90; 
-                            boss.speedY = 4.5; 
-                            boss.maxFire = 30; 
-                        } else {
-                            boss.h = 70;
-                            boss.speedY = 1.5 + (boss.level * 0.5); 
-                            boss.maxFire = 5 + (boss.level * 3); 
-                        }
-                        
-                        boss.fired = 0;
-                        boss.fireCooldown = 30;
-                        boss.state = 'entering';
-                        playBoss();
-                        updateScoreBoard();
-                    }
-                }
-
-                if (boss.active) {
-                    if (boss.state === 'entering') {
-                        boss.x -= 2;
-                        if (boss.x <= 230) boss.state = 'fighting';
-                    } else if (boss.state === 'fighting') {
-                        boss.y += boss.speedY;
-                        if (boss.y < 10 || boss.y + boss.h > 125) boss.speedY *= -1;
-
-                        boss.fireCooldown--;
-                        if (boss.fireCooldown <= 0 && boss.fired < boss.maxFire) {
-                            let pSpeed = 4 + boss.level + Math.random() * 2;
-                            if (boss.level === 4) pSpeed += 4; 
-                            
-                            let pWidth = 14; 
-                            let pHeight = 14; 
-                            
-                            let longProb = boss.level === 4 ? 0.7 : 0.3;
-                            if (Math.random() < longProb) {
-                                pHeight += 15 + Math.random() * 15;
-                                if (boss.level === 4) pHeight += 10; 
-                            }
-                            
-                            let projY = Math.random() < 0.6 ? 130 - pHeight : boss.y + Math.random() * 20;
-
-                            obstacles.push({ x: boss.x, y: projY, w: pWidth, h: pHeight, speed: pSpeed, color: '#448aff', passed: true, isBossProj: true, candleType: 3 });
-                            boss.fired++;
-                            
-                            if (boss.level === 4) {
-                                boss.fireCooldown = Math.max(12, 25 - Math.random() * 5); 
-                            } else {
-                                boss.fireCooldown = Math.max(15, 50 - (boss.level * 5)); 
-                            }
-                        }
-
-                        if (boss.fired >= boss.maxFire && obstacles.length === 0) {
-                            boss.state = 'leaving';
-                        }
-                    } else if (boss.state === 'leaving') {
-                        boss.x += 3;
-                        if (boss.x > 300) {
-                            boss.active = false;
-                            score += 20; 
-                            
-                            if (boss.level === 4) {
-                                isGameClear = true;
-                                playClear();
-                            } else {
-                                nextBossScore = score - (score % 100) + 100; 
-                                updateScoreBoard();
-                            }
-                        }
-                    }
-                } 
-                else {
-                    if (score < nextBossScore && frame >= nextSpawnFrame) {
-                        let baseSpeed = 4 + (score / 200);
-                        let obsW = 14; 
-                        let obsH = 25 + Math.random() * 20; 
-                        let obsSpeed = baseSpeed + (Math.random() * 2 - 1);
-                        let cType = Math.floor(Math.random() * 4); 
-                        let color = '#448aff'; 
-
-                        if (Math.random() < 0.2) {
-                            obsSpeed += 3; color = '#0d47a1'; 
-                        }
-
-                        obstacles.push({ x: 300, y: 130 - obsH, w: obsW, h: obsH, speed: obsSpeed, color: color, passed: false, candleType: cType });
-
-                        let minDelay = Math.max(30, 70 - Math.floor(score/30)); 
-                        let maxDelay = minDelay + 40 + Math.random() * 40;
-                        nextSpawnFrame = frame + minDelay + Math.floor(Math.random() * (maxDelay - minDelay));
-                    }
-                }
-
-                for (let i = obstacles.length - 1; i >= 0; i--) {
-                    let obs = obstacles[i];
-                    obs.x -= obs.speed;
-                    
-                    if (!obs.passed && player.x > obs.x + obs.w) {
-                        obs.passed = true;
-                        score += 10;
-                        updateScoreBoard();
-                    }
-
-                    if (obs.x + obs.w < 0) {
-                        obstacles.splice(i, 1);
-                    }
-                    
-                    if (player.x + 4 < obs.x + obs.w && player.x + player.w - 4 > obs.x &&
-                        player.y + 4 < obs.y + obs.h && player.y + player.h - 4 > obs.y) {
-                        if (!isGameOver) playHit();
-                        isGameOver = true;
-                    }
-                }
-            }
-
-            function draw() {
-                ctx.clearRect(0, 0, 300, 150);
-                
-                ctx.fillStyle = '#333';
-                ctx.fillRect(0, 130, 300, 2);
-
-                ctx.fillStyle = '#ff5252';
-                ctx.fillRect(player.x, player.y, player.w, player.h);
-                ctx.fillStyle = '#fff';
-                ctx.fillRect(player.x + 12, player.y + 4, 4, 4);
-
-                if (boss.active) {
-                    ctx.fillStyle = '#1565c0'; 
-                    
-                    let bodyY, bodyH, tailTopY = 0, tailTopH = 0, tailBotY = 0, tailBotH = 0, faceY;
-                    let tw = 6;
-                    let tx = boss.x + boss.w/2 - tw/2;
-                    
-                    if (boss.level === 1) { 
-                        bodyY = boss.y; bodyH = 40;
-                        tailBotY = boss.y + 40; tailBotH = boss.h - 40;
-                        faceY = boss.y + 10;
-                    } else if (boss.level === 2) { 
-                        bodyY = boss.y + 20; bodyH = 30;
-                        tailTopY = boss.y; tailTopH = 20;
-                        tailBotY = boss.y + 50; tailBotH = boss.h - 50;
-                        faceY = boss.y + 25;
-                    } else if (boss.level === 3) { 
-                        bodyY = boss.y + 30; bodyH = boss.h - 30;
-                        tailTopY = boss.y; tailTopH = 30;
-                        faceY = boss.y + 35;
-                    } else { 
-                        bodyY = boss.y; bodyH = boss.h;
-                        faceY = boss.y + 30;
-                    }
-                    
-                    if (tailTopH > 0) ctx.fillRect(tx, tailTopY, tw, tailTopH);
-                    if (tailBotH > 0) ctx.fillRect(tx, tailBotY, tw, tailBotH);
-                    
-                    ctx.fillRect(boss.x, bodyY, boss.w, bodyH);
-                    
-                    ctx.fillStyle = '#ffffff';
-                    ctx.fillRect(boss.x + 8, faceY, 10, 6);
-                    ctx.fillRect(boss.x + 22, faceY, 10, 6);
-                    ctx.fillStyle = '#ff0000'; 
-                    ctx.fillRect(boss.x + 10, faceY + 2, 4, 4);
-                    ctx.fillRect(boss.x + 24, faceY + 2, 4, 4);
-
-                    ctx.strokeStyle = '#000000';
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    ctx.moveTo(boss.x + 6, faceY - 5);
-                    ctx.lineTo(boss.x + 18, faceY);
-                    ctx.stroke();
-                    ctx.beginPath();
-                    ctx.moveTo(boss.x + 34, faceY - 5);
-                    ctx.lineTo(boss.x + 22, faceY);
-                    ctx.stroke();
-
-                    ctx.fillStyle = '#000000';
-                    ctx.fillRect(boss.x + 12, faceY + 20, 16, 6);
-                    
-                    ctx.fillStyle = '#ffffff';
-                    ctx.font = 'bold 10px sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(`Lv.${boss.level}`, boss.x + boss.w/2, bodyY - 5 < boss.y ? bodyY + bodyH + 12 : bodyY - 5);
-                }
-
-                for (let obs of obstacles) {
-                    ctx.fillStyle = obs.color;
-                    
-                    let bw = obs.w;
-                    let bh, by, tty=0, tth=0, tby=0, tbh=0;
-                    let tw = 4;
-                    let tx = obs.x + bw/2 - tw/2;
-
-                    if (obs.candleType === 0) { 
-                        bh = obs.h * 0.4; by = obs.y;
-                        tby = obs.y + bh; tbh = obs.h * 0.6;
-                    } else if (obs.candleType === 1) { 
-                        bh = obs.h * 0.3; by = obs.y + obs.h * 0.35;
-                        tty = obs.y; tth = obs.h * 0.35;
-                        tby = obs.y + obs.h * 0.65; tbh = obs.h * 0.35;
-                    } else if (obs.candleType === 2) { 
-                        bh = obs.h * 0.4; by = obs.y + obs.h * 0.6;
-                        tty = obs.y; tth = obs.h * 0.6;
-                    } else { 
-                        bh = obs.h; by = obs.y;
-                    }
-
-                    ctx.fillRect(obs.x, by, bw, bh); 
-                    if (tth > 0) ctx.fillRect(tx, tty, tw, tth); 
-                    if (tbh > 0) ctx.fillRect(tx, tby, tw, tbh); 
-                }
-
-                if (isGameOver) {
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-                    ctx.fillRect(0, 0, 300, 150);
-                    ctx.fillStyle = '#fff';
-                    
-                    ctx.font = 'bold 22px sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.fillText('Game Over', 150, 60);
-
-                    ctx.font = '14px sans-serif';
-                    ctx.fillText('고점에서 물렸습니다!', 150, 85);
-                    
-                    ctx.font = '12px sans-serif';
-                    ctx.fillStyle = '#aaaaaa';
-                    if (continueGameAfterData && finalDataPayload) {
-                        ctx.fillText('터치하여 데이터 결과 보기', 150, 110);
-                    } else {
-                        ctx.fillText('다시 하려면 터치하세요', 150, 110);
-                    }
-                } else if (isGameClear) {
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-                    ctx.fillRect(0, 0, 300, 150);
-                    
-                    ctx.fillStyle = '#ffd740'; 
-                    ctx.font = 'bold 24px sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.fillText('Game Clear!', 150, 60);
-
-                    ctx.fillStyle = '#ffffff';
-                    ctx.font = '14px sans-serif';
-                    ctx.fillText('모든 하락장을 견뎌냈습니다!', 150, 85);
-                    
-                    ctx.font = '12px sans-serif';
-                    ctx.fillStyle = '#aaaaaa';
-                    if (continueGameAfterData && finalDataPayload) {
-                        ctx.fillText('터치하여 데이터 결과 보기', 150, 110);
-                    } else {
-                        ctx.fillText('새 게임을 하려면 터치하세요', 150, 110);
-                    }
-                }
-            }
-
-            function loop() {
-                update();
-                draw();
-                gameLoopId = requestAnimationFrame(loop);
-            }
-            
-            updateScoreBoard();
-            loop();
-        }
-
-        function stopMiniGame() {
-            if (gameLoopId) cancelAnimationFrame(gameLoopId);
-        }
-
-        // --- 앱 메인 초기화 ---
+        // --- 앱 메인 초기화 (데이터 로딩 및 UI 렌더링) ---
         async function initApp() {
-            startMiniGame();
-
             try {
+                // 환율 및 주식 데이터 비동기 처리
                 const exchangeRaw = await fetchHistory('USDKRW=X');
                 const exDates = exchangeRaw.map(d => d.date);
                 const exPrices = exchangeRaw.map(d => d.close);
@@ -1600,7 +1133,7 @@
                 }
 
                 function startAutoPlay(direction) {
-                    stopAutoPlay(); // 기존 재생 정지
+                    stopAutoPlay(); 
                     
                     if (direction === 'forward') {
                         if (currentDateIndex >= globalAvailableDates.length - 1) return;
@@ -1610,7 +1143,7 @@
                         isPlayingBackward = true;
                     }
                     
-                    updateView(); // 일시정지 아이콘 즉각 반영
+                    updateView(); 
 
                     playIntervalId = setInterval(() => {
                         if (isPlayingForward) {
@@ -1631,7 +1164,7 @@
                     }, currentPlaySpeed);
                 }
 
-                // UI를 갱신하는 최적화된 함수 (DOM을 파괴하지 않고 값만 업데이트)
+                // UI를 갱신하는 최적화된 함수
                 function updateView() {
                     const targetDate = globalAvailableDates[currentDateIndex];
                     const isLatestDay = currentDateIndex === globalAvailableDates.length - 1;
@@ -1641,7 +1174,6 @@
                     if (isLatestDay && isPlayingForward) stopAutoPlay();
                     if (isFirstDay && isPlayingBackward) stopAutoPlay();
 
-                    // 컨트롤 요소들 상태 업데이트
                     const btnPrev = document.getElementById('btn-prev-day');
                     const btnNext = document.getElementById('btn-next-day');
                     const btnLatest = document.getElementById('btn-latest-day');
@@ -1678,7 +1210,6 @@
                         btnRewind.style.background = isPlayingBackward ? '#e74c3c' : '#2a2a2a';
                     }
 
-                    // 종목 데이터 블록 갱신
                     let assetsHtml = createAssetBlock(globalExState, true, targetDate);
                     globalStockResults.forEach(r => {
                         assetsHtml += createAssetBlock(r, false, targetDate);
@@ -1694,13 +1225,13 @@
                     if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT')) return;
 
                     if (e.key === 'ArrowLeft') {
-                        stopAutoPlay(); // 방향키 조작 시 재생 정지
+                        stopAutoPlay();
                         if (currentDateIndex > 0) {
                             currentDateIndex--;
                             updateView();
                         }
                     } else if (e.key === 'ArrowRight') {
-                        stopAutoPlay(); // 방향키 조작 시 재생 정지
+                        stopAutoPlay();
                         if (currentDateIndex < globalAvailableDates.length - 1) {
                             currentDateIndex++;
                             updateView();
@@ -1708,86 +1239,83 @@
                     }
                 });
 
-                triggerDataReady(() => {
-                    // 최초 레이아웃 렌더링 (재생 속도 조절 UI 포함)
-                    let baseHtml = `
-                    <div style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #333;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                            <div style="font-size: 13px; color: #aaa; font-weight: 600;">조회 기준일</div>
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <select id="play-speed-select" style="background: #1e1e1e; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 3px; font-size: 12px; outline: none; font-family: inherit;">
-                                    <option value="1000">1.0초</option>
-                                    <option value="500" selected>0.5초</option>
-                                    <option value="200">0.2초</option>
-                                    <option value="100">0.1초</option>
-                                    <option value="50">0.05초</option>
-                                </select>
-                                <button id="btn-latest-day" style="background: #e74c3c; color: #fff; border: none; padding: 0 10px; height: 26px; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer;">최신</button>
-                            </div>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 4px;">
-                            <button id="btn-rewind" style="background: #2a2a2a; color: #fff; border: 1px solid #444; width: 34px; height: 32px; border-radius: 4px; cursor: pointer; display:flex; align-items:center; justify-content:center; font-size: 12px;">⏪</button>
-                            <button id="btn-prev-day" style="background: #2a2a2a; color: #fff; border: 1px solid #444; width: 34px; height: 32px; border-radius: 4px; cursor: pointer; display:flex; align-items:center; justify-content:center;">◀</button>
-                            <input type="date" id="history-date-picker" min="${globalAvailableDates[0]}" max="${globalAvailableDates[globalAvailableDates.length - 1]}" style="flex: 1; min-width: 0; background: #1e1e1e; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 0 5px; height: 32px; font-size: 14px; text-align: center; color-scheme: dark; font-family: inherit;">
-                            <button id="btn-next-day" style="background: #2a2a2a; color: #fff; border: 1px solid #444; width: 34px; height: 32px; border-radius: 4px; cursor: pointer; display:flex; align-items:center; justify-content:center;">▶</button>
-                            <button id="btn-play" style="background: #2a2a2a; color: #fff; border: 1px solid #444; width: 34px; height: 32px; border-radius: 4px; cursor: pointer; display:flex; align-items:center; justify-content:center; font-size: 12px;">⏩</button>
+                // 데이터 로딩 완료 시 UI 교체
+                let baseHtml = `
+                <div style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #333;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <div style="font-size: 13px; color: #aaa; font-weight: 600;">조회 기준일</div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <select id="play-speed-select" style="background: #1e1e1e; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 3px; font-size: 12px; outline: none; font-family: inherit;">
+                                <option value="1000">1.0초</option>
+                                <option value="500" selected>0.5초</option>
+                                <option value="200">0.2초</option>
+                                <option value="100">0.1초</option>
+                                <option value="50">0.05초</option>
+                            </select>
+                            <button id="btn-latest-day" style="background: #e74c3c; color: #fff; border: none; padding: 0 10px; height: 26px; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer;">최신</button>
                         </div>
                     </div>
-                    <div id="assets-container"></div>
-                    `;
-                    
-                    document.getElementById('content').innerHTML = baseHtml;
-                    document.getElementById('content').classList.remove('loading');
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 4px;">
+                        <button id="btn-rewind" style="background: #2a2a2a; color: #fff; border: 1px solid #444; width: 34px; height: 32px; border-radius: 4px; cursor: pointer; display:flex; align-items:center; justify-content:center; font-size: 12px;">⏪</button>
+                        <button id="btn-prev-day" style="background: #2a2a2a; color: #fff; border: 1px solid #444; width: 34px; height: 32px; border-radius: 4px; cursor: pointer; display:flex; align-items:center; justify-content:center;">◀</button>
+                        <input type="date" id="history-date-picker" min="${globalAvailableDates[0]}" max="${globalAvailableDates[globalAvailableDates.length - 1]}" style="flex: 1; min-width: 0; background: #1e1e1e; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 0 5px; height: 32px; font-size: 14px; text-align: center; color-scheme: dark; font-family: inherit;">
+                        <button id="btn-next-day" style="background: #2a2a2a; color: #fff; border: 1px solid #444; width: 34px; height: 32px; border-radius: 4px; cursor: pointer; display:flex; align-items:center; justify-content:center;">▶</button>
+                        <button id="btn-play" style="background: #2a2a2a; color: #fff; border: 1px solid #444; width: 34px; height: 32px; border-radius: 4px; cursor: pointer; display:flex; align-items:center; justify-content:center; font-size: 12px;">⏩</button>
+                    </div>
+                </div>
+                <div id="assets-container"></div>
+                `;
+                
+                document.getElementById('content').innerHTML = baseHtml;
+                document.getElementById('content').classList.remove('loading');
 
-                    // 버튼 이벤트 등록
-                    document.getElementById('btn-prev-day').addEventListener('click', () => {
-                        stopAutoPlay();
-                        if (currentDateIndex > 0) { currentDateIndex--; updateView(); }
-                    });
-                    document.getElementById('btn-next-day').addEventListener('click', () => {
-                        stopAutoPlay();
-                        if (currentDateIndex < globalAvailableDates.length - 1) { currentDateIndex++; updateView(); }
-                    });
-                    document.getElementById('btn-latest-day').addEventListener('click', () => {
-                        stopAutoPlay();
-                        currentDateIndex = globalAvailableDates.length - 1; updateView();
-                    });
-                    
-                    document.getElementById('history-date-picker').addEventListener('change', (e) => {
-                        stopAutoPlay();
-                        let selected = e.target.value;
-                        let closestIdx = 0;
-                        for(let i=0; i<globalAvailableDates.length; i++) {
-                            if(globalAvailableDates[i] <= selected) { closestIdx = i; } else { break; }
-                        }
-                        currentDateIndex = closestIdx; updateView();
-                    });
-
-                    // 자동 재생 버튼 이벤트
-                    document.getElementById('btn-play').addEventListener('click', () => {
-                        if (isPlayingForward) stopAutoPlay();
-                        else startAutoPlay('forward');
-                    });
-                    document.getElementById('btn-rewind').addEventListener('click', () => {
-                        if (isPlayingBackward) stopAutoPlay();
-                        else startAutoPlay('backward');
-                    });
-                    
-                    // 재생 속도 변경 이벤트
-                    document.getElementById('play-speed-select').addEventListener('change', (e) => {
-                        currentPlaySpeed = parseInt(e.target.value);
-                        if (isPlayingForward) startAutoPlay('forward'); // 속도 즉각 반영
-                        if (isPlayingBackward) startAutoPlay('backward');
-                    });
-
-                    // 최초 뷰 강제 렌더링
-                    updateView();
-
-                    document.getElementById('descBtn').style.display = 'block';
-                    const downloadBtn = document.getElementById('downloadBtn');
-                    downloadBtn.style.display = 'block';
-                    downloadBtn.addEventListener('click', () => downloadCSV(stockResults, exState));
+                // 버튼 이벤트 등록
+                document.getElementById('btn-prev-day').addEventListener('click', () => {
+                    stopAutoPlay();
+                    if (currentDateIndex > 0) { currentDateIndex--; updateView(); }
                 });
+                document.getElementById('btn-next-day').addEventListener('click', () => {
+                    stopAutoPlay();
+                    if (currentDateIndex < globalAvailableDates.length - 1) { currentDateIndex++; updateView(); }
+                });
+                document.getElementById('btn-latest-day').addEventListener('click', () => {
+                    stopAutoPlay();
+                    currentDateIndex = globalAvailableDates.length - 1; updateView();
+                });
+                
+                document.getElementById('history-date-picker').addEventListener('change', (e) => {
+                    stopAutoPlay();
+                    let selected = e.target.value;
+                    let closestIdx = 0;
+                    for(let i=0; i<globalAvailableDates.length; i++) {
+                        if(globalAvailableDates[i] <= selected) { closestIdx = i; } else { break; }
+                    }
+                    currentDateIndex = closestIdx; updateView();
+                });
+
+                document.getElementById('btn-play').addEventListener('click', () => {
+                    if (isPlayingForward) stopAutoPlay();
+                    else startAutoPlay('forward');
+                });
+                document.getElementById('btn-rewind').addEventListener('click', () => {
+                    if (isPlayingBackward) stopAutoPlay();
+                    else startAutoPlay('backward');
+                });
+                
+                document.getElementById('play-speed-select').addEventListener('change', (e) => {
+                    currentPlaySpeed = parseInt(e.target.value);
+                    if (isPlayingForward) startAutoPlay('forward'); 
+                    if (isPlayingBackward) startAutoPlay('backward');
+                });
+
+                // 렌더링 호출
+                updateView();
+
+                document.getElementById('descBtn').style.display = 'block';
+                const downloadBtn = document.getElementById('downloadBtn');
+                downloadBtn.style.display = 'block';
+                downloadBtn.addEventListener('click', () => downloadCSV(stockResults, exState));
+
             } catch(e) {
                 console.error("Initialization Error: ", e);
             }
