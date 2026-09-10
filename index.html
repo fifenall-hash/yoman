@@ -196,32 +196,47 @@
             
             <div id="analysisResult" style="margin-top: 20px; font-size: 14px; text-align: center;"></div>
             
-            <!-- 전략 상세 설명 추가 영역 -->
-            <div id="strategyExplanation" style="margin-top: 20px; background: #2a2a2a; padding: 15px; border-radius: 8px; text-align: left; font-size: 13px; line-height: 1.5; border: 1px solid #333;">
+            <div style="margin-top: 15px; background: #222; padding: 15px; border-radius: 8px; border: 1px solid #444; font-size: 13px;">
+                <h4 style="margin: 0 0 12px 0; color: #ffd740; text-align: center;">⚙️ 분할 전략 비율 설정 (실시간 시뮬레이션)</h4>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                    <label style="color: #ddd; flex: 1;">'저평가' 매수 비율:</label>
+                    <input type="range" id="buyUnderValued" min="0" max="100" step="1" value="50" oninput="updateCustomRatio('val1', this.value)" style="flex: 1; margin: 0 10px; cursor: pointer;">
+                    <span id="val1" style="display:inline-block; width:45px; text-align:right; color:#fff; font-weight:bold;">50%</span>
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                    <label style="color: #ddd; flex: 1;">'심한 저평가' 매수 비율:</label>
+                    <input type="range" id="buyExtremeUnder" min="0" max="100" step="1" value="100" oninput="updateCustomRatio('val2', this.value)" style="flex: 1; margin: 0 10px; cursor: pointer;">
+                    <span id="val2" style="display:inline-block; width:45px; text-align:right; color:#fff; font-weight:bold;">100%</span>
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                    <label style="color: #ddd; flex: 1;">'심한 과열' 매도 비율:</label>
+                    <input type="range" id="sellOverValued" min="0" max="100" step="1" value="33" oninput="updateCustomRatio('val3', this.value)" style="flex: 1; margin: 0 10px; cursor: pointer;">
+                    <span id="val3" style="display:inline-block; width:45px; text-align:right; color:#fff; font-weight:bold;">33%</span>
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <label style="color: #ddd; flex: 1;">'심한 과열 끝' 매도 비율:</label>
+                    <input type="range" id="sellExtremeOver" min="0" max="100" step="1" value="50" oninput="updateCustomRatio('val4', this.value)" style="flex: 1; margin: 0 10px; cursor: pointer;">
+                    <span id="val4" style="display:inline-block; width:45px; text-align:right; color:#fff; font-weight:bold;">50%</span>
+                </div>
+            </div>
+
+            <div id="strategyExplanation" style="margin-top: 15px; background: #2a2a2a; padding: 15px; border-radius: 8px; text-align: left; font-size: 13px; line-height: 1.5; border: 1px solid #333;">
                 <h4 style="color: #ffd740; margin-top: 0; margin-bottom: 12px; font-size: 15px; text-align: center;">📊 전략별 매매 방식 안내</h4>
                 <ul style="padding-left: 20px; margin: 0; color: #ddd;">
                     <li style="margin-bottom: 10px;">
                         <strong style="color: #aaaaaa;">Buy & Hold:</strong><br>
-                        분석 시작일(과거 1500일 이후 시점)에 주식을 100% 매수한 후, 한 번도 팔지 않고 끝까지 보유했을 때의 수익률입니다.
+                        분석 시작일에 주식을 100% 매수한 후 끝까지 보유했을 때의 수익률입니다.
                     </li>
                     <li style="margin-bottom: 10px;">
                         <strong style="color: #3498db;">기존 전략:</strong><br>
-                        안전 반경 알고리즘에 따라 도출된 <strong>'심한 과열(Sell)'</strong> 선을 넘으면 보유 주식을 전량(100%) 매도하여 현금화하고, <strong>'심한 저평가(Buy)'</strong> 선 아래로 떨어지면 보유 현금으로 전량(100%) 매수하는 극단적 스위칭 전략입니다.
+                        '심한 과열' 선을 넘으면 전량 매도, '심한 저평가' 선 아래로 떨어지면 전량 매수하는 전략입니다.
                     </li>
                     <li>
                         <strong style="color: #e74c3c;">분할 전략:</strong><br>
-                        모 아니면 도 식의 리스크를 줄이기 위해, 구역에 따라 유연하게 분할 진입/청산합니다.
-                        <ul style="padding-left: 15px; margin-top: 6px; color: #bbb; list-style-type: circle;">
-                            <li style="margin-bottom: 4px;"><strong>'저평가' 진입 시:</strong> 보유 현금의 50% 분할 매수</li>
-                            <li style="margin-bottom: 4px;"><strong>'심한 저평가' 진입 시:</strong> 남은 현금 100% 전량 매수</li>
-                            <li style="margin-bottom: 4px;"><strong>'심한 과열' 진입 시:</strong> 보유 주식의 33%(1/3) 분할 매도</li>
-                            <li><strong>'심한 과열 끝' 한계치 돌파 시:</strong> 보유 주식의 50% 추가 매도</li>
-                        </ul>
+                        위 패널에서 <strong>사용자가 직접 설정한 비율</strong>에 따라 유연하게 분할 진입 및 청산을 진행합니다. 슬라이더를 움직여 최적의 비율을 찾아보세요.
                     </li>
                 </ul>
             </div>
-
-            <p style="font-size: 11px; color: #888; margin-top: 15px; text-align: center;">* 모든 전략은 해당 주식의 분석 시작점(1500일)에서 주식을 100% 보유한 상태로 시작합니다.</p>
             <button onclick="document.getElementById('analysisModal').style.display='none'" style="width:100%; margin-top:15px; background:#e74c3c; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">닫기</button>
         </div>
     </div>
@@ -337,6 +352,15 @@
         
         // 차트 객체 변수
         let analysisChartInstance = null;
+
+        let currentAnalysisTicker = null;
+
+        function updateCustomRatio(spanId, val) {
+            document.getElementById(spanId).innerText = val + '%';
+            if (currentAnalysisTicker) {
+                runAnalysis(currentAnalysisTicker, true);
+            }
+        }
 
         function formatPrice(price, isKrw = false) {
             if (!price) return '데이터 없음';
@@ -698,25 +722,24 @@
         }
 
         // 전략 분석 실행 함수
-        // 전략 분석 실행 함수
-        function runAnalysis(ticker) {
+        function runAnalysis(ticker, isUpdate = false) {
+            currentAnalysisTicker = ticker;
+            
             const asset = globalStockResults.find(a => a.symbol === ticker);
             if (!asset || !asset.historyLog || asset.historyLog.length === 0) {
                 alert('아직 데이터가 준비되지 않았습니다.');
                 return;
             }
 
-            // === [사용자 커스텀 변수] 분할 매수/매도 비율 설정 (0.0 ~ 1.0 사이 값 입력) ===
-            const RATIO_BUY_UNDERVALUED = 0.5;      // '저평가' 진입 시 보유 현금의 x% 매수 (기본 0.5 = 50%)
-            const RATIO_BUY_EXTREME_UNDER = 1.0;    // '심한 저평가' 진입 시 남은 현금의 x% 매수 (기본 1.0 = 100%)
-            const RATIO_SELL_OVERVALUED = 1 / 3;    // '심한 과열' 진입 시 보유 주식의 x% 매도 (기본 1/3 = 33.3%)
-            const RATIO_SELL_EXTREME_OVER = 0.5;    // '심한 과열 끝' 한계치 돌파 시 남은 주식의 x% 매도 (기본 0.5 = 50%)
-            // ==============================================================================
+            const RATIO_BUY_UNDERVALUED = parseInt(document.getElementById('buyUnderValued').value) / 100;
+            const RATIO_BUY_EXTREME_UNDER = parseInt(document.getElementById('buyExtremeUnder').value) / 100;
+            const RATIO_SELL_OVERVALUED = parseInt(document.getElementById('sellOverValued').value) / 100;
+            const RATIO_SELL_EXTREME_OVER = parseInt(document.getElementById('sellExtremeOver').value) / 100;
 
             const t = asset.t;
             const step = (t.sell - t.buy) / 3;
             if (step <= 0) return;
-            const extreme_sell_100 = t.sell + step; // 게이지바 100% (심한 과열 끝)
+            const extreme_sell_100 = t.sell + step;
 
             const N = asset.historyLog.length;
             const dates = [];
@@ -729,22 +752,20 @@
             let splitShares = 0, splitCash = 0;
             let swA = false, swB = false, swC = false, swD = false;
 
-            const initCap = 10000; // 가상의 초기 자본
+            const initCap = 10000;
 
             for (let i = 0; i < N; i++) {
                 let rec = asset.historyLog[i];
                 let price = rec.close;
                 let disp = rec.disp;
 
-                dates.push(rec.date);
+                if (!isUpdate) dates.push(rec.date);
 
                 if (i === 0) {
-                    // 최초 1500일 시점에 100% 주식 매수 후 시작
                     bnhShares = initCap / price;
                     origShares = initCap / price;
                     splitShares = initCap / price;
                 } else {
-                    // 1. 기존 전략 (Original Strategy)
                     if (origIsHolding && disp >= t.sell) {
                         origCash = origShares * price;
                         origShares = 0;
@@ -755,33 +776,30 @@
                         origIsHolding = true;
                     }
 
-                    // 2. 분할 전략 (Split Strategy)
-                    // 스위치 끄기 (Turn OFF) 조건들을 먼저 확인
-                    if (swA && disp < t.sell) swA = false;             // 과열 이하(Zone b,c,d,e)
-                    if (swB && disp < t.semiSell) swB = false;         // 적정 이하(Zone c,d,e)
-                    if (swC && disp >= t.semiSell) swC = false;        // 과열 이상(Zone b,a)
-                    if (swD && disp > t.semiBuy) swD = false;          // 적정 이상(Zone c,b,a)
+                    if (swA && disp < t.sell) swA = false;             
+                    if (swB && disp < t.semiSell) swB = false;         
+                    if (swC && disp >= t.semiSell) swC = false;        
+                    if (swD && disp > t.semiBuy) swD = false;          
 
-                    // 스위치 켜기 (Turn ON) 조건 확인 및 작동 (커스텀 비율 적용)
-                    if (!swA && disp >= extreme_sell_100) {            // 심한 과열 끝 (100% 초과)
+                    if (!swA && disp >= extreme_sell_100) {            
                         swA = true;
                         let toSell = splitShares * RATIO_SELL_EXTREME_OVER;  
                         splitCash += toSell * price;
                         splitShares -= toSell;
                     }
-                    if (!swB && disp >= t.sell) {                      // 심한 과열
+                    if (!swB && disp >= t.sell) {                      
                         swB = true;
                         let toSell = splitShares * RATIO_SELL_OVERVALUED;  
                         splitCash += toSell * price;
                         splitShares -= toSell;
                     }
-                    if (!swC && disp <= t.semiBuy) {                   // 저평가
+                    if (!swC && disp <= t.semiBuy) {                   
                         swC = true;
                         let toSpend = splitCash * RATIO_BUY_UNDERVALUED;   
                         splitShares += toSpend / price;
                         splitCash -= toSpend;
                     }
-                    if (!swD && disp < t.buy) {                        // 심한 저평가
+                    if (!swD && disp < t.buy) {                        
                         swD = true;
                         let toSpend = splitCash * RATIO_BUY_EXTREME_UNDER; 
                         splitShares += toSpend / price;
@@ -789,21 +807,18 @@
                     }
                 }
 
-                // 매일의 평가 자산 기록
                 bnhVals.push(bnhShares * price);
                 origVals.push(origCash + origShares * price);
                 splitVals.push(splitCash + splitShares * price);
             }
 
-            // CAGR(연평균 복리 수익률) 계산
-            const totalYears = Math.max(0.001, (new Date(dates[N - 1]) - new Date(dates[0])) / (1000 * 60 * 60 * 24 * 365.2425));
+            const totalYears = Math.max(0.001, (new Date(asset.historyLog[N - 1].date) - new Date(asset.historyLog[0].date)) / (1000 * 60 * 60 * 24 * 365.2425));
             const calcCAGR = (finalVal) => ((Math.pow(finalVal / initCap, 1 / totalYears) - 1) * 100).toFixed(2);
 
             const cagrBnH = calcCAGR(bnhVals[N - 1]);
             const cagrOrig = calcCAGR(origVals[N - 1]);
             const cagrSplit = calcCAGR(splitVals[N - 1]);
 
-            // 모달 정보 업데이트
             document.getElementById('analysisTitle').innerText = `${ticker} 전략별 수익률 분석`;
             document.getElementById('analysisResult').innerHTML = `
                 <div style="display:flex; justify-content:space-around; padding: 12px; background: #2a2a2a; border-radius: 8px;">
@@ -815,54 +830,51 @@
 
             document.getElementById('analysisModal').style.display = 'flex';
 
-            // Chart.js 그래프 그리기
-            const ctx = document.getElementById('analysisChart').getContext('2d');
-            if (analysisChartInstance) analysisChartInstance.destroy();
+            if (isUpdate && analysisChartInstance) {
+                analysisChartInstance.data.datasets[0].data = bnhVals;
+                analysisChartInstance.data.datasets[1].data = origVals;
+                analysisChartInstance.data.datasets[2].data = splitVals;
+                analysisChartInstance.update('none'); 
+            } else {
+                const ctx = document.getElementById('analysisChart').getContext('2d');
+                if (analysisChartInstance) analysisChartInstance.destroy();
 
-            analysisChartInstance = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: dates,
-                    datasets: [
-                        { label: 'Buy & Hold', data: bnhVals, borderColor: '#aaaaaa', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5] },
-                        { label: '기존 전략', data: origVals, borderColor: '#3498db', borderWidth: 2, pointRadius: 0 },
-                        { label: '분할 전략', data: splitVals, borderColor: '#e74c3c', borderWidth: 2, pointRadius: 0 }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    interaction: { mode: 'index', intersect: false },
-                    scales: {
-                        y: { 
-                            type: 'logarithmic', // 로그 스케일
-                            grid: { color: '#333' },
-                            ticks: { color: '#aaa' }
-                        },
-                        x: { 
-                            grid: { display: false }, 
-                            ticks: { maxTicksLimit: 8, color: '#aaa' } 
-                        }
+                analysisChartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: dates,
+                        datasets: [
+                            { label: 'Buy & Hold', data: bnhVals, borderColor: '#aaaaaa', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5] },
+                            { label: '기존 전략', data: origVals, borderColor: '#3498db', borderWidth: 2, pointRadius: 0 },
+                            { label: '분할 전략', data: splitVals, borderColor: '#e74c3c', borderWidth: 2, pointRadius: 0 }
+                        ]
                     },
-                    plugins: { 
-                        legend: { labels: { color: '#fff' } },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    let label = context.dataset.label || '';
-                                    if (label) {
-                                        label += ': ';
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false },
+                        scales: {
+                            y: { type: 'logarithmic', grid: { color: '#333' }, ticks: { color: '#aaa' } },
+                            x: { grid: { display: false }, ticks: { maxTicksLimit: 8, color: '#aaa' } }
+                        },
+                        plugins: { 
+                            legend: { labels: { color: '#fff' } },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.dataset.label || '';
+                                        if (label) label += ': ';
+                                        if (context.parsed.y !== null) {
+                                            label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
+                                        }
+                                        return label;
                                     }
-                                    if (context.parsed.y !== null) {
-                                        label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
-                                    }
-                                    return label;
                                 }
                             }
                         }
                     }
-                }
-            });
+                });
+            }
         }
 
         // 통합 자산 파이프라인 (주식 및 환율 공통)
