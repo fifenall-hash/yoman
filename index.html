@@ -198,25 +198,36 @@
             
             <div style="margin-top: 15px; background: #222; padding: 15px; border-radius: 8px; border: 1px solid #444; font-size: 13px;">
                 <h4 style="margin: 0 0 12px 0; color: #ffd740; text-align: center;">⚙️ 분할 전략 비율 설정 (실시간 시뮬레이션)</h4>
+                
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
                     <label style="color: #ddd; flex: 1;">'저평가' 매수 비율:</label>
-                    <input type="range" id="buyUnderValued" min="0" max="100" step="1" value="50" oninput="updateCustomRatio('val1', this.value)" style="flex: 1; margin: 0 10px; cursor: pointer;">
-                    <span id="val1" style="display:inline-block; width:45px; text-align:right; color:#fff; font-weight:bold;">50%</span>
+                    <input type="range" id="buyUnderValued" min="0" max="100" step="1" value="0" oninput="updateCustomRatio('val1', this.value)" style="flex: 1; margin: 0 10px; cursor: pointer;">
+                    <span id="val1" style="display:inline-block; width:45px; text-align:right; color:#fff; font-weight:bold;">0%</span>
                 </div>
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
                     <label style="color: #ddd; flex: 1;">'심한 저평가' 매수 비율:</label>
-                    <input type="range" id="buyExtremeUnder" min="0" max="100" step="1" value="100" oninput="updateCustomRatio('val2', this.value)" style="flex: 1; margin: 0 10px; cursor: pointer;">
-                    <span id="val2" style="display:inline-block; width:45px; text-align:right; color:#fff; font-weight:bold;">100%</span>
+                    <input type="range" id="buyExtremeUnder" min="0" max="100" step="1" value="50" oninput="updateCustomRatio('val2', this.value)" style="flex: 1; margin: 0 10px; cursor: pointer;">
+                    <span id="val2" style="display:inline-block; width:45px; text-align:right; color:#fff; font-weight:bold;">50%</span>
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                    <label style="color: #ddd; flex: 1;">'심한 저평가 끝' 매수 비율:</label>
+                    <input type="range" id="buyExtremeUnderEnd" min="0" max="100" step="1" value="100" oninput="updateCustomRatio('val3', this.value)" style="flex: 1; margin: 0 10px; cursor: pointer;">
+                    <span id="val3" style="display:inline-block; width:45px; text-align:right; color:#fff; font-weight:bold;">100%</span>
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                    <label style="color: #ddd; flex: 1;">'과열' 매도 비율:</label>
+                    <input type="range" id="sellOverValued" min="0" max="100" step="1" value="0" oninput="updateCustomRatio('val4', this.value)" style="flex: 1; margin: 0 10px; cursor: pointer;">
+                    <span id="val4" style="display:inline-block; width:45px; text-align:right; color:#fff; font-weight:bold;">0%</span>
                 </div>
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
                     <label style="color: #ddd; flex: 1;">'심한 과열' 매도 비율:</label>
-                    <input type="range" id="sellOverValued" min="0" max="100" step="1" value="33" oninput="updateCustomRatio('val3', this.value)" style="flex: 1; margin: 0 10px; cursor: pointer;">
-                    <span id="val3" style="display:inline-block; width:45px; text-align:right; color:#fff; font-weight:bold;">33%</span>
+                    <input type="range" id="sellExtremeOver" min="0" max="100" step="1" value="50" oninput="updateCustomRatio('val5', this.value)" style="flex: 1; margin: 0 10px; cursor: pointer;">
+                    <span id="val5" style="display:inline-block; width:45px; text-align:right; color:#fff; font-weight:bold;">50%</span>
                 </div>
                 <div style="display: flex; align-items: center; justify-content: space-between;">
                     <label style="color: #ddd; flex: 1;">'심한 과열 끝' 매도 비율:</label>
-                    <input type="range" id="sellExtremeOver" min="0" max="100" step="1" value="50" oninput="updateCustomRatio('val4', this.value)" style="flex: 1; margin: 0 10px; cursor: pointer;">
-                    <span id="val4" style="display:inline-block; width:45px; text-align:right; color:#fff; font-weight:bold;">50%</span>
+                    <input type="range" id="sellExtremeOverEnd" min="0" max="100" step="1" value="100" oninput="updateCustomRatio('val6', this.value)" style="flex: 1; margin: 0 10px; cursor: pointer;">
+                    <span id="val6" style="display:inline-block; width:45px; text-align:right; color:#fff; font-weight:bold;">100%</span>
                 </div>
             </div>
 
@@ -733,13 +744,17 @@
 
             const RATIO_BUY_UNDERVALUED = parseInt(document.getElementById('buyUnderValued').value) / 100;
             const RATIO_BUY_EXTREME_UNDER = parseInt(document.getElementById('buyExtremeUnder').value) / 100;
+            const RATIO_BUY_EXTREME_UNDER_END = parseInt(document.getElementById('buyExtremeUnderEnd').value) / 100;
+
             const RATIO_SELL_OVERVALUED = parseInt(document.getElementById('sellOverValued').value) / 100;
             const RATIO_SELL_EXTREME_OVER = parseInt(document.getElementById('sellExtremeOver').value) / 100;
+            const RATIO_SELL_EXTREME_OVER_END = parseInt(document.getElementById('sellExtremeOverEnd').value) / 100;
 
             const t = asset.t;
             const step = (t.sell - t.buy) / 3;
             if (step <= 0) return;
-            const extreme_sell_100 = t.sell + step;
+            const extreme_sell_end = t.sell + step; // 심한 과열 끝
+            const extreme_buy_end = t.buy - step;   // 심한 저평가 끝
 
             const N = asset.historyLog.length;
             const dates = [];
@@ -750,7 +765,10 @@
             let bnhShares = 0;
             let origShares = 0, origCash = 0, origIsHolding = true;
             let splitShares = 0, splitCash = 0;
-            let swA = false, swB = false, swC = false, swD = false;
+            
+            // 6단계 스위치로 세분화
+            let swSellEnd = false, swSellExtreme = false, swSellOver = false;
+            let swBuyEnd = false, swBuyExtreme = false, swBuyUnder = false;
 
             const initCap = 10000;
 
@@ -776,32 +794,51 @@
                         origIsHolding = true;
                     }
 
-                    if (swA && disp < t.sell) swA = false;             
-                    if (swB && disp < t.semiSell) swB = false;         
-                    if (swC && disp >= t.semiSell) swC = false;        
-                    if (swD && disp > t.semiBuy) swD = false;          
+                    // 스위치 끄기 (Turn OFF) - 추세가 꺾여 아래 단계로 돌아오면 스위치 리셋
+                    if (swSellEnd && disp < t.sell) swSellEnd = false;
+                    if (swSellExtreme && disp < t.semiSell) swSellExtreme = false;
+                    if (swSellOver && disp < t.buy) swSellOver = false;
 
-                    if (!swA && disp >= extreme_sell_100) {            
-                        swA = true;
+                    if (swBuyEnd && disp > t.buy) swBuyEnd = false;
+                    if (swBuyExtreme && disp > t.semiBuy) swBuyExtreme = false;
+                    if (swBuyUnder && disp > t.sell) swBuyUnder = false;
+
+                    // 매도 스위치 켜기 (Turn ON)
+                    if (!swSellEnd && disp >= extreme_sell_end) {            
+                        swSellEnd = true;
+                        let toSell = splitShares * RATIO_SELL_EXTREME_OVER_END;  
+                        splitCash += toSell * price;
+                        splitShares -= toSell;
+                    }
+                    if (!swSellExtreme && disp >= t.sell) {                      
+                        swSellExtreme = true;
                         let toSell = splitShares * RATIO_SELL_EXTREME_OVER;  
                         splitCash += toSell * price;
                         splitShares -= toSell;
                     }
-                    if (!swB && disp >= t.sell) {                      
-                        swB = true;
-                        let toSell = splitShares * RATIO_SELL_OVERVALUED;  
+                    if (!swSellOver && disp >= t.semiSell) {                   
+                        swSellOver = true;
+                        let toSell = splitShares * RATIO_SELL_OVERVALUED;   
                         splitCash += toSell * price;
                         splitShares -= toSell;
                     }
-                    if (!swC && disp <= t.semiBuy) {                   
-                        swC = true;
-                        let toSpend = splitCash * RATIO_BUY_UNDERVALUED;   
+
+                    // 매수 스위치 켜기 (Turn ON)
+                    if (!swBuyEnd && disp <= extreme_buy_end) {            
+                        swBuyEnd = true;
+                        let toSpend = splitCash * RATIO_BUY_EXTREME_UNDER_END; 
                         splitShares += toSpend / price;
                         splitCash -= toSpend;
                     }
-                    if (!swD && disp < t.buy) {                        
-                        swD = true;
+                    if (!swBuyExtreme && disp <= t.buy) {                      
+                        swBuyExtreme = true;
                         let toSpend = splitCash * RATIO_BUY_EXTREME_UNDER; 
+                        splitShares += toSpend / price;
+                        splitCash -= toSpend;
+                    }
+                    if (!swBuyUnder && disp <= t.semiBuy) {                   
+                        swBuyUnder = true;
+                        let toSpend = splitCash * RATIO_BUY_UNDERVALUED;   
                         splitShares += toSpend / price;
                         splitCash -= toSpend;
                     }
