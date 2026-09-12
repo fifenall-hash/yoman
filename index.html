@@ -772,9 +772,10 @@
 
             const N = asset.historyLog.length;
             
-            // 9가지 선을 그리기 위한 데이터 배열
+            // 차트 렌더링용 배열
             const dates = [];
-            const bnhVals = [];     // Buy & Hold (주가 자체)
+            const priceVals = [];   // 주가 자체
+            const bnhVals = [];     // Buy & Hold (적립/세금 반영)
             const origVals = [];    // 기존 전략
             const splitVals = [];   // 분할 전략
             
@@ -785,28 +786,48 @@
             const boundBuy = [];
             const boundBuyEnd = [];
 
-            let initCap = 0; 
-            let bnhShares = 0;
-            let origShares = 0, origCash = 0, origIsHolding = true;
-            let splitShares = 0, splitCash = 0;
+            // 연준 금리 마커 배열
+            const hikePoints = [];
+            const cutPoints = [];
+            const fedHikes = ['1994-02-04','1995-02-01','1999-06-30','2000-05-16','2004-06-30','2006-06-29','2015-12-16','2018-12-19','2022-03-16','2023-07-26'];
+            const fedCuts = ['1990-07-13','1992-09-04','1995-07-06','1998-11-17','2001-01-03','2003-06-25','2007-09-18','2008-12-16','2019-07-31','2019-10-30','2020-03-03','2020-03-15','2024-09-18','2025-12-10'];
+            let hikeIdx = 0, cutIdx = 0;
+
+            // 시뮬레이션 상태 변수
+            let bnhShares = 0, bnhCost = 0;
+            let origShares = 0, origCash = 0, origCost = 0, origIsHolding = true;
+            let splitShares = 0, splitCash = 0, splitCost = 0;
+            
+            let bnhRealizedYear = 0, origRealizedYear = 0, splitRealizedYear = 0;
             
             let swSellEnd = false, swSellExtreme = false, swSellOver = false;
             let swBuyEnd = false, swBuyExtreme = false, swBuyUnder = false;
 
-            // 이미 processAsset에서 1500일 이후 데이터만 historyLog에 담아두었음. (i = 0 부터 시작)
+            let totalInvested = 0;
+            let lastMonth = '';
+            let lastYear = 0;
+
+            // 세금 계산 상수 (환율 1300원 가정 시 250만 원 = 약 1923달러)
+            const EXEMPTION_USD = 1923; 
+            const TAX_RATE = 0.22;
+            const endDateMs = new Date(asset.historyLog[N-1].date).getTime();
+
             for (let i = 0; i < N; i++) {
                 let rec = asset.historyLog[i];
                 let price = rec.close;
                 let disp = rec.disp;
-                let t = rec.t; // 롤링 윈도우 알고리즘으로 계산된 "당시 시점"의 동적 임곗값(전략)
+                let t = rec.t; 
+                let dateStr = rec.date;
+                let currentMonth = dateStr.substring(0, 7);
+                let currentYear = parseInt(dateStr.substring(0, 4));
 
                 const step = (t.sell - t.buy) / 3;
                 const extreme_sell_end = t.sell + step; 
                 const extreme_buy_end = t.buy - step;   
 
-                dates.push(rec.date);
+                dates.push(dateStr);
+                priceVals.push(price);
                 
-                // 해당 시점의 이동평균선 역산 (현재가 / 이격도)
                 let ma = price / disp;
                 boundSellEnd.push(ma * extreme_sell_end);
                 boundSell.push(ma * t.sell);
@@ -815,27 +836,113 @@
                 boundBuy.push(ma * t.buy);
                 boundBuyEnd.push(ma * extreme_buy_end);
 
+                // 금리 마커 체크 (당일에 데이터가 없을 수 있으므로 이후 첫 거래일에 표시)
+                let hPoint = null, cPoint = null;
+                if (hikeIdx < fedHikes.length && dateStr >= fedHikes[hikeIdx]) {
+                    hPoint = price; hikeIdx++;
+                }
+                if (cutIdx < fedCuts.length && dateStr >= fedCuts[cutIdx]) {
+                    cPoint = price; cutIdx++;
+                }
+                hikePoints.push(hPoint);
+                cutPoints.push(cPoint);
+
                 if (i === 0) {
-                    // 최초 시작 시점(이격도가 최초로 계산 완료된 1500일차)의 1주 가격을 초기 자본으로 세팅
-                    initCap = price;
-                    bnhShares = 1;
-                    
-                    origShares = 1;
-                    origCash = 0;
-                    
-                    splitShares = 1;
-                    splitCash = 0;
+                    totalInvested = price;
+                    bnhShares = 1; bnhCost = price;
+                    origShares = 1; origCash = 0; origCost = price;
+                    splitShares = 1; splitCash = 0; splitCost = price;
+                    lastMonth = currentMonth;
+                    lastYear = currentYear;
                 } else {
+                    // [연도 변경 시 세금 정산 및 비과세 공제 - 2001년 이후]
+                    if (currentYear !== lastYear) {
+                        if (lastYear >= 2001) {
+                            // BnH 세금 정산
+                            if (bnhRealizedYear > EXEMPTION_USD) {
+                                let tax = (bnhRealizedYear - EXEMPTION_USD) * TAX_RATE;
+                                let sharesToSell = tax / price;
+                                bnhCost -= bnhCost * (sharesToSell / bnhShares);
+                                bnhShares -= sharesToSell;
+                            } else {
+                                let rem = EXEMPTION_USD - Math.max(0, bnhRealizedYear);
+                                let unrealized = (bnhShares * price) - bnhCost;
+                                if (unrealized > 0) bnhCost += Math.min(unrealized, rem); // 장부가 스텝업(과세 이연 절세)
+                            }
+                            
+                            // 기존 전략 세금 정산
+                            if (origRealizedYear > EXEMPTION_USD) {
+                                let tax = (origRealizedYear - EXEMPTION_USD) * TAX_RATE;
+                                if (origCash >= tax) origCash -= tax;
+                                else {
+                                    let taxShort = tax - origCash; origCash = 0;
+                                    let sharesToSell = taxShort / price;
+                                    origCost -= origCost * (sharesToSell / origShares);
+                                    origShares -= sharesToSell;
+                                }
+                            } else {
+                                let rem = EXEMPTION_USD - Math.max(0, origRealizedYear);
+                                let unrealized = (origShares * price) - origCost;
+                                if (unrealized > 0) origCost += Math.min(unrealized, rem);
+                            }
+
+                            // 분할 전략 세금 정산
+                            if (splitRealizedYear > EXEMPTION_USD) {
+                                let tax = (splitRealizedYear - EXEMPTION_USD) * TAX_RATE;
+                                if (splitCash >= tax) splitCash -= tax;
+                                else {
+                                    let taxShort = tax - splitCash; splitCash = 0;
+                                    let sharesToSell = taxShort / price;
+                                    splitCost -= splitCost * (sharesToSell / splitShares);
+                                    splitShares -= sharesToSell;
+                                }
+                            } else {
+                                let rem = EXEMPTION_USD - Math.max(0, splitRealizedYear);
+                                let unrealized = (splitShares * price) - splitCost;
+                                if (unrealized > 0) splitCost += Math.min(unrealized, rem);
+                            }
+                        }
+                        bnhRealizedYear = 0; origRealizedYear = 0; splitRealizedYear = 0;
+                        lastYear = currentYear;
+                    }
+
+                    // [매월 1일 인플레이션 역산 현금 투입 DCA]
+                    if (currentMonth !== lastMonth) {
+                        lastMonth = currentMonth;
+                        let diffYears = (endDateMs - new Date(dateStr).getTime()) / (1000 * 3600 * 24 * 365.25);
+                        let add_amount = 1400 / Math.pow(1.025, diffYears);
+                        totalInvested += add_amount;
+
+                        bnhShares += add_amount / price;
+                        bnhCost += add_amount;
+
+                        if (origIsHolding) {
+                            origShares += add_amount / price;
+                            origCost += add_amount;
+                        } else {
+                            origCash += add_amount;
+                        }
+
+                        splitCash += add_amount;
+                    }
+
+                    // 1. 기존 전략 매매 로직
                     if (origIsHolding && disp >= t.sell) {
-                        origCash = origShares * price;
+                        let sellVal = origShares * price;
+                        let gain = sellVal - origCost;
+                        if (currentYear >= 2001) origRealizedYear += gain;
+                        origCash += sellVal;
                         origShares = 0;
+                        origCost = 0;
                         origIsHolding = false;
                     } else if (!origIsHolding && disp <= t.buy) {
                         origShares = origCash / price;
+                        origCost += origCash;
                         origCash = 0;
                         origIsHolding = true;
                     }
 
+                    // 2. 분할 전략 매매 로직
                     if (swSellEnd && disp < t.sell) swSellEnd = false;
                     if (swSellExtreme && disp < t.semiSell) swSellExtreme = false;
                     if (swSellOver && disp < t.buy) swSellOver = false;
@@ -844,43 +951,69 @@
                     if (swBuyExtreme && disp > t.semiBuy) swBuyExtreme = false;
                     if (swBuyUnder && disp > t.sell) swBuyUnder = false;
 
+                    const processSplitSell = (ratio) => {
+                        let toSellShares = splitShares * ratio;
+                        if (toSellShares > 0) {
+                            let sellVal = toSellShares * price;
+                            let costSold = splitCost * ratio;
+                            let gain = sellVal - costSold;
+                            if (currentYear >= 2001) splitRealizedYear += gain;
+                            splitCash += sellVal;
+                            splitShares -= toSellShares;
+                            splitCost -= costSold;
+                        }
+                    };
+
                     if (!swSellEnd && disp >= extreme_sell_end) {            
-                        swSellEnd = true;
-                        let toSell = splitShares * RATIO_SELL_EXTREME_OVER_END;  
-                        splitCash += toSell * price;
-                        splitShares -= toSell;
+                        swSellEnd = true; processSplitSell(RATIO_SELL_EXTREME_OVER_END);
                     }
                     if (!swSellExtreme && disp >= t.sell) {                      
-                        swSellExtreme = true;
-                        let toSell = splitShares * RATIO_SELL_EXTREME_OVER;  
-                        splitCash += toSell * price;
-                        splitShares -= toSell;
+                        swSellExtreme = true; processSplitSell(RATIO_SELL_EXTREME_OVER);
                     }
                     if (!swSellOver && disp >= t.semiSell) {                   
-                        swSellOver = true;
-                        let toSell = splitShares * RATIO_SELL_OVERVALUED;   
-                        splitCash += toSell * price;
-                        splitShares -= toSell;
+                        swSellOver = true; processSplitSell(RATIO_SELL_OVERVALUED);
                     }
 
+                    const processSplitBuy = (ratio) => {
+                        let toSpend = splitCash * ratio;
+                        if (toSpend > 0) {
+                            splitShares += toSpend / price;
+                            splitCost += toSpend;
+                            splitCash -= toSpend;
+                        }
+                    };
+
                     if (!swBuyEnd && disp <= extreme_buy_end) {            
-                        swBuyEnd = true;
-                        let toSpend = splitCash * RATIO_BUY_EXTREME_UNDER_END; 
-                        splitShares += toSpend / price;
-                        splitCash -= toSpend;
+                        swBuyEnd = true; processSplitBuy(RATIO_BUY_EXTREME_UNDER_END);
                     }
                     if (!swBuyExtreme && disp <= t.buy) {                      
-                        swBuyExtreme = true;
-                        let toSpend = splitCash * RATIO_BUY_EXTREME_UNDER; 
-                        splitShares += toSpend / price;
-                        splitCash -= toSpend;
+                        swBuyExtreme = true; processSplitBuy(RATIO_BUY_EXTREME_UNDER);
                     }
                     if (!swBuyUnder && disp <= t.semiBuy) {                   
-                        swBuyUnder = true;
-                        let toSpend = splitCash * RATIO_BUY_UNDERVALUED;   
-                        splitShares += toSpend / price;
-                        splitCash -= toSpend;
+                        swBuyUnder = true; processSplitBuy(RATIO_BUY_UNDERVALUED);
                     }
+                }
+
+                // [최종 평가일 전량 매도 및 최종 세금 정산]
+                if (i === N - 1 && currentYear >= 2001) {
+                    let bnhFinalGain = (bnhShares * price) - bnhCost;
+                    bnhRealizedYear += bnhFinalGain;
+                    if (bnhRealizedYear > EXEMPTION_USD) {
+                        let tax = (bnhRealizedYear - EXEMPTION_USD) * TAX_RATE;
+                        bnhShares -= (tax / price);
+                    }
+                    
+                    let origFinalGain = (origShares * price) - origCost;
+                    origRealizedYear += origFinalGain;
+                    origCash += origShares * price;
+                    origShares = 0;
+                    if (origRealizedYear > EXEMPTION_USD) origCash -= (origRealizedYear - EXEMPTION_USD) * TAX_RATE;
+
+                    let splitFinalGain = (splitShares * price) - splitCost;
+                    splitRealizedYear += splitFinalGain;
+                    splitCash += splitShares * price;
+                    splitShares = 0;
+                    if (splitRealizedYear > EXEMPTION_USD) splitCash -= (splitRealizedYear - EXEMPTION_USD) * TAX_RATE;
                 }
 
                 bnhVals.push(bnhShares * price);
@@ -891,17 +1024,18 @@
             const startLog = asset.historyLog[0];
             const endLog = asset.historyLog[N - 1];
             const totalYears = Math.max(0.001, (new Date(endLog.date) - new Date(startLog.date)) / (1000 * 60 * 60 * 24 * 365.2425));
-            const calcCAGR = (finalVal) => ((Math.pow(finalVal / initCap, 1 / totalYears) - 1) * 100).toFixed(2);
+            
+            // 총 투입원금 대비 복리수익률 산출
+            const calcCAGR = (finalVal) => ((Math.pow(finalVal / totalInvested, 1 / totalYears) - 1) * 100).toFixed(2);
 
             const cagrBnH = calcCAGR(bnhVals[bnhVals.length - 1]);
             const cagrOrig = calcCAGR(origVals[origVals.length - 1]);
             const cagrSplit = calcCAGR(splitVals[splitVals.length - 1]);
 
-            // 수익률 결과 텍스트 색상도 차트 선 색상과 일치되게 업데이트
             document.getElementById('analysisTitle').innerText = `${ticker} 전략별 수익률 & 구간 분석`;
             document.getElementById('analysisResult').innerHTML = `
                 <div style="display:flex; justify-content:space-around; padding: 12px; background: #2a2a2a; border-radius: 8px;">
-                    <div><strong style="color:#ffffff;">Buy & Hold (주가)</strong><br><span style="color:#fff; font-size: 16px;">${cagrBnH}%</span></div>
+                    <div><strong style="color:rgb(128, 255, 128);">Buy & Hold</strong><br><span style="color:#fff; font-size: 16px;">${cagrBnH}%</span></div>
                     <div><strong style="color:rgb(64, 255, 64);">기존 전략</strong><br><span style="color:#fff; font-size: 16px;">${cagrOrig}%</span></div>
                     <div><strong style="color:rgb(196, 255, 196);">분할 전략</strong><br><span style="color:#fff; font-size: 16px;">${cagrSplit}%</span></div>
                 </div>
@@ -910,21 +1044,20 @@
             document.getElementById('analysisModal').style.display = 'flex';
 
             if (isUpdate && analysisChartInstance) {
-                // 슬라이더 조절 시 전략 두 가지 데이터만 교체 (빠른 렌더링)
-                analysisChartInstance.data.datasets[1].data = origVals;
-                analysisChartInstance.data.datasets[2].data = splitVals;
+                analysisChartInstance.data.datasets[2].data = origVals;
+                analysisChartInstance.data.datasets[3].data = splitVals;
                 analysisChartInstance.update('none'); 
             } else {
                 const ctx = document.getElementById('analysisChart').getContext('2d');
                 if (analysisChartInstance) analysisChartInstance.destroy();
 
-                // 9개 라인 통합 차트 생성
                 analysisChartInstance = new Chart(ctx, {
                     type: 'line',
                     data: {
                         labels: dates,
                         datasets: [
-                            { label: 'Buy & Hold (주가)', data: bnhVals, borderColor: '#ffffff', borderWidth: 2, pointRadius: 0 },
+                            { label: '주가 (Price)', data: priceVals, borderColor: '#ffffff', borderWidth: 2, pointRadius: 0 },
+                            { label: 'Buy & Hold', data: bnhVals, borderColor: 'rgb(128, 255, 128)', borderWidth: 2.5, pointRadius: 0 },
                             { label: '기존 전략', data: origVals, borderColor: 'rgb(64, 255, 64)', borderWidth: 2.5, pointRadius: 0 },
                             { label: '분할 전략', data: splitVals, borderColor: 'rgb(196, 255, 196)', borderWidth: 2.5, pointRadius: 0 },
                             { label: '심한 과열 끝', data: boundSellEnd, borderColor: 'rgba(255, 64, 0, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5] },
@@ -932,7 +1065,9 @@
                             { label: '과열', data: boundSemiSell, borderColor: 'rgba(255, 192, 0, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4] },
                             { label: '저평가', data: boundSemiBuy, borderColor: 'rgba(0, 192, 255, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4] },
                             { label: '심한 저평가 (Buy)', data: boundBuy, borderColor: 'rgba(0, 128, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5] },
-                            { label: '심한 저평가 끝', data: boundBuyEnd, borderColor: 'rgba(0, 64, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5] }
+                            { label: '심한 저평가 끝', data: boundBuyEnd, borderColor: 'rgba(0, 64, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5] },
+                            { label: '금리 인상', data: hikePoints, borderColor: 'transparent', backgroundColor: '#3498db', pointStyle: 'triangle', pointRadius: 6, pointHoverRadius: 8, showLine: false },
+                            { label: '금리 인하', data: cutPoints, borderColor: 'transparent', backgroundColor: '#e74c3c', pointStyle: 'triangle', rotation: 180, pointRadius: 6, pointHoverRadius: 8, showLine: false }
                         ]
                     },
                     options: {
