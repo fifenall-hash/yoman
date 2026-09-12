@@ -772,16 +772,18 @@
 
             const N = asset.historyLog.length;
             
-            // 7가지 선을 그리기 위한 데이터 배열
+            // 9가지 선을 그리기 위한 데이터 배열
             const dates = [];
             const bnhVals = [];     // Buy & Hold (주가 자체)
             const origVals = [];    // 기존 전략
             const splitVals = [];   // 분할 전략
             
+            const boundSellEnd = [];
             const boundSell = [];
             const boundSemiSell = [];
             const boundSemiBuy = [];
             const boundBuy = [];
+            const boundBuyEnd = [];
 
             let initCap = 0; 
             let bnhShares = 0;
@@ -791,12 +793,11 @@
             let swSellEnd = false, swSellExtreme = false, swSellOver = false;
             let swBuyEnd = false, swBuyExtreme = false, swBuyUnder = false;
 
-            // 이미 processAsset에서 1500일 이후 데이터만 historyLog에 담아두었음. (i = 0 부터 시작)
             for (let i = 0; i < N; i++) {
                 let rec = asset.historyLog[i];
                 let price = rec.close;
                 let disp = rec.disp;
-                let t = rec.t; // 롤링 윈도우 알고리즘으로 계산된 "당시 시점"의 동적 임곗값(전략)
+                let t = rec.t;
 
                 const step = (t.sell - t.buy) / 3;
                 const extreme_sell_end = t.sell + step; 
@@ -804,15 +805,16 @@
 
                 dates.push(rec.date);
                 
-                // 해당 시점의 이동평균선 역산 (현재가 / 이격도)
+                // 해당 시점의 이동평균선 역산 (현재가 / 이격도) 후 달러로 변환
                 let ma = price / disp;
+                boundSellEnd.push(ma * extreme_sell_end);
                 boundSell.push(ma * t.sell);
                 boundSemiSell.push(ma * t.semiSell);
                 boundSemiBuy.push(ma * t.semiBuy);
                 boundBuy.push(ma * t.buy);
+                boundBuyEnd.push(ma * extreme_buy_end);
 
                 if (i === 0) {
-                    // 최초 시작 시점(이격도가 최초로 계산 완료된 1500일차)의 1주 가격을 초기 자본으로 세팅
                     initCap = price;
                     bnhShares = 1;
                     
@@ -905,7 +907,6 @@
             document.getElementById('analysisModal').style.display = 'flex';
 
             if (isUpdate && analysisChartInstance) {
-                // 슬라이더 조절 시 전략 두 가지 데이터만 교체 (빠른 렌더링)
                 analysisChartInstance.data.datasets[1].data = origVals;
                 analysisChartInstance.data.datasets[2].data = splitVals;
                 analysisChartInstance.update('none'); 
@@ -913,7 +914,7 @@
                 const ctx = document.getElementById('analysisChart').getContext('2d');
                 if (analysisChartInstance) analysisChartInstance.destroy();
 
-                // 7개 라인 통합 차트 생성 (주가, 전략2, 형광색 경계선4)
+                // 9개 라인 통합 차트 생성 (주가, 전략2, 형광색 경계선6)
                 analysisChartInstance = new Chart(ctx, {
                     type: 'line',
                     data: {
@@ -922,10 +923,12 @@
                             { label: 'Buy & Hold (주가)', data: bnhVals, borderColor: '#ffffff', borderWidth: 2, pointRadius: 0 },
                             { label: '기존 전략', data: origVals, borderColor: '#3498db', borderWidth: 2.5, pointRadius: 0 },
                             { label: '분할 전략', data: splitVals, borderColor: '#ff4757', borderWidth: 2.5, pointRadius: 0 },
+                            { label: '심한 과열 끝', data: boundSellEnd, borderColor: 'rgba(255, 0, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5] },
                             { label: '심한 과열 (Sell)', data: boundSell, borderColor: 'rgba(255, 0, 85, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5] },
                             { label: '과열', data: boundSemiSell, borderColor: 'rgba(255, 170, 0, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4] },
                             { label: '저평가', data: boundSemiBuy, borderColor: 'rgba(0, 229, 255, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4] },
-                            { label: '심한 저평가 (Buy)', data: boundBuy, borderColor: 'rgba(0, 255, 128, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5] }
+                            { label: '심한 저평가 (Buy)', data: boundBuy, borderColor: 'rgba(0, 255, 128, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5] },
+                            { label: '심한 저평가 끝', data: boundBuyEnd, borderColor: 'rgba(0, 100, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5] }
                         ]
                     },
                     options: {
