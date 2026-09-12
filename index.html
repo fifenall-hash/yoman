@@ -1016,9 +1016,9 @@
             } else if (ticker === 'SOXL') {
                 optResult = findThresholdsByTradeOptimization(prices, period);
             } else if (ticker === 'SPY') {
-                // [SPY 전용 로직] 전체 데이터의 절반(mid) 계산
-                let mid = Math.floor(N / 2);
-                if (mid <= period) mid = period + 1; // 최소 1500일은 확보
+                // [SPY 전용 로직] 1500일차(period-1) ~ 최신 데이터(N) 사이의 진짜 중간 지점 계산
+                let mid = Math.floor((N + period - 1) / 2);
+                if (mid <= period) mid = period + 1; 
                 
                 // 1. 처음 ~ 절반 지점까지만 사용하여 5구역(임곗값 t) 선정
                 const trainPrices = prices.slice(0, mid);
@@ -1036,9 +1036,9 @@
             
             let isHolding = true; 
             
-            // 데이터 탐색 시작점 (SPY는 절반 지점부터, 나머지는 period-1 부터)
             let startIndex = period - 1;
-            let spyStart = ticker === 'SPY' ? Math.max(period - 1, Math.floor(N / 2)) : startIndex;
+            // SPY의 경우 진짜 중간 지점을 시작점으로 설정
+            let spyStart = ticker === 'SPY' ? Math.max(period - 1, Math.floor((N + period - 1) / 2)) : startIndex;
             const midLogIdx = spyStart - startIndex;
 
             let lastActionDateObj = new Date(dates[spyStart]);
