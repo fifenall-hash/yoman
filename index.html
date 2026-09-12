@@ -54,7 +54,6 @@
             align-items: center;
             font-size: 15px;
         }
-        /* 분석 버튼이 들어갈 수 있도록 width 수정 */
         .col-title {
             flex: 0 0 95px; 
             font-weight: 600;
@@ -90,7 +89,6 @@
             margin-top: 30px;
         }
 
-        /* 하단 버튼들 스타일 */
         .btn-common {
             display: none;
             width: 100%;
@@ -108,7 +106,6 @@
         .btn-download { background-color: #1e1e1e; color: #666; border: 1px solid #333; }
         .btn-download:hover { background-color: #2a2a2a; color: #aaa; }
 
-        /* 상세 설명 모달창 공통 CSS */
         .full-modal {
             display: none; 
             position: fixed; 
@@ -126,9 +123,9 @@
             color: #ddd; 
             border-radius: 12px; 
             padding: 20px; 
-            max-width: 500px; 
+            max-width: 650px; 
             width: 100%; 
-            max-height: 85vh; 
+            max-height: 90vh; 
             overflow-y: auto; 
             border: 1px solid #444;
             line-height: 1.6;
@@ -138,7 +135,6 @@
         .modal-content-box strong { color: #fff; }
         .modal-content-box hr { border: 0; border-top: 1px solid #333; margin: 15px 0; }
         
-        /* 시각화 게이지 바 CSS (메인 화면 적용) */
         .v-bar-container { margin-top: 12px; margin-bottom: 4px; }
         .v-bar-wrapper { position: relative; width: 100%; height: 18px; border-radius: 9px; background: #333; overflow: hidden; display: flex; }
         .v-zone-e { background: rgb(255, 0, 0); width: 20%; transition: opacity 0.3s; }
@@ -189,7 +185,12 @@
     <!-- 전략 분석 모달 (차트 및 전략 설명 영역) -->
     <div id="analysisModal" class="full-modal">
         <div class="modal-content-box" style="max-width: 650px;">
-            <h2 id="analysisTitle" style="color: #3498db; margin-bottom: 5px;">전략별 수익률 비교</h2>
+            <!-- 제목 및 차트 스위칭 토글 버튼 영역 -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                <h2 id="analysisTitle" style="color: #3498db; margin: 0;">전략별 수익률 비교</h2>
+                <button id="toggleChartBtn" onclick="toggleChartType()" style="padding: 6px 12px; background: #1a1a1a; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; transition: 0.2s;">📈 이격도 및 경계선 보기</button>
+            </div>
+            
             <div style="position: relative; height: 320px; width: 100%; margin-top: 15px;">
                 <canvas id="analysisChart"></canvas>
             </div>
@@ -360,10 +361,23 @@
         let isPlayingBackward = false;
         let currentPlaySpeed = 500; // 기본 0.5초
         
-        // 차트 객체 변수
+        // 차트 객체 및 모드 전환 변수
         let analysisChartInstance = null;
-
         let currentAnalysisTicker = null;
+        let currentChartMode = 'yield';
+        let previousChartMode = 'yield';
+
+        function toggleChartType() {
+            currentChartMode = (currentChartMode === 'yield') ? 'disparity' : 'yield';
+            const btn = document.getElementById('toggleChartBtn');
+            if (btn) btn.innerHTML = (currentChartMode === 'yield') ? '📈 이격도 및 경계선 보기' : '💰 전략별 수익률 보기';
+            const title = document.getElementById('analysisTitle');
+            if (title) title.innerText = (currentChartMode === 'yield') ? `${currentAnalysisTicker} 전략별 수익률 분석` : `${currentAnalysisTicker} 주가 및 이격도 분석`;
+            
+            if (currentAnalysisTicker) {
+                runAnalysis(currentAnalysisTicker, false); 
+            }
+        }
 
         function updateCustomRatio(spanId, val) {
             document.getElementById(spanId).innerText = val + '%';
@@ -752,8 +766,8 @@
             const t = asset.t;
             const step = (t.sell - t.buy) / 3;
             if (step <= 0) return;
-            const extreme_sell_end = t.sell + step; // 심한 과열 끝
-            const extreme_buy_end = t.buy - step;   // 심한 저평가 끝
+            const extreme_sell_end = t.sell + step; 
+            const extreme_buy_end = t.buy - step;   
 
             const N = asset.historyLog.length;
             const dates = [];
@@ -779,9 +793,11 @@
                 let disp = rec.disp;
 
                 // 차트용 데이터 수집
-                dates.push(rec.date);
-                closeVals.push(price);
-                dispVals.push(disp);
+                if (!isUpdate || previousChartMode !== currentChartMode) {
+                    dates.push(rec.date);
+                    closeVals.push(price);
+                    dispVals.push(disp);
+                }
 
                 if (i === 0) {
                     bnhShares = initCap / price;
