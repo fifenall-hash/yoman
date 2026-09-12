@@ -936,7 +936,7 @@
                 const ctx = document.getElementById('analysisChart').getContext('2d');
                 if (analysisChartInstance) analysisChartInstance.destroy();
 
-                // 7개 라인 통합 차트 생성 (주가, 전략2, 경계선4)
+                // 7개 라인 통합 차트 생성 (주가, 전략2, 형광색 경계선4)
                 analysisChartInstance = new Chart(ctx, {
                     type: 'line',
                     data: {
@@ -945,10 +945,10 @@
                             { label: 'Buy & Hold (주가)', data: bnhVals, borderColor: '#ffffff', borderWidth: 2, pointRadius: 0 },
                             { label: '기존 전략', data: origVals, borderColor: '#3498db', borderWidth: 2.5, pointRadius: 0 },
                             { label: '분할 전략', data: splitVals, borderColor: '#ff4757', borderWidth: 2.5, pointRadius: 0 },
-                            { label: '심한 과열 (Sell)', data: boundSell, borderColor: 'rgba(255, 99, 132, 0.4)', borderWidth: 1, pointRadius: 0, borderDash: [5, 5] },
-                            { label: '과열', data: boundSemiSell, borderColor: 'rgba(255, 159, 64, 0.3)', borderWidth: 1, pointRadius: 0, borderDash: [2, 2] },
-                            { label: '저평가', data: boundSemiBuy, borderColor: 'rgba(54, 162, 235, 0.3)', borderWidth: 1, pointRadius: 0, borderDash: [2, 2] },
-                            { label: '심한 저평가 (Buy)', data: boundBuy, borderColor: 'rgba(75, 192, 192, 0.4)', borderWidth: 1, pointRadius: 0, borderDash: [5, 5] }
+                            { label: '심한 과열 (Sell)', data: boundSell, borderColor: 'rgba(255, 0, 85, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5] },
+                            { label: '과열', data: boundSemiSell, borderColor: 'rgba(255, 170, 0, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4] },
+                            { label: '저평가', data: boundSemiBuy, borderColor: 'rgba(0, 229, 255, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4] },
+                            { label: '심한 저평가 (Buy)', data: boundBuy, borderColor: 'rgba(0, 255, 128, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5] }
                         ]
                     },
                     options: {
