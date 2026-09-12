@@ -754,36 +754,12 @@
 
         // 전략 분석 실행 함수 (단일 차트로 완벽 통합)
         function runAnalysis(ticker, isUpdate = false) {
-            // SPY 관련 셀렉터 초기화 및 세팅
-            if (!isUpdate && currentAnalysisTicker !== ticker) {
-                if (ticker === 'SPY') {
-                    document.getElementById('spyPeriodSelector').style.display = 'block';
-                    document.getElementById('spyPeriod').value = 'second';
-                } else {
-                    document.getElementById('spyPeriodSelector').style.display = 'none';
-                }
-            }
-            
             currentAnalysisTicker = ticker;
             const asset = globalStockResults.find(a => a.symbol === ticker);
             
             if (!asset || !asset.historyLog || asset.historyLog.length === 0) {
                 alert('아직 데이터가 준비되지 않았습니다.');
                 return;
-            }
-
-            // SPY의 경우 유저가 선택한 구간에 맞게 시작점/끝점을 조절
-            let startIdx = 0;
-            let endIdx = asset.historyLog.length;
-
-            if (ticker === 'SPY') {
-                let pSelect = document.getElementById('spyPeriod').value;
-                let mid = asset.midLogIdx || Math.floor(asset.historyLog.length / 2);
-                if (pSelect === 'first') {
-                    endIdx = mid;
-                } else if (pSelect === 'second') {
-                    startIdx = mid;
-                }
             }
 
             const RATIO_BUY_UNDERVALUED = parseInt(document.getElementById('buyUnderValued').value) / 100;
@@ -794,12 +770,8 @@
             const RATIO_SELL_EXTREME_OVER = parseInt(document.getElementById('sellExtremeOver').value) / 100;
             const RATIO_SELL_EXTREME_OVER_END = parseInt(document.getElementById('sellExtremeOverEnd').value) / 100;
 
-            const t = asset.t;
-            const step = (t.sell - t.buy) / 3;
-            if (step <= 0) return;
-            const extreme_sell_end = t.sell + step; 
-            const extreme_buy_end = t.buy - step;   
-
+            const N = asset.historyLog.length;
+            
             // 7가지 선을 그리기 위한 데이터 배열
             const dates = [];
             const bnhVals = [];     // Buy & Hold (주가 자체)
@@ -819,14 +791,16 @@
             let swSellEnd = false, swSellExtreme = false, swSellOver = false;
             let swBuyEnd = false, swBuyExtreme = false, swBuyUnder = false;
 
-            // ★ 선생님 요청사항 명시적 적용: 
-            // asset.historyLog 배열은 데이터 추출 단계에서 이격도가 비어있는 앞의 1499일을 버리고 
-            // '1500일 이격도가 처음으로 표현되는 지점'부터 담겨 있습니다.
-            // 따라서 startIdx부터 순회하면 100% 공정하게 동일한 시점에서 Buy&Hold와 전략들이 동시 출발합니다.
-            for (let i = startIdx; i < endIdx; i++) {
+            // 이미 processAsset에서 1500일 이후 데이터만 historyLog에 담아두었음. (i = 0 부터 시작)
+            for (let i = 0; i < N; i++) {
                 let rec = asset.historyLog[i];
                 let price = rec.close;
                 let disp = rec.disp;
+                let t = rec.t; // 롤링 윈도우 알고리즘으로 계산된 "당시 시점"의 동적 임곗값(전략)
+
+                const step = (t.sell - t.buy) / 3;
+                const extreme_sell_end = t.sell + step; 
+                const extreme_buy_end = t.buy - step;   
 
                 dates.push(rec.date);
                 
@@ -837,8 +811,8 @@
                 boundSemiBuy.push(ma * t.semiBuy);
                 boundBuy.push(ma * t.buy);
 
-                if (i === startIdx) {
-                    // 최초 시작 시점(이격도가 최초로 등장한 날)의 1주 가격을 초기 자본으로 세팅
+                if (i === 0) {
+                    // 최초 시작 시점(이격도가 최초로 계산 완료된 1500일차)의 1주 가격을 초기 자본으로 세팅
                     initCap = price;
                     bnhShares = 1;
                     
@@ -910,8 +884,8 @@
                 splitVals.push(splitCash + splitShares * price);
             }
 
-            const startLog = asset.historyLog[startIdx];
-            const endLog = asset.historyLog[endIdx - 1];
+            const startLog = asset.historyLog[0];
+            const endLog = asset.historyLog[N - 1];
             const totalYears = Math.max(0.001, (new Date(endLog.date) - new Date(startLog.date)) / (1000 * 60 * 60 * 24 * 365.2425));
             const calcCAGR = (finalVal) => ((Math.pow(finalVal / initCap, 1 / totalYears) - 1) * 100).toFixed(2);
 
@@ -989,64 +963,65 @@
             }
         }
 
-        // 통합 자산 파이프라인 (주식 및 환율 공통)
+        // 통합 자산 파이프라인 (주식 및 환율 공통 - 1년 단위 전략 갱신 Rolling Walk-Forward)
         function processAsset(ticker, prices, dates, isExchange) {
             const N = prices.length;
             if (N < 100) return { symbol: ticker, state: '데이터 부족', historyLog: [] };
 
-            let period = 1500;
-            let optResult;
+            let period = 1500; // 초기 학습을 위한 최소 필요 데이터 길이
+            const fullDispObj = calculateDisparities(prices, period);
+            const disparities = fullDispObj.disparities;
 
-            if (isExchange) {
-                let rawMulrimData = new Array(N).fill(0);
-                let maxMulrim = 0;
-                for (let i = 0; i < N; i++) {
-                    let count = 0; let currentPrice = prices[i];
-                    for (let j = i + 1; j < N; j++) { if (prices[j] < currentPrice) count++; }
-                    rawMulrimData[i] = count;
-                    if (count > maxMulrim) maxMulrim = count;
+            let startIndex = period - 1; // 1500일째(이격도가 최초로 생성되는 시점)
+            let mid = startIndex + Math.floor((N - startIndex) / 2);
+            if (mid <= period) mid = period + 1;
+
+            // 특정 시점(sliceEnd)까지의 과거 데이터를 바탕으로 전략을 계산하는 내부 헬퍼 함수
+            function getStrategyForSlice(sliceEnd) {
+                let trainPrices = prices.slice(0, sliceEnd);
+                if (isExchange) {
+                    let rawMulrimData = new Array(sliceEnd).fill(0);
+                    let maxMulrim = 0;
+                    for (let i = 0; i < sliceEnd; i++) {
+                        let count = 0; let currentPrice = trainPrices[i];
+                        for (let j = i + 1; j < sliceEnd; j++) { if (trainPrices[j] < currentPrice) count++; }
+                        rawMulrimData[i] = count;
+                        if (count > maxMulrim) maxMulrim = count;
+                    }
+                    const maxTestPeriod = Math.min(3000, sliceEnd - maxMulrim - 30);
+                    let bestR2 = -1; let localPeriod = 20; 
+                    for (let p = 1; p <= maxTestPeriod; p++) {
+                        let r2 = getFastR2ForPeriod(trainPrices, rawMulrimData, maxMulrim, p);
+                        if (r2 > bestR2) { bestR2 = r2; localPeriod = p; }
+                    }
+                    return findThresholdsByQuantileSymmetry(trainPrices, localPeriod).t;
+                } else if (ticker === 'SOXL') {
+                    return findThresholdsByTradeOptimization(trainPrices, period).t;
+                } else {
+                    return findThresholdsByQuantileSymmetry(trainPrices, period).t;
                 }
-                const maxTestPeriod = Math.min(3000, N - maxMulrim - 30);
-                let bestR2 = -1; period = 20; 
-                for (let p = 1; p <= maxTestPeriod; p++) {
-                    let r2 = getFastR2ForPeriod(prices, rawMulrimData, maxMulrim, p);
-                    if (r2 > bestR2) { bestR2 = r2; period = p; }
-                }
-                optResult = findThresholdsByQuantileSymmetry(prices, period);
-            } else if (ticker === 'SOXL') {
-                optResult = findThresholdsByTradeOptimization(prices, period);
-            } else if (ticker === 'SPY') {
-                // [SPY 전용 로직] 1500일차(period-1) ~ 최신 데이터(N) 사이의 진짜 중간 지점 계산
-                let mid = Math.floor((N + period - 1) / 2);
-                if (mid <= period) mid = period + 1; 
-                
-                // 1. 처음 ~ 절반 지점까지만 사용하여 5구역(임곗값 t) 선정
-                const trainPrices = prices.slice(0, mid);
-                const trainOpt = findThresholdsByQuantileSymmetry(trainPrices, period);
-                
-                // 2. 전체 이격도를 다시 계산하여 후반부 시뮬레이션용으로 병합
-                const fullDisp = calculateDisparities(prices, period);
-                optResult = { t: trainOpt.t, disparities: fullDisp.disparities };
-            } else {
-                optResult = findThresholdsByQuantileSymmetry(prices, period);
             }
 
-            const { t, disparities } = optResult;
-            let historyLog = [];
-            
-            let isHolding = true; 
-            
-            let startIndex = period - 1;
-            // SPY의 경우 진짜 중간 지점을 시작점으로 설정
-            let spyStart = ticker === 'SPY' ? Math.max(period - 1, Math.floor((N + period - 1) / 2)) : startIndex;
-            const midLogIdx = spyStart - startIndex;
+            // 최초 전략 수립 (0 ~ 절반 지점까지의 데이터 사용)
+            let currentT = getStrategyForSlice(mid);
+            let nextUpdateIdx = mid + 252; // 최초 적용 후 1년(약 252 거래일) 뒤 갱신
 
-            let lastActionDateObj = new Date(dates[spyStart]);
+            let historyLog = [];
+            let isHolding = true; 
+
+            let lastActionDateObj = new Date(dates[startIndex]);
             let lastActionType = isExchange ? "달러 보유" : "매수";
             let currentStateStr = isExchange ? "관망" : "초기 보유 시작";
 
             for (let i = startIndex; i < N; i++) {
+                // 절반 지점을 넘어가면 1년(252일) 단위로 전략을 갱신 (Rolling Window)
+                if (i >= nextUpdateIdx) {
+                    currentT = getStrategyForSlice(i); // 현재 시점까지의 데이터로 새로운 전략 도출
+                    nextUpdateIdx += 252; // 다음 갱신일 1년 뒤로 연장
+                }
+
                 let d = disparities[i];
+                let t = currentT; // 갱신된 전략(임곗값)을 당일 매매 판단에 적용
                 let zone = determineZone(d, t);
                 let actionStr = '', evalStr = '';
 
@@ -1057,60 +1032,52 @@
                     else if (zone === 'd') { actionStr = '달러 환전 권장'; evalStr = '저환율'; }
                     else if (zone === 'e') { actionStr = '달러 환전 적극 권장!'; evalStr = '심한 저환율'; }
                 } else {
-                    if (i < spyStart) {
-                         actionStr = '학습 데이터 구간';
-                         if (zone === 'a') evalStr = '심한 과열';
-                         else if (zone === 'b') evalStr = '과열';
-                         else if (zone === 'c') evalStr = '적정';
-                         else if (zone === 'd') evalStr = '저평가';
-                         else if (zone === 'e') evalStr = '심한 저평가';
+                    let actionOccurred = false;
+                    if (i === startIndex) {
+                        actionOccurred = true;
+                        currentStateStr = "초기 보유 시작";
+                        lastActionDateObj = new Date(dates[i]);
                     } else {
-                        let actionOccurred = false;
-                        if (i === spyStart) {
-                            actionOccurred = true;
-                            currentStateStr = "초기 보유 시작";
+                        if (isHolding && d >= t.sell) {
+                            isHolding = false;
+                            lastActionType = "매도";
                             lastActionDateObj = new Date(dates[i]);
+                            currentStateStr = "매도 (Sell)";
+                            actionOccurred = true;
+                        } else if (!isHolding && d <= t.buy) {
                             isHolding = true;
-                        } else {
-                            if (isHolding && d >= t.sell) {
-                                isHolding = false;
-                                lastActionType = "매도";
-                                lastActionDateObj = new Date(dates[i]);
-                                currentStateStr = "매도 (Sell)";
-                                actionOccurred = true;
-                            } else if (!isHolding && d <= t.buy) {
-                                isHolding = true;
-                                lastActionType = "매수";
-                                lastActionDateObj = new Date(dates[i]);
-                                currentStateStr = "매수 (Buy)";
-                                actionOccurred = true;
-                            }
+                            lastActionType = "매수";
+                            lastActionDateObj = new Date(dates[i]);
+                            currentStateStr = "매수 (Buy)";
+                            actionOccurred = true;
                         }
-
-                        if (!actionOccurred) {
-                            const currentDt = new Date(dates[i]);
-                            const diffTime = Math.abs(currentDt - lastActionDateObj);
-                            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-                            if (diffDays >= 365) currentStateStr = `${lastActionType} 후 관망 (${(diffDays / 365.2425).toFixed(2)}년차)`;
-                            else currentStateStr = `${lastActionType} 후 관망 (${diffDays}일차)`;
-                        }
-                        actionStr = currentStateStr;
-
-                        if (zone === 'a') evalStr = '심한 과열';
-                        else if (zone === 'b') evalStr = '과열';
-                        else if (zone === 'c') evalStr = '적정';
-                        else if (zone === 'd') evalStr = '저평가';
-                        else if (zone === 'e') evalStr = '심한 저평가';
                     }
+
+                    if (!actionOccurred) {
+                        const currentDt = new Date(dates[i]);
+                        const diffTime = Math.abs(currentDt - lastActionDateObj);
+                        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+                        if (diffDays >= 365) currentStateStr = `${lastActionType} 후 관망 (${(diffDays / 365.2425).toFixed(2)}년차)`;
+                        else currentStateStr = `${lastActionType} 후 관망 (${diffDays}일차)`;
+                    }
+                    actionStr = currentStateStr;
+
+                    if (zone === 'a') evalStr = '심한 과열';
+                    else if (zone === 'b') evalStr = '과열';
+                    else if (zone === 'c') evalStr = '적정';
+                    else if (zone === 'd') evalStr = '저평가';
+                    else if (zone === 'e') evalStr = '심한 저평가';
                 }
 
-                historyLog.push({ date: dates[i], close: prices[i], disp: d, action: actionStr, eval: evalStr, zone: zone });
+                // t: currentT 를 넣어 당일에 사용된 전략이 무엇인지 로그에 남김
+                historyLog.push({ date: dates[i], close: prices[i], disp: d, action: actionStr, eval: evalStr, zone: zone, t: currentT });
             }
 
             const lastLog = historyLog[historyLog.length - 1];
-            return { symbol: ticker, status: lastLog.action, evalState: lastLog.eval, currentPrice: lastLog.close, zone: lastLog.zone, historyLog, t: t, currentDisp: lastLog.disp, midLogIdx };
+            // 반환 객체에는 가장 최신의 t를 담아 메인 UI의 게이지 바 그리는 데 사용
+            return { symbol: ticker, status: lastLog.action, evalState: lastLog.eval, currentPrice: lastLog.close, zone: lastLog.zone, historyLog, t: lastLog.t, currentDisp: lastLog.disp };
         }
-
+        
         function downloadCSV(stockResults, exState) {
             const dateMap = {};
             
