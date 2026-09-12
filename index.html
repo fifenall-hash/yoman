@@ -757,6 +757,9 @@
 
             const N = asset.historyLog.length;
             const dates = [];
+            const closeVals = [];
+            const dispVals = [];
+            
             const bnhVals = [];
             const origVals = [];
             const splitVals = [];
@@ -765,7 +768,6 @@
             let origShares = 0, origCash = 0, origIsHolding = true;
             let splitShares = 0, splitCash = 0;
             
-            // 6단계 스위치로 세분화
             let swSellEnd = false, swSellExtreme = false, swSellOver = false;
             let swBuyEnd = false, swBuyExtreme = false, swBuyUnder = false;
 
@@ -776,7 +778,10 @@
                 let price = rec.close;
                 let disp = rec.disp;
 
-                if (!isUpdate) dates.push(rec.date);
+                // 차트용 데이터 수집
+                dates.push(rec.date);
+                closeVals.push(price);
+                dispVals.push(disp);
 
                 if (i === 0) {
                     bnhShares = initCap / price;
@@ -793,7 +798,6 @@
                         origIsHolding = true;
                     }
 
-                    // 스위치 끄기 (Turn OFF) - 추세가 꺾여 아래 단계로 돌아오면 스위치 리셋
                     if (swSellEnd && disp < t.sell) swSellEnd = false;
                     if (swSellExtreme && disp < t.semiSell) swSellExtreme = false;
                     if (swSellOver && disp < t.buy) swSellOver = false;
@@ -802,7 +806,6 @@
                     if (swBuyExtreme && disp > t.semiBuy) swBuyExtreme = false;
                     if (swBuyUnder && disp > t.sell) swBuyUnder = false;
 
-                    // 매도 스위치 켜기 (Turn ON)
                     if (!swSellEnd && disp >= extreme_sell_end) {            
                         swSellEnd = true;
                         let toSell = splitShares * RATIO_SELL_EXTREME_OVER_END;  
@@ -822,7 +825,6 @@
                         splitShares -= toSell;
                     }
 
-                    // 매수 스위치 켜기 (Turn ON)
                     if (!swBuyEnd && disp <= extreme_buy_end) {            
                         swBuyEnd = true;
                         let toSpend = splitCash * RATIO_BUY_EXTREME_UNDER_END; 
@@ -855,7 +857,6 @@
             const cagrOrig = calcCAGR(origVals[N - 1]);
             const cagrSplit = calcCAGR(splitVals[N - 1]);
 
-            document.getElementById('analysisTitle').innerText = `${ticker} 전략별 수익률 분석`;
             document.getElementById('analysisResult').innerHTML = `
                 <div style="display:flex; justify-content:space-around; padding: 12px; background: #2a2a2a; border-radius: 8px;">
                     <div><strong style="color:#aaaaaa;">Buy & Hold</strong><br><span style="color:#fff; font-size: 16px;">${cagrBnH}%</span></div>
@@ -866,50 +867,118 @@
 
             document.getElementById('analysisModal').style.display = 'flex';
 
-            if (isUpdate && analysisChartInstance) {
-                analysisChartInstance.data.datasets[0].data = bnhVals;
-                analysisChartInstance.data.datasets[1].data = origVals;
-                analysisChartInstance.data.datasets[2].data = splitVals;
-                analysisChartInstance.update('none'); 
+            if (isUpdate && analysisChartInstance && previousChartMode === currentChartMode) {
+                if (currentChartMode === 'yield') {
+                    analysisChartInstance.data.datasets[0].data = bnhVals;
+                    analysisChartInstance.data.datasets[1].data = origVals;
+                    analysisChartInstance.data.datasets[2].data = splitVals;
+                    analysisChartInstance.update('none'); 
+                }
             } else {
                 const ctx = document.getElementById('analysisChart').getContext('2d');
                 if (analysisChartInstance) analysisChartInstance.destroy();
+                previousChartMode = currentChartMode;
 
-                analysisChartInstance = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: dates,
-                        datasets: [
-                            { label: 'Buy & Hold', data: bnhVals, borderColor: '#aaaaaa', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5] },
-                            { label: '기존 전략', data: origVals, borderColor: '#3498db', borderWidth: 2, pointRadius: 0 },
-                            { label: '분할 전략', data: splitVals, borderColor: '#e74c3c', borderWidth: 2, pointRadius: 0 }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        interaction: { mode: 'index', intersect: false },
-                        scales: {
-                            y: { type: 'logarithmic', grid: { color: '#333' }, ticks: { color: '#aaa' } },
-                            x: { grid: { display: false }, ticks: { maxTicksLimit: 8, color: '#aaa' } }
+                if (currentChartMode === 'yield') {
+                    // 1. 기존의 수익률 비교 차트
+                    analysisChartInstance = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: dates,
+                            datasets: [
+                                { label: 'Buy & Hold', data: bnhVals, borderColor: '#aaaaaa', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5] },
+                                { label: '기존 전략', data: origVals, borderColor: '#3498db', borderWidth: 2, pointRadius: 0 },
+                                { label: '분할 전략', data: splitVals, borderColor: '#e74c3c', borderWidth: 2, pointRadius: 0 }
+                            ]
                         },
-                        plugins: { 
-                            legend: { labels: { color: '#fff' } },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        let label = context.dataset.label || '';
-                                        if (label) label += ': ';
-                                        if (context.parsed.y !== null) {
-                                            label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: { mode: 'index', intersect: false },
+                            scales: {
+                                y: { type: 'logarithmic', grid: { color: '#333' }, ticks: { color: '#aaa' } },
+                                x: { grid: { display: false }, ticks: { maxTicksLimit: 8, color: '#aaa' } }
+                            },
+                            plugins: { 
+                                legend: { labels: { color: '#fff' } },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            let label = context.dataset.label || '';
+                                            if (label) label += ': ';
+                                            if (context.parsed.y !== null) {
+                                                label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
+                                            }
+                                            return label;
                                         }
-                                        return label;
                                     }
                                 }
                             }
                         }
+                    });
+                } else {
+                    // 2. 신규 주가 + 4개 구역 경계선 (달러 환산) 밴드 차트
+                    const boundSell = [];
+                    const boundSemiSell = [];
+                    const boundSemiBuy = [];
+                    const boundBuy = [];
+
+                    for (let i = 0; i < N; i++) {
+                        let p = closeVals[i];
+                        let d = dispVals[i];
+                        // 이격도 = 현재가 / 이동평균선 이므로, 당시의 이동평균선 = 현재가 / 이격도
+                        let ma = p / d;
+                        
+                        // 각 경계값 배율을 이동평균선에 곱하여 달러 가격으로 변환
+                        boundSell.push(ma * t.sell);
+                        boundSemiSell.push(ma * t.semiSell);
+                        boundSemiBuy.push(ma * t.semiBuy);
+                        boundBuy.push(ma * t.buy);
                     }
-                });
+
+                    analysisChartInstance = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: dates,
+                            datasets: [
+                                { label: '실제 주가 ($)', data: closeVals, borderColor: '#ffffff', borderWidth: 2, pointRadius: 0 },
+                                { label: '심한 과열 (Sell)', data: boundSell, borderColor: 'rgba(255, 0, 0, 0.7)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5] },
+                                { label: '과열', data: boundSemiSell, borderColor: 'rgba(255, 128, 0, 0.4)', borderWidth: 1, pointRadius: 0, borderDash: [2, 2] },
+                                { label: '저평가', data: boundSemiBuy, borderColor: 'rgba(128, 128, 128, 0.4)', borderWidth: 1, pointRadius: 0, borderDash: [2, 2] },
+                                { label: '심한 저평가 (Buy)', data: boundBuy, borderColor: 'rgba(0, 0, 255, 0.7)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5] }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: { mode: 'index', intersect: false },
+                            scales: {
+                                y: { 
+                                    type: 'logarithmic', // 주가 스케일에 맞춘 단일 Y축 (로그 스케일)
+                                    grid: { color: '#333' }, 
+                                    ticks: { color: '#aaa' }
+                                },
+                                x: { grid: { display: false }, ticks: { maxTicksLimit: 8, color: '#aaa' } }
+                            },
+                            plugins: { 
+                                legend: { labels: { color: '#fff', boxWidth: 15 } },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            let label = context.dataset.label || '';
+                                            if (label) label += ': ';
+                                            if (context.parsed.y !== null) {
+                                                // 모두 달러로 환산되었으므로 동일하게 달러 포맷팅 적용
+                                                label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
+                                            }
+                                            return label;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
             }
         }
 
