@@ -346,8 +346,7 @@
             navigator.serviceWorker.register('sw.js').catch(err => console.error("SW 등록 실패:", err));
         }
 
-        // 종목 배열 (SPXL 추가)
-        const STOCKS = ['SPXL', 'TQQQ', 'TECL', 'SOXL'];
+        const STOCKS = ['SPXL', 'TQQQ', 'TECL', 'SOXL', 'SPY'];
 
         // 전역 상태 저장용 변수
         let globalExState = null;
@@ -940,6 +939,18 @@
                 optResult = findThresholdsByQuantileSymmetry(prices, period);
             } else if (ticker === 'SOXL') {
                 optResult = findThresholdsByTradeOptimization(prices, period);
+            } else if (ticker === 'SPY') {
+                // [SPY 전용 로직] 전체 데이터의 절반(mid) 계산
+                let mid = Math.floor(N / 2);
+                if (mid <= period) mid = period + 1; // 최소 1500일은 확보
+                
+                // 1. 처음 ~ 절반 지점까지만 사용하여 5구역(임곗값 t) 선정
+                const trainPrices = prices.slice(0, mid);
+                const trainOpt = findThresholdsByQuantileSymmetry(trainPrices, period);
+                
+                // 2. 전체 이격도를 다시 계산하여 후반부 시뮬레이션용으로 병합
+                const fullDisp = calculateDisparities(prices, period);
+                optResult = { t: trainOpt.t, disparities: fullDisp.disparities };
             } else {
                 optResult = findThresholdsByQuantileSymmetry(prices, period);
             }
@@ -948,11 +959,18 @@
             let historyLog = [];
             
             let isHolding = true; 
-            let lastActionDateObj = new Date(dates[period - 1]);
+            
+            // 데이터 탐색 시작점 (SPY는 절반 지점부터, 나머지는 period-1 부터)
+            let startIndex = period - 1;
+            if (ticker === 'SPY') {
+                startIndex = Math.max(period - 1, Math.floor(N / 2));
+            }
+
+            let lastActionDateObj = new Date(dates[startIndex]);
             let lastActionType = isExchange ? "달러 보유" : "매수";
             let currentStateStr = isExchange ? "관망" : "초기 보유 시작";
 
-            for (let i = period - 1; i < N; i++) {
+            for (let i = startIndex; i < N; i++) {
                 let d = disparities[i];
                 let zone = determineZone(d, t);
                 let actionStr = '', evalStr = '';
@@ -965,7 +983,8 @@
                     else if (zone === 'e') { actionStr = '달러 환전 적극 권장!'; evalStr = '심한 저환율'; }
                 } else {
                     let actionOccurred = false;
-                    if (i === period - 1) {
+                    // 시작점(startIndex)을 기준으로 초기화
+                    if (i === startIndex) {
                         actionOccurred = true;
                         currentStateStr = "초기 보유 시작";
                         lastActionDateObj = new Date(dates[i]);
