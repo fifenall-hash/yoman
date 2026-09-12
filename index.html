@@ -201,24 +201,23 @@
     <!-- 전략 분석 모달 -->
     <div id="analysisModal" class="full-modal">
         <div class="modal-content-box" style="max-width: 650px;">
-            <h2 id="analysisTitle" style="color: #3498db; margin-bottom: 5px;">전략별 수익률 & 구간 분석</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                <h2 id="analysisTitle" style="color: #3498db; margin: 0;">전략별 수익률 & 구간 분석</h2>
+            </div>
             
-            <!-- SPY 전용 구간 선택 UI -->
-            <div id="spyPeriodSelector" style="display: none; margin-bottom: 10px; margin-top: 5px; text-align: right;">
-                <select id="spyPeriod" onchange="runAnalysis('SPY', false)" style="background: #1e1e1e; color: #ffd740; border: 1px solid #3498db; border-radius: 4px; padding: 4px 8px; font-size: 12px; font-weight: bold; cursor: pointer; outline: none;">
-                    <option value="second" selected>절반~최신 (실전 구간)</option>
-                    <option value="first">최초~절반 (학습 구간)</option>
-                    <option value="full">최초~최신 (전체 구간)</option>
-                </select>
+            <div id="analysisResult" style="margin-top: 10px; font-size: 14px; text-align: center;"></div>
+
+            <!-- 전략 3가지 차트 (상단) -->
+            <div id="chartContainerTop" style="position: relative; height: 230px; width: 100%; margin-top: 15px; border: 1px solid #444; border-radius: 6px; background-color: #121212; overflow: hidden; transition: 0.3s;">
+                <button onclick="toggleFullscreen('chartContainerTop')" style="position: absolute; top: 8px; right: 8px; z-index: 10; background: rgba(0,0,0,0.6); color: #fff; border: 1px solid #666; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px; font-weight: bold;">⛶ 전체화면</button>
+                <canvas id="strategyChart"></canvas>
             </div>
 
-            <!-- 차트 영역 및 전체화면 버튼 -->
-            <div id="chartContainer">
-                <button onclick="toggleFullscreen()" style="position: absolute; top: 8px; right: 8px; z-index: 10; background: rgba(0,0,0,0.6); color: #fff; border: 1px solid #666; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px; font-weight: bold;">⛶ 전체화면</button>
-                <canvas id="analysisChart"></canvas>
+            <!-- 주가 및 밴드, 금리 마커 차트 (하단) -->
+            <div id="chartContainerBottom" style="position: relative; height: 230px; width: 100%; margin-top: 15px; border: 1px solid #444; border-radius: 6px; background-color: #121212; overflow: hidden; transition: 0.3s;">
+                <button onclick="toggleFullscreen('chartContainerBottom')" style="position: absolute; top: 8px; right: 8px; z-index: 10; background: rgba(0,0,0,0.6); color: #fff; border: 1px solid #666; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px; font-weight: bold;">⛶ 전체화면</button>
+                <canvas id="priceChart"></canvas>
             </div>
-            
-            <div id="analysisResult" style="margin-top: 20px; font-size: 14px; text-align: center;"></div>
             
             <div style="margin-top: 15px; background: #222; padding: 15px; border-radius: 8px; border: 1px solid #444; font-size: 13px;">
                 <h4 style="margin: 0 0 12px 0; color: #ffd740; text-align: center;">⚙️ 분할 전략 비율 설정 (실시간 시뮬레이션)</h4>
@@ -259,8 +258,8 @@
                 <h4 style="color: #ffd740; margin-top: 0; margin-bottom: 12px; font-size: 15px; text-align: center;">📊 전략별 매매 방식 안내</h4>
                 <ul style="padding-left: 20px; margin: 0; color: #ddd;">
                     <li style="margin-bottom: 10px;">
-                        <strong style="color: #ffffff;">Buy & Hold (주가):</strong><br>
-                        분석을 시작하는 첫날, 해당 주식 1주의 가격을 초기 자본으로 설정합니다. 아무것도 안 하고 들고만 있었을 때 주가의 순수 흐름과 동일합니다.
+                        <strong style="color: #ffffff;">Buy & Hold (적립식):</strong><br>
+                        최신 기준 75,000달러를 물가상승률(2.5%)로 역산한 금액을 초기 자본으로 투입하고, 매월 물가가 역산된 1400달러를 기계적으로 추가 매수하는 기본 전략입니다.
                     </li>
                     <li style="margin-bottom: 10px;">
                         <strong style="color: #3498db;">기존 전략:</strong><br>
@@ -382,16 +381,16 @@
         let isPlayingBackward = false;
         let currentPlaySpeed = 500; 
         
-        let analysisChartInstance = null;
+        let strategyChartInstance = null;
+        let priceChartInstance = null;
         let currentAnalysisTicker = null;
 
-        // 차트 전체화면 토글 함수
-        function toggleFullscreen() {
-            const container = document.getElementById('chartContainer');
+        // 차트 전체화면 토글 함수 (차트 2개 지원)
+        function toggleFullscreen(containerId) {
+            const container = document.getElementById(containerId);
             container.classList.toggle('fullscreen-chart');
-            if (analysisChartInstance) {
-                analysisChartInstance.resize();
-            }
+            if (strategyChartInstance) strategyChartInstance.resize();
+            if (priceChartInstance) priceChartInstance.resize();
         }
 
         function updateCustomRatio(spanId, val) {
@@ -752,7 +751,7 @@
             return 'e';
         }
 
-        // 전략 분석 실행 함수 (단일 차트로 완벽 통합)
+        // 전략 분석 실행 함수 (차트 2개 분리 및 Z-index 최적화)
         function runAnalysis(ticker, isUpdate = false) {
             currentAnalysisTicker = ticker;
             const asset = globalStockResults.find(a => a.symbol === ticker);
@@ -772,10 +771,10 @@
 
             const N = asset.historyLog.length;
             
-            // 차트 렌더링용 배열
+            // 데이터 배열
             const dates = [];
-            const priceVals = [];   // 주가 자체
-            const bnhVals = [];     // Buy & Hold (적립/세금 반영)
+            const priceVals = [];   // 주가 자체 곡선
+            const bnhVals = [];     // Buy & Hold (적립/세금 반영 곡선)
             const origVals = [];    // 기존 전략
             const splitVals = [];   // 분할 전략
             
@@ -793,7 +792,6 @@
             const fedCuts = ['1990-07-13','1992-09-04','1995-07-06','1998-11-17','2001-01-03','2003-06-25','2007-09-18','2008-12-16','2019-07-31','2019-10-30','2020-03-03','2020-03-15','2024-09-18','2025-12-10'];
             let hikeIdx = 0, cutIdx = 0;
 
-            // 시뮬레이션 상태 변수
             let bnhShares = 0, bnhCost = 0;
             let origShares = 0, origCash = 0, origCost = 0, origIsHolding = true;
             let splitShares = 0, splitCash = 0, splitCost = 0;
@@ -807,10 +805,14 @@
             let lastMonth = '';
             let lastYear = 0;
 
-            // 세금 계산 상수 (환율 1300원 가정 시 250만 원 = 약 1923달러)
             const EXEMPTION_USD = 1923; 
             const TAX_RATE = 0.22;
+            const startDateMs = new Date(asset.historyLog[0].date).getTime();
             const endDateMs = new Date(asset.historyLog[N-1].date).getTime();
+            
+            // 75,000달러를 물가상승률로 역산한 진짜 초기 자본
+            const totalYearsFull = Math.max(0.001, (endDateMs - startDateMs) / (1000 * 3600 * 24 * 365.2425));
+            const initCap = 75000 / Math.pow(1.025, totalYearsFull);
 
             for (let i = 0; i < N; i++) {
                 let rec = asset.historyLog[i];
@@ -836,7 +838,7 @@
                 boundBuy.push(ma * t.buy);
                 boundBuyEnd.push(ma * extreme_buy_end);
 
-                // 금리 마커 체크 (당일에 데이터가 없을 수 있으므로 이후 첫 거래일에 표시)
+                // 금리 마커 체크
                 let hPoint = null, cPoint = null;
                 if (hikeIdx < fedHikes.length && dateStr >= fedHikes[hikeIdx]) {
                     hPoint = price; hikeIdx++;
@@ -848,17 +850,15 @@
                 cutPoints.push(cPoint);
 
                 if (i === 0) {
-                    totalInvested = price;
-                    bnhShares = 1; bnhCost = price;
-                    origShares = 1; origCash = 0; origCost = price;
-                    splitShares = 1; splitCash = 0; splitCost = price;
+                    totalInvested = initCap;
+                    bnhShares = initCap / price; bnhCost = initCap;
+                    origShares = initCap / price; origCash = 0; origCost = initCap;
+                    splitShares = initCap / price; splitCash = 0; splitCost = initCap;
                     lastMonth = currentMonth;
                     lastYear = currentYear;
                 } else {
-                    // [연도 변경 시 세금 정산 및 비과세 공제 - 2001년 이후]
                     if (currentYear !== lastYear) {
                         if (lastYear >= 2001) {
-                            // BnH 세금 정산
                             if (bnhRealizedYear > EXEMPTION_USD) {
                                 let tax = (bnhRealizedYear - EXEMPTION_USD) * TAX_RATE;
                                 let sharesToSell = tax / price;
@@ -867,10 +867,9 @@
                             } else {
                                 let rem = EXEMPTION_USD - Math.max(0, bnhRealizedYear);
                                 let unrealized = (bnhShares * price) - bnhCost;
-                                if (unrealized > 0) bnhCost += Math.min(unrealized, rem); // 장부가 스텝업(과세 이연 절세)
+                                if (unrealized > 0) bnhCost += Math.min(unrealized, rem);
                             }
                             
-                            // 기존 전략 세금 정산
                             if (origRealizedYear > EXEMPTION_USD) {
                                 let tax = (origRealizedYear - EXEMPTION_USD) * TAX_RATE;
                                 if (origCash >= tax) origCash -= tax;
@@ -886,7 +885,6 @@
                                 if (unrealized > 0) origCost += Math.min(unrealized, rem);
                             }
 
-                            // 분할 전략 세금 정산
                             if (splitRealizedYear > EXEMPTION_USD) {
                                 let tax = (splitRealizedYear - EXEMPTION_USD) * TAX_RATE;
                                 if (splitCash >= tax) splitCash -= tax;
@@ -906,7 +904,6 @@
                         lastYear = currentYear;
                     }
 
-                    // [매월 1일 인플레이션 역산 현금 투입 DCA]
                     if (currentMonth !== lastMonth) {
                         lastMonth = currentMonth;
                         let diffYears = (endDateMs - new Date(dateStr).getTime()) / (1000 * 3600 * 24 * 365.25);
@@ -922,11 +919,9 @@
                         } else {
                             origCash += add_amount;
                         }
-
                         splitCash += add_amount;
                     }
 
-                    // 1. 기존 전략 매매 로직
                     if (origIsHolding && disp >= t.sell) {
                         let sellVal = origShares * price;
                         let gain = sellVal - origCost;
@@ -942,7 +937,6 @@
                         origIsHolding = true;
                     }
 
-                    // 2. 분할 전략 매매 로직
                     if (swSellEnd && disp < t.sell) swSellEnd = false;
                     if (swSellExtreme && disp < t.semiSell) swSellExtreme = false;
                     if (swSellOver && disp < t.buy) swSellOver = false;
@@ -994,7 +988,6 @@
                     }
                 }
 
-                // [최종 평가일 전량 매도 및 최종 세금 정산]
                 if (i === N - 1 && currentYear >= 2001) {
                     let bnhFinalGain = (bnhShares * price) - bnhCost;
                     bnhRealizedYear += bnhFinalGain;
@@ -1021,18 +1014,12 @@
                 splitVals.push(splitCash + splitShares * price);
             }
 
-            const startLog = asset.historyLog[0];
-            const endLog = asset.historyLog[N - 1];
-            const totalYears = Math.max(0.001, (new Date(endLog.date) - new Date(startLog.date)) / (1000 * 60 * 60 * 24 * 365.2425));
-            
-            // 총 투입원금 대비 복리수익률 산출
-            const calcCAGR = (finalVal) => ((Math.pow(finalVal / totalInvested, 1 / totalYears) - 1) * 100).toFixed(2);
+            const calcCAGR = (finalVal) => ((Math.pow(finalVal / totalInvested, 1 / totalYearsFull) - 1) * 100).toFixed(2);
 
             const cagrBnH = calcCAGR(bnhVals[bnhVals.length - 1]);
             const cagrOrig = calcCAGR(origVals[origVals.length - 1]);
             const cagrSplit = calcCAGR(splitVals[splitVals.length - 1]);
 
-            document.getElementById('analysisTitle').innerText = `${ticker} 전략별 수익률 & 구간 분석`;
             document.getElementById('analysisResult').innerHTML = `
                 <div style="display:flex; justify-content:space-around; padding: 12px; background: #2a2a2a; border-radius: 8px;">
                     <div><strong style="color:rgb(128, 255, 128);">Buy & Hold</strong><br><span style="color:#fff; font-size: 16px;">${cagrBnH}%</span></div>
@@ -1043,31 +1030,27 @@
 
             document.getElementById('analysisModal').style.display = 'flex';
 
-            if (isUpdate && analysisChartInstance) {
-                analysisChartInstance.data.datasets[2].data = origVals;
-                analysisChartInstance.data.datasets[3].data = splitVals;
-                analysisChartInstance.update('none'); 
+            if (isUpdate && strategyChartInstance && priceChartInstance) {
+                // 슬라이더 변경 시 상단 전략 차트만 데이터 갱신
+                strategyChartInstance.data.datasets[1].data = origVals;
+                strategyChartInstance.data.datasets[2].data = splitVals;
+                strategyChartInstance.update('none'); 
             } else {
-                const ctx = document.getElementById('analysisChart').getContext('2d');
-                if (analysisChartInstance) analysisChartInstance.destroy();
+                if (strategyChartInstance) strategyChartInstance.destroy();
+                if (priceChartInstance) priceChartInstance.destroy();
 
-                analysisChartInstance = new Chart(ctx, {
+                const ctxTop = document.getElementById('strategyChart').getContext('2d');
+                const ctxBottom = document.getElementById('priceChart').getContext('2d');
+
+                // 1. 상단 차트: 3가지 전략 비교
+                strategyChartInstance = new Chart(ctxTop, {
                     type: 'line',
                     data: {
                         labels: dates,
                         datasets: [
-                            { label: '주가 (Price)', data: priceVals, borderColor: '#ffffff', borderWidth: 2, pointRadius: 0 },
-                            { label: 'Buy & Hold', data: bnhVals, borderColor: 'rgb(128, 255, 128)', borderWidth: 2.5, pointRadius: 0 },
+                            { label: 'Buy & Hold', data: bnhVals, borderColor: 'rgb(128, 255, 128)', borderWidth: 2, pointRadius: 0 },
                             { label: '기존 전략', data: origVals, borderColor: 'rgb(64, 255, 64)', borderWidth: 2.5, pointRadius: 0 },
-                            { label: '분할 전략', data: splitVals, borderColor: 'rgb(196, 255, 196)', borderWidth: 2.5, pointRadius: 0 },
-                            { label: '심한 과열 끝', data: boundSellEnd, borderColor: 'rgba(255, 64, 0, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5] },
-                            { label: '심한 과열 (Sell)', data: boundSell, borderColor: 'rgba(255, 128, 0, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5] },
-                            { label: '과열', data: boundSemiSell, borderColor: 'rgba(255, 192, 0, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4] },
-                            { label: '저평가', data: boundSemiBuy, borderColor: 'rgba(0, 192, 255, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4] },
-                            { label: '심한 저평가 (Buy)', data: boundBuy, borderColor: 'rgba(0, 128, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5] },
-                            { label: '심한 저평가 끝', data: boundBuyEnd, borderColor: 'rgba(0, 64, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5] },
-                            { label: '금리 인상', data: hikePoints, borderColor: 'transparent', backgroundColor: '#3498db', pointStyle: 'triangle', pointRadius: 6, pointHoverRadius: 8, showLine: false },
-                            { label: '금리 인하', data: cutPoints, borderColor: 'transparent', backgroundColor: '#e74c3c', pointStyle: 'triangle', rotation: 180, pointRadius: 6, pointHoverRadius: 8, showLine: false }
+                            { label: '분할 전략', data: splitVals, borderColor: 'rgb(196, 255, 196)', borderWidth: 2.5, pointRadius: 0 }
                         ]
                     },
                     options: {
@@ -1075,30 +1058,47 @@
                         maintainAspectRatio: false,
                         interaction: { mode: 'index', intersect: false },
                         scales: {
-                            y: { 
-                                type: 'logarithmic', 
-                                grid: { color: '#333' }, 
-                                ticks: { color: '#aaa' } 
-                            },
-                            x: { 
-                                grid: { display: false }, 
-                                ticks: { maxTicksLimit: 8, color: '#aaa' } 
-                            }
+                            y: { type: 'logarithmic', grid: { color: '#333' }, ticks: { color: '#aaa' } },
+                            x: { grid: { display: false }, ticks: { maxTicksLimit: 8, color: '#aaa' } }
                         },
                         plugins: { 
                             legend: { labels: { color: '#fff', boxWidth: 15 } },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        let label = context.dataset.label || '';
-                                        if (label) label += ': ';
-                                        if (context.parsed.y !== null) {
-                                            label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
-                                        }
-                                        return label;
-                                    }
-                                }
-                            }
+                            tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ` + new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(ctx.parsed.y) } }
+                        }
+                    }
+                });
+
+                // 2. 하단 차트: 주가, 경계선 밴드, 그리고 금리 마커 (order 속성으로 마커를 최상단에 배치)
+                priceChartInstance = new Chart(ctxBottom, {
+                    type: 'line',
+                    data: {
+                        labels: dates,
+                        datasets: [
+                            { label: '주가 (Price)', data: priceVals, borderColor: '#ffffff', borderWidth: 2.5, pointRadius: 0, order: 2 },
+                            { label: '심한 과열 끝', data: boundSellEnd, borderColor: 'rgba(255, 64, 0, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 3 },
+                            { label: '심한 과열 (Sell)', data: boundSell, borderColor: 'rgba(255, 128, 0, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 4 },
+                            { label: '과열', data: boundSemiSell, borderColor: 'rgba(255, 192, 0, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4], order: 5 },
+                            { label: '저평가', data: boundSemiBuy, borderColor: 'rgba(0, 192, 255, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4], order: 6 },
+                            { label: '심한 저평가 (Buy)', data: boundBuy, borderColor: 'rgba(0, 128, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 7 },
+                            { label: '심한 저평가 끝', data: boundBuyEnd, borderColor: 'rgba(0, 64, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 8 },
+                            // 금리 마커는 order: 1 로 설정하여 무조건 주가 및 선들보다 위(앞)에 렌더링되게 함.
+                            // 파란색(인상) -> 주가 하락 연상 -> 아래 화살표(rotation 180)
+                            { label: '금리 인상 (▼)', data: hikePoints, borderColor: 'transparent', backgroundColor: '#3498db', pointStyle: 'triangle', rotation: 180, pointRadius: 7, pointHoverRadius: 9, showLine: false, order: 1 },
+                            // 빨간색(인하) -> 주가 상승 연상 -> 위 화살표(rotation 0)
+                            { label: '금리 인하 (▲)', data: cutPoints, borderColor: 'transparent', backgroundColor: '#e74c3c', pointStyle: 'triangle', rotation: 0, pointRadius: 7, pointHoverRadius: 9, showLine: false, order: 1 }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false },
+                        scales: {
+                            y: { type: 'logarithmic', grid: { color: '#333' }, ticks: { color: '#aaa' } },
+                            x: { grid: { display: false }, ticks: { maxTicksLimit: 8, color: '#aaa' } }
+                        },
+                        plugins: { 
+                            legend: { labels: { color: '#fff', boxWidth: 15 } },
+                            tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ` + new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(ctx.parsed.y) } }
                         }
                     }
                 });
