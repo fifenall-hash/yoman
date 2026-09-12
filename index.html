@@ -207,16 +207,20 @@
             
             <div id="analysisResult" style="margin-top: 10px; font-size: 14px; text-align: center;"></div>
 
-            <!-- 전략 3가지 차트 (상단) -->
-            <div id="chartContainerTop" style="position: relative; height: 230px; width: 100%; margin-top: 15px; border: 1px solid #444; border-radius: 6px; background-color: #121212; overflow: hidden; transition: 0.3s;">
-                <button onclick="toggleFullscreen('chartContainerTop')" style="position: absolute; top: 8px; right: 8px; z-index: 10; background: rgba(0,0,0,0.6); color: #fff; border: 1px solid #666; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px; font-weight: bold;">⛶ 전체화면</button>
-                <canvas id="strategyChart"></canvas>
-            </div>
+            <!-- 두 차트를 묶는 통합 래퍼 (전체화면 시 이 영역 전체가 꽉 차게 확대됨) -->
+            <div id="chartsWrapper" style="position: relative; display: flex; flex-direction: column; width: 100%; background-color: #121212; padding-top: 5px;">
+                <!-- 통합 전체화면 버튼 -->
+                <button onclick="toggleFullscreen('chartsWrapper')" style="position: absolute; top: 12px; right: 8px; z-index: 10; background: rgba(0,0,0,0.6); color: #fff; border: 1px solid #666; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px; font-weight: bold;">⛶ 전체화면</button>
 
-            <!-- 주가 및 밴드, 금리 마커 차트 (하단) -->
-            <div id="chartContainerBottom" style="position: relative; height: 230px; width: 100%; margin-top: 15px; border: 1px solid #444; border-radius: 6px; background-color: #121212; overflow: hidden; transition: 0.3s;">
-                <button onclick="toggleFullscreen('chartContainerBottom')" style="position: absolute; top: 8px; right: 8px; z-index: 10; background: rgba(0,0,0,0.6); color: #fff; border: 1px solid #666; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px; font-weight: bold;">⛶ 전체화면</button>
-                <canvas id="priceChart"></canvas>
+                <!-- 전략 3가지 차트 (상단) -->
+                <div id="chartContainerTop" style="position: relative; min-height: 230px; width: 100%; margin-top: 10px; border: 1px solid #444; border-radius: 6px; overflow: hidden; flex: 1;">
+                    <canvas id="strategyChart"></canvas>
+                </div>
+
+                <!-- 주가 및 밴드, 금리 마커 차트 (하단) -->
+                <div id="chartContainerBottom" style="position: relative; min-height: 230px; width: 100%; margin-top: 15px; border: 1px solid #444; border-radius: 6px; overflow: hidden; flex: 1;">
+                    <canvas id="priceChart"></canvas>
+                </div>
             </div>
             
             <div style="margin-top: 15px; background: #222; padding: 15px; border-radius: 8px; border: 1px solid #444; font-size: 13px;">
@@ -258,15 +262,15 @@
                 <h4 style="color: #ffd740; margin-top: 0; margin-bottom: 12px; font-size: 15px; text-align: center;">📊 전략별 매매 방식 안내</h4>
                 <ul style="padding-left: 20px; margin: 0; color: #ddd;">
                     <li style="margin-bottom: 10px;">
-                        <strong style="color: #ffffff;">Buy & Hold (적립식):</strong><br>
+                        <strong style="color: rgb(64, 255, 64);">Buy & Hold (적립식):</strong><br>
                         최신 기준 75,000달러를 물가상승률(2.5%)로 역산한 금액을 초기 자본으로 투입하고, 매월 물가가 역산된 1400달러를 기계적으로 추가 매수하는 기본 전략입니다.
                     </li>
                     <li style="margin-bottom: 10px;">
-                        <strong style="color: #3498db;">기존 전략:</strong><br>
+                        <strong style="color: rgb(192, 127, 192);">기존 전략:</strong><br>
                         '심한 과열' 선을 넘으면 전량 매도, '심한 저평가' 선 아래로 떨어지면 전량 매수하는 전략입니다.
                     </li>
                     <li>
-                        <strong style="color: #ff4757;">분할 전략:</strong><br>
+                        <strong style="color: rgb(128, 191, 128);">분할 전략:</strong><br>
                         위 패널에서 <strong>사용자가 직접 설정한 비율</strong>에 따라 유연하게 분할 진입 및 청산을 진행합니다. 슬라이더를 움직여 최적의 비율을 찾아보세요.
                     </li>
                 </ul>
@@ -1020,20 +1024,21 @@
             const cagrOrig = calcCAGR(origVals[origVals.length - 1]);
             const cagrSplit = calcCAGR(splitVals[splitVals.length - 1]);
 
+            // 결과 텍스트 순서 변경 (Buy&Hold -> 분할 전략 -> 기존 전략) 및 색상 반영
             document.getElementById('analysisResult').innerHTML = `
                 <div style="display:flex; justify-content:space-around; padding: 12px; background: #2a2a2a; border-radius: 8px;">
-                    <div><strong style="color:rgb(128, 255, 128);">Buy & Hold</strong><br><span style="color:#fff; font-size: 16px;">${cagrBnH}%</span></div>
-                    <div><strong style="color:rgb(64, 255, 64);">기존 전략</strong><br><span style="color:#fff; font-size: 16px;">${cagrOrig}%</span></div>
-                    <div><strong style="color:rgb(196, 255, 196);">분할 전략</strong><br><span style="color:#fff; font-size: 16px;">${cagrSplit}%</span></div>
+                    <div><strong style="color:rgb(64, 255, 64);">Buy & Hold</strong><br><span style="color:#fff; font-size: 16px;">${cagrBnH}%</span></div>
+                    <div><strong style="color:rgb(128, 191, 128);">분할 전략</strong><br><span style="color:#fff; font-size: 16px;">${cagrSplit}%</span></div>
+                    <div><strong style="color:rgb(192, 127, 192);">기존 전략</strong><br><span style="color:#fff; font-size: 16px;">${cagrOrig}%</span></div>
                 </div>
             `;
 
             document.getElementById('analysisModal').style.display = 'flex';
 
             if (isUpdate && strategyChartInstance && priceChartInstance) {
-                // 슬라이더 변경 시 상단 전략 차트만 데이터 갱신
-                strategyChartInstance.data.datasets[1].data = origVals;
-                strategyChartInstance.data.datasets[2].data = splitVals;
+                // 슬라이더 변경 시 상단 전략 차트만 데이터 갱신 (순서: BnH(0), 분할(1), 기존(2))
+                strategyChartInstance.data.datasets[1].data = splitVals;
+                strategyChartInstance.data.datasets[2].data = origVals;
                 strategyChartInstance.update('none'); 
             } else {
                 if (strategyChartInstance) strategyChartInstance.destroy();
@@ -1042,15 +1047,15 @@
                 const ctxTop = document.getElementById('strategyChart').getContext('2d');
                 const ctxBottom = document.getElementById('priceChart').getContext('2d');
 
-                // 1. 상단 차트: 3가지 전략 비교
+                // 1. 상단 차트: 3가지 전략 비교 (순서 및 색상 업데이트)
                 strategyChartInstance = new Chart(ctxTop, {
                     type: 'line',
                     data: {
                         labels: dates,
                         datasets: [
-                            { label: 'Buy & Hold', data: bnhVals, borderColor: 'rgb(128, 255, 128)', borderWidth: 2, pointRadius: 0 },
-                            { label: '기존 전략', data: origVals, borderColor: 'rgb(64, 255, 64)', borderWidth: 2.5, pointRadius: 0 },
-                            { label: '분할 전략', data: splitVals, borderColor: 'rgb(196, 255, 196)', borderWidth: 2.5, pointRadius: 0 }
+                            { label: 'Buy & Hold', data: bnhVals, borderColor: 'rgb(64, 255, 64)', borderWidth: 2, pointRadius: 0 },
+                            { label: '분할 전략', data: splitVals, borderColor: 'rgb(128, 191, 128)', borderWidth: 2.5, pointRadius: 0 },
+                            { label: '기존 전략', data: origVals, borderColor: 'rgb(192, 127, 192)', borderWidth: 2.5, pointRadius: 0 }
                         ]
                     },
                     options: {
@@ -1068,7 +1073,7 @@
                     }
                 });
 
-                // 2. 하단 차트: 주가, 경계선 밴드, 그리고 금리 마커 (order 속성으로 마커를 최상단에 배치)
+                // 2. 하단 차트: 주가, 경계선 밴드, 금리 마커
                 priceChartInstance = new Chart(ctxBottom, {
                     type: 'line',
                     data: {
@@ -1081,10 +1086,7 @@
                             { label: '저평가', data: boundSemiBuy, borderColor: 'rgba(0, 192, 255, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4], order: 6 },
                             { label: '심한 저평가 (Buy)', data: boundBuy, borderColor: 'rgba(0, 128, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 7 },
                             { label: '심한 저평가 끝', data: boundBuyEnd, borderColor: 'rgba(0, 64, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 8 },
-                            // 금리 마커는 order: 1 로 설정하여 무조건 주가 및 선들보다 위(앞)에 렌더링되게 함.
-                            // 파란색(인상) -> 주가 하락 연상 -> 아래 화살표(rotation 180)
                             { label: '금리 인상 (▼)', data: hikePoints, borderColor: 'transparent', backgroundColor: '#3498db', pointStyle: 'triangle', rotation: 180, pointRadius: 7, pointHoverRadius: 9, showLine: false, order: 1 },
-                            // 빨간색(인하) -> 주가 상승 연상 -> 위 화살표(rotation 0)
                             { label: '금리 인하 (▲)', data: cutPoints, borderColor: 'transparent', backgroundColor: '#e74c3c', pointStyle: 'triangle', rotation: 0, pointRadius: 7, pointHoverRadius: 9, showLine: false, order: 1 }
                         ]
                     },
