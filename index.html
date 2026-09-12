@@ -966,7 +966,7 @@
             }
         }
 
-        // 통합 자산 파이프라인 (주식 및 환율 공통 - 1년 단위 전략 갱신 Rolling Walk-Forward)
+        // 통합 자산 파이프라인 (주식 및 환율 공통 - 1개월 단위 전략 갱신 Rolling Walk-Forward)
         function processAsset(ticker, prices, dates, isExchange) {
             const N = prices.length;
             if (N < 100) return { symbol: ticker, state: '데이터 부족', historyLog: [] };
@@ -1007,7 +1007,7 @@
 
             // 최초 전략 수립 (0 ~ 절반 지점까지의 데이터 사용)
             let currentT = getStrategyForSlice(mid);
-            let nextUpdateIdx = mid + 252; // 최초 적용 후 1년(약 252 거래일) 뒤 갱신
+            let nextUpdateIdx = mid + 21; // 최초 적용 후 1개월(약 21 거래일) 뒤 갱신
 
             let historyLog = [];
             let isHolding = true; 
@@ -1017,10 +1017,10 @@
             let currentStateStr = isExchange ? "관망" : "초기 보유 시작";
 
             for (let i = startIndex; i < N; i++) {
-                // 절반 지점을 넘어가면 1년(252일) 단위로 전략을 갱신 (Rolling Window)
+                // 절반 지점을 넘어가면 1개월(21일) 단위로 전략을 갱신 (Rolling Window)
                 if (i >= nextUpdateIdx) {
                     currentT = getStrategyForSlice(i); // 현재 시점까지의 데이터로 새로운 전략 도출
-                    nextUpdateIdx += 252; // 다음 갱신일 1년 뒤로 연장
+                    nextUpdateIdx += 21; // 다음 갱신일 1개월 뒤로 연장
                 }
 
                 let d = disparities[i];
