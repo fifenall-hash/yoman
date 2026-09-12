@@ -819,7 +819,10 @@
             let swSellEnd = false, swSellExtreme = false, swSellOver = false;
             let swBuyEnd = false, swBuyExtreme = false, swBuyUnder = false;
 
-            // 선택된 구간만큼만 루프 돌리기
+            // ★ 선생님 요청사항 명시적 적용: 
+            // asset.historyLog 배열은 데이터 추출 단계에서 이격도가 비어있는 앞의 1499일을 버리고 
+            // '1500일 이격도가 처음으로 표현되는 지점'부터 담겨 있습니다.
+            // 따라서 startIdx부터 순회하면 100% 공정하게 동일한 시점에서 Buy&Hold와 전략들이 동시 출발합니다.
             for (let i = startIdx; i < endIdx; i++) {
                 let rec = asset.historyLog[i];
                 let price = rec.close;
@@ -835,7 +838,7 @@
                 boundBuy.push(ma * t.buy);
 
                 if (i === startIdx) {
-                    // 최초 시작 시점의 1주 가격을 초기 자본으로 세팅 (Buy&Hold = 1 * 주가 = 주가)
+                    // 최초 시작 시점(이격도가 최초로 등장한 날)의 1주 가격을 초기 자본으로 세팅
                     initCap = price;
                     bnhShares = 1;
                     
