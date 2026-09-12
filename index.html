@@ -136,7 +136,23 @@
         .modal-content-box hr { border: 0; border-top: 1px solid #333; margin: 15px 0; }
         
         /* 다크모드 차트 가시성을 위한 캔버스 배경 설정 */
-        #analysisChart { background-color: #121212; border-radius: 6px; }
+        #chartContainer { position: relative; height: 350px; width: 100%; border: 1px solid #444; border-radius: 6px; background-color: #121212; transition: 0.3s; }
+        
+        /* 전체화면 모드 CSS */
+        .fullscreen-chart {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 999999 !important;
+            margin: 0 !important;
+            border-radius: 0 !important;
+            border: none !important;
+            background-color: #121212 !important;
+            padding: 40px 10px 10px 10px !important;
+            box-sizing: border-box !important;
+        }
 
         .v-bar-container { margin-top: 12px; margin-bottom: 4px; }
         .v-bar-wrapper { position: relative; width: 100%; height: 18px; border-radius: 9px; background: #333; overflow: hidden; display: flex; }
@@ -164,18 +180,15 @@
                 <span style="font-size: 12px; color: #666; font-weight: normal;">(야후 파이낸스 실시간 접속 및 타점 탐색 중)</span>
             </div>
             
-            <!-- CORS 필요성 및 설치 안내 영역 -->
             <div style="background-color: #1a1a1a; padding: 20px; border-radius: 12px; border: 1px solid #333; text-align: left; font-size: 13px; line-height: 1.6; max-width: 450px; margin: 0 auto; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
                 <h3 style="color: #ffd740; margin-top: 0; text-align: center; font-size: 16px;">⚠️ 빠르고 안정적인 로딩을 위한 필수 설정 안내</h3>
                 <p>이 앱은 정확한 분석을 위해 수십 년 치의 방대한 주가 및 환율 데이터를 실시간으로 가져와 수만 번의 시뮬레이션을 돌립니다.</p>
                 <p>하지만 브라우저의 기본 보안 정책(CORS)으로 인해 직접 데이터를 불러오는 것이 차단될 수 있습니다. 이 경우 부득이하게 무료 우회 서버를 거치게 되어 <strong>로딩이 매우 오래 걸리거나 중간에 실패</strong>할 수 있습니다.</p>
-                
                 <hr style="border: 0; border-top: 1px dashed #444; margin: 15px 0;">
-                
                 <h4 style="color: #3498db; margin: 0 0 10px 0; font-size: 14px;">💡 해결 방법: CORS 확장 프로그램 설치 (PC 환경 권장)</h4>
                 <ol style="padding-left: 20px; margin-bottom: 0; color: #ccc;">
                     <li style="margin-bottom: 8px;">크롬 웹 스토어에서 <strong>'Allow CORS: Access-Control-Allow-Origin'</strong> 확장 프로그램을 검색하여 설치합니다.</li>
-                    <li style="margin-bottom: 8px;">브라우저 우측 상단의 <strong>확장 프로그램 아이콘(퍼즐 모양)</strong>을 클릭하여 해당 앱을 활성화합니다. <br>(비활성화 상태인 흑백 기호를 클릭해 컬러가 되게 켭니다.)</li>
+                    <li style="margin-bottom: 8px;">브라우저 우측 상단의 <strong>확장 프로그램 아이콘(퍼즐 모양)</strong>을 클릭하여 해당 앱을 활성화합니다.</li>
                     <li>켜진 상태에서 이 창을 새로고침하시면, <strong>우회 없이 0.1초 만에 즉시 데이터 분석이 완료</strong>됩니다!</li>
                 </ol>
             </div>
@@ -185,12 +198,26 @@
         <button id="downloadBtn" class="btn-common btn-download">📊 데이터 확인용 CSV 다운로드</button>
     </div>
 
-    <!-- 전략 분석 모달 (단일 통합 차트 영역) -->
+    <!-- 전략 분석 모달 -->
     <div id="analysisModal" class="full-modal">
         <div class="modal-content-box" style="max-width: 650px;">
-            <h2 id="analysisTitle" style="color: #3498db; margin-bottom: 5px;">전략별 수익률 & 구간 분석</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                <h2 id="analysisTitle" style="color: #3498db; margin: 0;">전략별 수익률 & 구간 분석</h2>
+                <button id="toggleChartBtn" onclick="toggleChartType()" style="padding: 6px 12px; background: #1a1a1a; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; transition: 0.2s;">📈 이격도 및 경계선 보기</button>
+            </div>
             
-            <div style="position: relative; height: 350px; width: 100%; margin-top: 15px; border: 1px solid #444; border-radius: 6px; overflow: hidden;">
+            <!-- SPY 전용 구간 선택 UI -->
+            <div id="spyPeriodSelector" style="display: none; margin-bottom: 10px; margin-top: 5px; text-align: right;">
+                <select id="spyPeriod" onchange="runAnalysis('SPY', false)" style="background: #1e1e1e; color: #ffd740; border: 1px solid #3498db; border-radius: 4px; padding: 4px 8px; font-size: 12px; font-weight: bold; cursor: pointer; outline: none;">
+                    <option value="second" selected>절반~최신 (실전 구간)</option>
+                    <option value="first">최초~절반 (학습 구간)</option>
+                    <option value="full">최초~최신 (전체 구간)</option>
+                </select>
+            </div>
+
+            <!-- 차트 영역 및 전체화면 버튼 -->
+            <div id="chartContainer">
+                <button onclick="toggleFullscreen()" style="position: absolute; top: 8px; right: 8px; z-index: 10; background: rgba(0,0,0,0.6); color: #fff; border: 1px solid #666; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px; font-weight: bold;">⛶ 전체화면</button>
                 <canvas id="analysisChart"></canvas>
             </div>
             
@@ -236,7 +263,7 @@
                 <ul style="padding-left: 20px; margin: 0; color: #ddd;">
                     <li style="margin-bottom: 10px;">
                         <strong style="color: #ffffff;">Buy & Hold (주가):</strong><br>
-                        분석 시작일의 주식 1주 가격을 초기 자본으로 설정하여 주가의 순수 흐름과 동일하게 움직입니다.
+                        선택된 기간의 첫날 주식 1주 가격을 초기 자본으로 설정하여 주가의 순수 흐름과 동일하게 움직입니다.
                     </li>
                     <li style="margin-bottom: 10px;">
                         <strong style="color: #3498db;">기존 전략:</strong><br>
@@ -348,21 +375,42 @@
 
         const STOCKS = ['SPXL', 'TQQQ', 'TECL', 'SOXL', 'SPY'];
 
-        // 전역 상태 저장용 변수
         let globalExState = null;
         let globalStockResults = [];
         let globalAvailableDates = [];
         let currentDateIndex = -1;
 
-        // 자동 재생(타임머신) 상태 변수
         let playIntervalId = null;
         let isPlayingForward = false;
         let isPlayingBackward = false;
-        let currentPlaySpeed = 500; // 기본 0.5초
+        let currentPlaySpeed = 500; 
         
-        // 차트 객체 및 분석 추적 변수
         let analysisChartInstance = null;
         let currentAnalysisTicker = null;
+        let currentChartMode = 'yield';
+        let previousChartMode = 'yield';
+
+        // 차트 전체화면 토글 함수
+        function toggleFullscreen() {
+            const container = document.getElementById('chartContainer');
+            container.classList.toggle('fullscreen-chart');
+            if (analysisChartInstance) {
+                analysisChartInstance.resize();
+            }
+        }
+
+        // 차트 모드 전환 함수
+        function toggleChartType() {
+            currentChartMode = (currentChartMode === 'yield') ? 'disparity' : 'yield';
+            const btn = document.getElementById('toggleChartBtn');
+            if (btn) btn.innerHTML = (currentChartMode === 'yield') ? '📈 이격도 및 경계선 보기' : '💰 전략별 수익률 보기';
+            const title = document.getElementById('analysisTitle');
+            if (title) title.innerText = (currentChartMode === 'yield') ? `${currentAnalysisTicker} 전략별 수익률 & 구간 분석` : `${currentAnalysisTicker} 주가 & 경계선 밴드 분석`;
+            
+            if (currentAnalysisTicker) {
+                runAnalysis(currentAnalysisTicker, false); 
+            }
+        }
 
         function updateCustomRatio(spanId, val) {
             document.getElementById(spanId).innerText = val + '%';
@@ -380,7 +428,6 @@
             }
         }
 
-        // 구역 분할 색상 지정 (a~e)
         function getZoneColor(zone) {
             if (zone === 'a') return 'rgb(0, 0, 255)';      
             if (zone === 'b') return 'rgb(0, 128, 255)';    
@@ -390,7 +437,6 @@
             return '#aaaaaa';
         }
 
-        // 게이지 바 퍼센트 계산
         function getVisualPercent(disp, t) {
             let W = t.sell - t.buy;
             let step = W / 3;
@@ -417,14 +463,12 @@
             return percent;
         }
 
-        // Yahoo Finance 데이터 패치 (다이렉트 접속 + 프록시 우회)
         async function fetchHistory(ticker) {
             const currentUnixTime = Math.floor(Date.now() / 1000); 
             const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?period1=0&period2=${currentUnixTime}&interval=1d&events=history`;
 
-            // 0순위에 '다이렉트 접속' 추가 (Allow CORS 확장 프로그램이 켜져있으면 0.1초만에 바로 성공함)
             const proxyList = [
-                { url: targetUrl, isWrapped: false }, // 0순위: 확장프로그램용 다이렉트
+                { url: targetUrl, isWrapped: false }, 
                 { url: `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`, isWrapped: true },
                 { url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`, isWrapped: false },
                 { url: `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`, isWrapped: false },
@@ -435,7 +479,7 @@
             for (let proxy of proxyList) {
                 try {
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8초 타임아웃
+                    const timeoutId = setTimeout(() => controller.abort(), 8000); 
 
                     const response = await fetch(proxy.url, { 
                         method: 'GET', 
@@ -482,7 +526,6 @@
             if (history.length === 0) {
                 console.error(`[오류] ${ticker} 데이터 로드 실패. 모든 접속 경로가 막혔습니다.`);
             }
-            
             return history;
         }
 
@@ -607,7 +650,6 @@
             return { badPoints, bestBuy, bestSell };
         }
 
-        // 1. 분위수 대칭 탐색 기반 매수/매도/준매수/준매도 도출
         function findThresholdsByQuantileSymmetry(prices, period) {
             let { disparities, validDisparities, minD, maxD } = calculateDisparities(prices, period);
             if (validDisparities.length < 10) return { t: { buy: 0.9, semiBuy: 0.95, semiSell: 1.05, sell: 1.1 }, disparities };
@@ -694,7 +736,6 @@
             };
         }
 
-        // 2. 최고 효율 지점 탐색 기반 도출 (SOXL 전용)
         function findThresholdsByTradeOptimization(prices, period) {
             let { disparities, validDisparities, minD, maxD } = calculateDisparities(prices, period);
             if (validDisparities.length < 10) return { t: { buy: 0.9, semiBuy: 0.95, semiSell: 1.05, sell: 1.1 }, disparities };
@@ -720,7 +761,6 @@
             return { t: { buy: bestBuy, semiBuy: semiBuyPt, semiSell: semiSellPt, sell: bestSell }, disparities };
         }
 
-        // 구역 매핑 함수 (a~e)
         function determineZone(disp, t) {
             if (disp === null || !Number.isFinite(disp)) return null;
             if (disp >= t.sell) return 'a';
@@ -730,14 +770,38 @@
             return 'e';
         }
 
-        // 전략 분석 실행 함수 (단일 차트로 통합)
+        // 전략 분석 실행 함수
         function runAnalysis(ticker, isUpdate = false) {
-            currentAnalysisTicker = ticker;
+            // SPY 관련 셀렉터 초기화 및 세팅
+            if (!isUpdate && currentAnalysisTicker !== ticker) {
+                if (ticker === 'SPY') {
+                    document.getElementById('spyPeriodSelector').style.display = 'block';
+                    document.getElementById('spyPeriod').value = 'second';
+                } else {
+                    document.getElementById('spyPeriodSelector').style.display = 'none';
+                }
+            }
             
+            currentAnalysisTicker = ticker;
             const asset = globalStockResults.find(a => a.symbol === ticker);
+            
             if (!asset || !asset.historyLog || asset.historyLog.length === 0) {
                 alert('아직 데이터가 준비되지 않았습니다.');
                 return;
+            }
+
+            // SPY의 경우 유저가 선택한 구간에 맞게 시작점/끝점을 조절
+            let startIdx = 0;
+            let endIdx = asset.historyLog.length;
+
+            if (ticker === 'SPY') {
+                let pSelect = document.getElementById('spyPeriod').value;
+                let mid = asset.midLogIdx || Math.floor(asset.historyLog.length / 2);
+                if (pSelect === 'first') {
+                    endIdx = mid;
+                } else if (pSelect === 'second') {
+                    startIdx = mid;
+                }
             }
 
             const RATIO_BUY_UNDERVALUED = parseInt(document.getElementById('buyUnderValued').value) / 100;
@@ -751,24 +815,18 @@
             const t = asset.t;
             const step = (t.sell - t.buy) / 3;
             if (step <= 0) return;
-            const extreme_sell_end = t.sell + step; // 심한 과열 끝
-            const extreme_buy_end = t.buy - step;   // 심한 저평가 끝
+            const extreme_sell_end = t.sell + step; 
+            const extreme_buy_end = t.buy - step;   
 
-            const N = asset.historyLog.length;
-            
-            // 차트 데이터 배열
             const dates = [];
+            const closeVals = [];
+            const dispVals = [];
+            
             const bnhVals = [];
             const origVals = [];
             const splitVals = [];
-            
-            // 4개 구역 경계값 배열 (달러 환산)
-            const boundSell = [];
-            const boundSemiSell = [];
-            const boundSemiBuy = [];
-            const boundBuy = [];
 
-            let initCap = 0; // 동적 할당
+            let initCap = 0; 
             let bnhShares = 0;
             let origShares = 0, origCash = 0, origIsHolding = true;
             let splitShares = 0, splitCash = 0;
@@ -776,22 +834,20 @@
             let swSellEnd = false, swSellExtreme = false, swSellOver = false;
             let swBuyEnd = false, swBuyExtreme = false, swBuyUnder = false;
 
-            for (let i = 0; i < N; i++) {
+            // 선택된 구간만큼만 루프 돌리기
+            for (let i = startIdx; i < endIdx; i++) {
                 let rec = asset.historyLog[i];
                 let price = rec.close;
                 let disp = rec.disp;
 
-                dates.push(rec.date);
-                
-                // 해당 시점의 이동평균선 역산 (현재가 / 이격도)
-                let ma = price / disp;
-                boundSell.push(ma * t.sell);
-                boundSemiSell.push(ma * t.semiSell);
-                boundSemiBuy.push(ma * t.semiBuy);
-                boundBuy.push(ma * t.buy);
+                if (!isUpdate || previousChartMode !== currentChartMode) {
+                    dates.push(rec.date);
+                    closeVals.push(price);
+                    dispVals.push(disp);
+                }
 
-                if (i === 0) {
-                    // 최초 데이터 1주 가격을 초기 자본으로 설정
+                if (i === startIdx) {
+                    // 최초 시작 시점의 1주 가격을 초기 자본으로 세팅 (Buy&Hold = 주가)
                     initCap = price;
                     bnhShares = 1;
                     origShares = 1;
@@ -859,14 +915,15 @@
                 splitVals.push(splitCash + splitShares * price);
             }
 
-            const totalYears = Math.max(0.001, (new Date(asset.historyLog[N - 1].date) - new Date(asset.historyLog[0].date)) / (1000 * 60 * 60 * 24 * 365.2425));
+            const startLog = asset.historyLog[startIdx];
+            const endLog = asset.historyLog[endIdx - 1];
+            const totalYears = Math.max(0.001, (new Date(endLog.date) - new Date(startLog.date)) / (1000 * 60 * 60 * 24 * 365.2425));
             const calcCAGR = (finalVal) => ((Math.pow(finalVal / initCap, 1 / totalYears) - 1) * 100).toFixed(2);
 
-            const cagrBnH = calcCAGR(bnhVals[N - 1]);
-            const cagrOrig = calcCAGR(origVals[N - 1]);
-            const cagrSplit = calcCAGR(splitVals[N - 1]);
+            const cagrBnH = calcCAGR(bnhVals[bnhVals.length - 1]);
+            const cagrOrig = calcCAGR(origVals[origVals.length - 1]);
+            const cagrSplit = calcCAGR(splitVals[splitVals.length - 1]);
 
-            document.getElementById('analysisTitle').innerText = `${ticker} 전략별 수익률 & 구간 분석`;
             document.getElementById('analysisResult').innerHTML = `
                 <div style="display:flex; justify-content:space-around; padding: 12px; background: #2a2a2a; border-radius: 8px;">
                     <div><strong style="color:#ffffff;">Buy & Hold (주가)</strong><br><span style="color:#fff; font-size: 16px;">${cagrBnH}%</span></div>
@@ -877,65 +934,120 @@
 
             document.getElementById('analysisModal').style.display = 'flex';
 
-            if (isUpdate && analysisChartInstance) {
-                // 슬라이더 조절 시 데이터만 살짝 교체 (깜빡임 방지)
-                analysisChartInstance.data.datasets[1].data = origVals;
-                analysisChartInstance.data.datasets[2].data = splitVals;
-                analysisChartInstance.update('none'); 
+            if (isUpdate && analysisChartInstance && previousChartMode === currentChartMode) {
+                if (currentChartMode === 'yield') {
+                    analysisChartInstance.data.datasets[0].data = bnhVals;
+                    analysisChartInstance.data.datasets[1].data = origVals;
+                    analysisChartInstance.data.datasets[2].data = splitVals;
+                    analysisChartInstance.update('none'); 
+                }
             } else {
                 const ctx = document.getElementById('analysisChart').getContext('2d');
                 if (analysisChartInstance) analysisChartInstance.destroy();
+                previousChartMode = currentChartMode;
 
-                analysisChartInstance = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: dates,
-                        datasets: [
-                            { label: 'Buy & Hold (주가)', data: bnhVals, borderColor: '#ffffff', borderWidth: 2, pointRadius: 0 },
-                            { label: '기존 전략', data: origVals, borderColor: '#3498db', borderWidth: 2, pointRadius: 0 },
-                            { label: '분할 전략', data: splitVals, borderColor: '#ff4757', borderWidth: 2.5, pointRadius: 0 },
-                            { label: '심한 과열 (Sell)', data: boundSell, borderColor: 'rgba(255, 99, 132, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5] },
-                            { label: '과열', data: boundSemiSell, borderColor: 'rgba(255, 159, 64, 0.6)', borderWidth: 1, pointRadius: 0, borderDash: [2, 2] },
-                            { label: '저평가', data: boundSemiBuy, borderColor: 'rgba(54, 162, 235, 0.6)', borderWidth: 1, pointRadius: 0, borderDash: [2, 2] },
-                            { label: '심한 저평가 (Buy)', data: boundBuy, borderColor: 'rgba(75, 192, 192, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5] }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        interaction: { mode: 'index', intersect: false },
-                        scales: {
-                            y: { 
-                                type: 'logarithmic', 
-                                grid: { color: '#333' }, 
-                                ticks: { color: '#aaa' } 
-                            },
-                            x: { 
-                                grid: { display: false }, 
-                                ticks: { maxTicksLimit: 8, color: '#aaa' } 
-                            }
+                if (currentChartMode === 'yield') {
+                    // 1. 기존의 수익률 비교 차트 (다크모드 특화 형광톤 적용)
+                    analysisChartInstance = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: dates,
+                            datasets: [
+                                { label: 'Buy & Hold (주가)', data: bnhVals, borderColor: '#ffffff', borderWidth: 2, pointRadius: 0 },
+                                { label: '기존 전략', data: origVals, borderColor: '#3498db', borderWidth: 2, pointRadius: 0 },
+                                { label: '분할 전략', data: splitVals, borderColor: '#ff4757', borderWidth: 2.5, pointRadius: 0 }
+                            ]
                         },
-                        plugins: { 
-                            legend: { labels: { color: '#fff', boxWidth: 15 } },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        let label = context.dataset.label || '';
-                                        if (label) label += ': ';
-                                        if (context.parsed.y !== null) {
-                                            label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: { mode: 'index', intersect: false },
+                            scales: {
+                                y: { type: 'logarithmic', grid: { color: '#333' }, ticks: { color: '#aaa' } },
+                                x: { grid: { display: false }, ticks: { maxTicksLimit: 8, color: '#aaa' } }
+                            },
+                            plugins: { 
+                                legend: { labels: { color: '#fff' } },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            let label = context.dataset.label || '';
+                                            if (label) label += ': ';
+                                            if (context.parsed.y !== null) {
+                                                label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
+                                            }
+                                            return label;
                                         }
-                                        return label;
                                     }
                                 }
                             }
                         }
+                    });
+                } else {
+                    // 2. 신규 주가 + 4개 구역 경계선 밴드 차트
+                    const boundSell = [];
+                    const boundSemiSell = [];
+                    const boundSemiBuy = [];
+                    const boundBuy = [];
+
+                    const len = closeVals.length;
+                    for (let i = 0; i < len; i++) {
+                        let p = closeVals[i];
+                        let d = dispVals[i];
+                        let ma = p / d;
+                        
+                        boundSell.push(ma * t.sell);
+                        boundSemiSell.push(ma * t.semiSell);
+                        boundSemiBuy.push(ma * t.semiBuy);
+                        boundBuy.push(ma * t.buy);
                     }
-                });
+
+                    analysisChartInstance = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: dates,
+                            datasets: [
+                                { label: '실제 주가 ($)', data: closeVals, borderColor: '#ffffff', borderWidth: 2.5, pointRadius: 0 },
+                                { label: '심한 과열 (Sell)', data: boundSell, borderColor: 'rgba(255, 99, 132, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5] },
+                                { label: '과열', data: boundSemiSell, borderColor: 'rgba(255, 159, 64, 0.7)', borderWidth: 1, pointRadius: 0, borderDash: [2, 2] },
+                                { label: '저평가', data: boundSemiBuy, borderColor: 'rgba(54, 162, 235, 0.7)', borderWidth: 1, pointRadius: 0, borderDash: [2, 2] },
+                                { label: '심한 저평가 (Buy)', data: boundBuy, borderColor: 'rgba(75, 192, 192, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5] }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: { mode: 'index', intersect: false },
+                            scales: {
+                                y: { 
+                                    type: 'logarithmic', 
+                                    grid: { color: '#333' }, 
+                                    ticks: { color: '#aaa' }
+                                },
+                                x: { grid: { display: false }, ticks: { maxTicksLimit: 8, color: '#aaa' } }
+                            },
+                            plugins: { 
+                                legend: { labels: { color: '#fff', boxWidth: 15 } },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            let label = context.dataset.label || '';
+                                            if (label) label += ': ';
+                                            if (context.parsed.y !== null) {
+                                                label += new IntlNumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
+                                            }
+                                            return label;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
             }
         }
 
-        // 통합 자산 파이프라인 (주식 및 환율 공통)
+        // 통합 자산 파이프라인
         function processAsset(ticker, prices, dates, isExchange) {
             const N = prices.length;
             if (N < 100) return { symbol: ticker, state: '데이터 부족', historyLog: [] };
@@ -962,15 +1074,13 @@
             } else if (ticker === 'SOXL') {
                 optResult = findThresholdsByTradeOptimization(prices, period);
             } else if (ticker === 'SPY') {
-                // [SPY 전용 로직] 전체 데이터의 절반(mid) 계산
+                // SPY 전용 로직: 처음 ~ 절반까지만 사용하여 임곗값 도출
                 let mid = Math.floor(N / 2);
-                if (mid <= period) mid = period + 1; // 최소 1500일은 확보
+                if (mid <= period) mid = period + 1; 
                 
-                // 1. 처음 ~ 절반 지점까지만 사용하여 5구역(임곗값 t) 선정
                 const trainPrices = prices.slice(0, mid);
                 const trainOpt = findThresholdsByQuantileSymmetry(trainPrices, period);
                 
-                // 2. 전체 이격도를 다시 계산하여 후반부 시뮬레이션용으로 병합
                 const fullDisp = calculateDisparities(prices, period);
                 optResult = { t: trainOpt.t, disparities: fullDisp.disparities };
             } else {
@@ -982,13 +1092,11 @@
             
             let isHolding = true; 
             
-            // 데이터 탐색 시작점 (SPY는 절반 지점부터, 나머지는 period-1 부터)
             let startIndex = period - 1;
-            if (ticker === 'SPY') {
-                startIndex = Math.max(period - 1, Math.floor(N / 2));
-            }
+            let spyStart = ticker === 'SPY' ? Math.max(period - 1, Math.floor(N / 2)) : startIndex;
+            const midLogIdx = spyStart - startIndex;
 
-            let lastActionDateObj = new Date(dates[startIndex]);
+            let lastActionDateObj = new Date(dates[spyStart]);
             let lastActionType = isExchange ? "달러 보유" : "매수";
             let currentStateStr = isExchange ? "관망" : "초기 보유 시작";
 
@@ -1004,52 +1112,60 @@
                     else if (zone === 'd') { actionStr = '달러 환전 권장'; evalStr = '저환율'; }
                     else if (zone === 'e') { actionStr = '달러 환전 적극 권장!'; evalStr = '심한 저환율'; }
                 } else {
-                    let actionOccurred = false;
-                    // 시작점(startIndex)을 기준으로 초기화
-                    if (i === startIndex) {
-                        actionOccurred = true;
-                        currentStateStr = "초기 보유 시작";
-                        lastActionDateObj = new Date(dates[i]);
+                    if (i < spyStart) {
+                         actionStr = '학습 데이터 구간';
+                         if (zone === 'a') evalStr = '심한 과열';
+                         else if (zone === 'b') evalStr = '과열';
+                         else if (zone === 'c') evalStr = '적정';
+                         else if (zone === 'd') evalStr = '저평가';
+                         else if (zone === 'e') evalStr = '심한 저평가';
                     } else {
-                        if (isHolding && d >= t.sell) {
-                            isHolding = false;
-                            lastActionType = "매도";
-                            lastActionDateObj = new Date(dates[i]);
-                            currentStateStr = "매도 (Sell)";
+                        let actionOccurred = false;
+                        if (i === spyStart) {
                             actionOccurred = true;
-                        } else if (!isHolding && d <= t.buy) {
+                            currentStateStr = "초기 보유 시작";
+                            lastActionDateObj = new Date(dates[i]);
                             isHolding = true;
-                            lastActionType = "매수";
-                            lastActionDateObj = new Date(dates[i]);
-                            currentStateStr = "매수 (Buy)";
-                            actionOccurred = true;
+                        } else {
+                            if (isHolding && d >= t.sell) {
+                                isHolding = false;
+                                lastActionType = "매도";
+                                lastActionDateObj = new Date(dates[i]);
+                                currentStateStr = "매도 (Sell)";
+                                actionOccurred = true;
+                            } else if (!isHolding && d <= t.buy) {
+                                isHolding = true;
+                                lastActionType = "매수";
+                                lastActionDateObj = new Date(dates[i]);
+                                currentStateStr = "매수 (Buy)";
+                                actionOccurred = true;
+                            }
                         }
-                    }
 
-                    if (!actionOccurred) {
-                        const currentDt = new Date(dates[i]);
-                        const diffTime = Math.abs(currentDt - lastActionDateObj);
-                        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-                        if (diffDays >= 365) currentStateStr = `${lastActionType} 후 관망 (${(diffDays / 365.2425).toFixed(2)}년차)`;
-                        else currentStateStr = `${lastActionType} 후 관망 (${diffDays}일차)`;
-                    }
-                    actionStr = currentStateStr;
+                        if (!actionOccurred) {
+                            const currentDt = new Date(dates[i]);
+                            const diffTime = Math.abs(currentDt - lastActionDateObj);
+                            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+                            if (diffDays >= 365) currentStateStr = `${lastActionType} 후 관망 (${(diffDays / 365.2425).toFixed(2)}년차)`;
+                            else currentStateStr = `${lastActionType} 후 관망 (${diffDays}일차)`;
+                        }
+                        actionStr = currentStateStr;
 
-                    if (zone === 'a') evalStr = '심한 과열';
-                    else if (zone === 'b') evalStr = '과열';
-                    else if (zone === 'c') evalStr = '적정';
-                    else if (zone === 'd') evalStr = '저평가';
-                    else if (zone === 'e') evalStr = '심한 저평가';
+                        if (zone === 'a') evalStr = '심한 과열';
+                        else if (zone === 'b') evalStr = '과열';
+                        else if (zone === 'c') evalStr = '적정';
+                        else if (zone === 'd') evalStr = '저평가';
+                        else if (zone === 'e') evalStr = '심한 저평가';
+                    }
                 }
 
                 historyLog.push({ date: dates[i], close: prices[i], disp: d, action: actionStr, eval: evalStr, zone: zone });
             }
 
             const lastLog = historyLog[historyLog.length - 1];
-            return { symbol: ticker, status: lastLog.action, evalState: lastLog.eval, currentPrice: lastLog.close, zone: lastLog.zone, historyLog, t: t, currentDisp: lastLog.disp };
+            return { symbol: ticker, status: lastLog.action, evalState: lastLog.eval, currentPrice: lastLog.close, zone: lastLog.zone, historyLog, t: t, currentDisp: lastLog.disp, midLogIdx };
         }
 
-        // CSV 다운로드 함수
         function downloadCSV(stockResults, exState) {
             const dateMap = {};
             
@@ -1111,10 +1227,8 @@
             document.body.removeChild(link);
         }
 
-        // --- 앱 메인 초기화 (데이터 로딩 및 UI 렌더링) ---
         async function initApp() {
             try {
-                // 환율 및 주식 데이터 비동기 처리
                 const exchangeRaw = await fetchHistory('USDKRW=X');
                 const exDates = exchangeRaw.map(d => d.date);
                 const exPrices = exchangeRaw.map(d => d.close);
@@ -1131,7 +1245,6 @@
                 globalExState = exState;
                 globalStockResults = stockResults;
 
-                // 기준일(날짜) 배열 추출 (SPXL 기준이 가장 무난)
                 globalAvailableDates = stockResults[0].historyLog.map(l => l.date);
                 currentDateIndex = globalAvailableDates.length - 1;
 
@@ -1145,7 +1258,6 @@
                     return 'rgb(128, 128, 128)'; 
                 }
 
-                // 타겟 날짜에 해당하는(혹은 가장 가까운 과거) 로그를 가져오는 함수
                 function getLogByDate(historyLog, targetDate) {
                     if (!historyLog || historyLog.length === 0) return null;
                     let closest = historyLog[0];
@@ -1172,7 +1284,6 @@
                     let rightLabel = isExchange ? '고환율' : '과열';
                     let titleName = isExchange ? '환전여부' : asset.symbol;
                     
-                    // 분석 버튼 추가 로직
                     let titleHtml = '';
                     if (!isExchange) {
                         titleHtml = `<button onclick="runAnalysis('${asset.symbol}')" style="margin-right: 6px; padding: 3px 6px; font-size: 10px; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; display: inline-block;">분석</button>${titleName}:`;
@@ -1186,7 +1297,6 @@
                     
                     let percent = getVisualPercent(log.disp, asset.t);
 
-                    // 불투명도 처리를 위해 현재 속한 구역 파악
                     let oE = log.zone === 'e' ? 1.0 : 0.2;
                     let oD = log.zone === 'd' ? 1.0 : 0.2;
                     let oC = log.zone === 'c' ? 1.0 : 0.2;
@@ -1219,7 +1329,6 @@
                     `;
                 }
 
-                // --- 자동 재생(타임머신) 로직 ---
                 function stopAutoPlay() {
                     if (playIntervalId) {
                         clearInterval(playIntervalId);
@@ -1262,13 +1371,11 @@
                     }, currentPlaySpeed);
                 }
 
-                // UI를 갱신하는 최적화된 함수
                 function updateView() {
                     const targetDate = globalAvailableDates[currentDateIndex];
                     const isLatestDay = currentDateIndex === globalAvailableDates.length - 1;
                     const isFirstDay = currentDateIndex === 0;
                     
-                    // 재생 경계에 도달하면 자동 정지
                     if (isLatestDay && isPlayingForward) stopAutoPlay();
                     if (isFirstDay && isPlayingBackward) stopAutoPlay();
 
@@ -1317,7 +1424,6 @@
                     if (assetsContainer) assetsContainer.innerHTML = assetsHtml;
                 }
 
-                // --- 키보드 방향키 조작 이벤트 ---
                 document.addEventListener('keydown', (e) => {
                     if (!document.getElementById('btn-prev-day')) return;
                     if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT')) return;
@@ -1337,7 +1443,6 @@
                     }
                 });
 
-                // 데이터 로딩 완료 시 UI 교체
                 let baseHtml = `
                 <div style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #333;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
@@ -1367,7 +1472,6 @@
                 document.getElementById('content').innerHTML = baseHtml;
                 document.getElementById('content').classList.remove('loading');
 
-                // 버튼 이벤트 등록
                 document.getElementById('btn-prev-day').addEventListener('click', () => {
                     stopAutoPlay();
                     if (currentDateIndex > 0) { currentDateIndex--; updateView(); }
@@ -1406,7 +1510,6 @@
                     if (isPlayingBackward) startAutoPlay('backward');
                 });
 
-                // 렌더링 호출
                 updateView();
 
                 document.getElementById('descBtn').style.display = 'block';
