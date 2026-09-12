@@ -923,7 +923,25 @@
                         } else {
                             origCash += add_amount;
                         }
-                        splitCash += add_amount;
+
+                        // ⭐ [분할 전략] 월급 분에 한해서 예외적으로 현재 구간에 맞춰 즉시 매수
+                        let salaryInvestRatio = 0;
+                        if (disp <= extreme_buy_end) {
+                            salaryInvestRatio = RATIO_BUY_EXTREME_UNDER_END;
+                        } else if (disp <= t.buy) {
+                            salaryInvestRatio = RATIO_BUY_EXTREME_UNDER;
+                        } else if (disp <= t.semiBuy) {
+                            salaryInvestRatio = RATIO_BUY_UNDERVALUED;
+                        }
+
+                        let investAmt = add_amount * salaryInvestRatio;
+                        let saveAmt = add_amount - investAmt;
+
+                        if (investAmt > 0) {
+                            splitShares += investAmt / price;
+                            splitCost += investAmt;
+                        }
+                        splitCash += saveAmt; // 남은 금액만 현금 풀에 적립
                     }
 
                     if (origIsHolding && disp >= t.sell) {
@@ -962,6 +980,7 @@
                         }
                     };
 
+                    // 분할 매도는 기존 스위치 로직 그대로 유지
                     if (!swSellEnd && disp >= extreme_sell_end) {            
                         swSellEnd = true; processSplitSell(RATIO_SELL_EXTREME_OVER_END);
                     }
@@ -981,6 +1000,7 @@
                         }
                     };
 
+                    // 기존 현금 풀은 여전히 '선을 돌파할 때(스위치 ON)'만 매수
                     if (!swBuyEnd && disp <= extreme_buy_end) {            
                         swBuyEnd = true; processSplitBuy(RATIO_BUY_EXTREME_UNDER_END);
                     }
@@ -1073,7 +1093,7 @@
                     }
                 });
 
-                // 2. 하단 차트: 주가, 경계선 밴드, 금리 마커
+                // 2. 하단 차트: 주가, 경계선 밴드, 그리고 금리 마커 (order 속성으로 마커를 최상단에 배치)
                 priceChartInstance = new Chart(ctxBottom, {
                     type: 'line',
                     data: {
@@ -1086,7 +1106,9 @@
                             { label: '저평가', data: boundSemiBuy, borderColor: 'rgba(0, 192, 255, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4], order: 6 },
                             { label: '심한 저평가 (Buy)', data: boundBuy, borderColor: 'rgba(0, 128, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 7 },
                             { label: '심한 저평가 끝', data: boundBuyEnd, borderColor: 'rgba(0, 64, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 8 },
+                            // 금리 인상: 파란색 하락 화살표(▼, rotation 180)
                             { label: '금리 인상 (▼)', data: hikePoints, borderColor: 'transparent', backgroundColor: '#3498db', pointStyle: 'triangle', rotation: 180, pointRadius: 7, pointHoverRadius: 9, showLine: false, order: 1 },
+                            // 금리 인하: 빨간색 상승 화살표(▲, rotation 0)
                             { label: '금리 인하 (▲)', data: cutPoints, borderColor: 'transparent', backgroundColor: '#e74c3c', pointStyle: 'triangle', rotation: 0, pointRadius: 7, pointHoverRadius: 9, showLine: false, order: 1 }
                         ]
                     },
