@@ -764,7 +764,7 @@
             return 'e';
         }
 
-        // 전략 분석 실행 함수 (화살표 마커 및 구간 기능 포함)
+        // 전략 분석 실행 함수 (화살표 마커 및 구간 기능 포함, 밴드 색상 Swap 적용)
         function runAnalysis(ticker, isUpdate = false) {
             // 종목을 바꾸면 셀렉터 기본값(실전 구간)으로 리셋
             if (!isUpdate && currentAnalysisTicker !== ticker) {
@@ -963,13 +963,13 @@
                         let salaryColor = 'transparent';
                         if (disp <= extreme_buy_end) {
                             salaryInvestRatio = RATIO_BUY_EXTREME_UNDER_END;
-                            salaryColor = 'rgb(0, 64, 255)';
+                            salaryColor = 'rgb(255, 64, 0)';
                         } else if (disp <= t.buy) {
                             salaryInvestRatio = RATIO_BUY_EXTREME_UNDER;
-                            salaryColor = 'rgb(0, 128, 255)';
+                            salaryColor = 'rgb(255, 128, 0)';
                         } else if (disp <= t.semiBuy) {
                             salaryInvestRatio = RATIO_BUY_UNDERVALUED;
-                            salaryColor = 'rgb(0, 192, 255)';
+                            salaryColor = 'rgb(255, 192, 0)';
                         }
 
                         let investAmt = add_amount * salaryInvestRatio;
@@ -985,7 +985,7 @@
                     }
 
                     if (origIsHolding && disp >= t.sell) {
-                        oSellPt = true; // 플래그 켜기
+                        oSellPt = true; 
                         let sellVal = origShares * price;
                         let gain = sellVal - origCost;
                         if (currentYear >= 2001) origRealizedYear += gain;
@@ -994,7 +994,7 @@
                         origCost = 0;
                         origIsHolding = false;
                     } else if (!origIsHolding && disp <= t.buy) {
-                        oBuyPt = true; // 플래그 켜기
+                        oBuyPt = true; 
                         origShares = origCash / price;
                         origCost += origCash;
                         origCash = 0;
@@ -1025,13 +1025,13 @@
                     };
 
                     if (!swSellEnd && disp >= extreme_sell_end) {            
-                        swSellEnd = true; processSplitSell(RATIO_SELL_EXTREME_OVER_END, 'rgb(255, 64, 0)');
+                        swSellEnd = true; processSplitSell(RATIO_SELL_EXTREME_OVER_END, 'rgb(0, 64, 255)');
                     }
                     if (!swSellExtreme && disp >= t.sell) {                      
-                        swSellExtreme = true; processSplitSell(RATIO_SELL_EXTREME_OVER, 'rgb(255, 128, 0)');
+                        swSellExtreme = true; processSplitSell(RATIO_SELL_EXTREME_OVER, 'rgb(0, 128, 255)');
                     }
                     if (!swSellOver && disp >= t.semiSell) {                   
-                        swSellOver = true; processSplitSell(RATIO_SELL_OVERVALUED, 'rgb(255, 192, 0)');
+                        swSellOver = true; processSplitSell(RATIO_SELL_OVERVALUED, 'rgb(0, 192, 255)');
                     }
 
                     const processSplitBuy = (ratio, color) => {
@@ -1045,16 +1045,15 @@
                     };
 
                     if (!swBuyEnd && disp <= extreme_buy_end) {            
-                        swBuyEnd = true; processSplitBuy(RATIO_BUY_EXTREME_UNDER_END, 'rgb(0, 64, 255)');
+                        swBuyEnd = true; processSplitBuy(RATIO_BUY_EXTREME_UNDER_END, 'rgb(255, 64, 0)');
                     }
                     if (!swBuyExtreme && disp <= t.buy) {                      
-                        swBuyExtreme = true; processSplitBuy(RATIO_BUY_EXTREME_UNDER, 'rgb(0, 128, 255)');
+                        swBuyExtreme = true; processSplitBuy(RATIO_BUY_EXTREME_UNDER, 'rgb(255, 128, 0)');
                     }
                     if (!swBuyUnder && disp <= t.semiBuy) {                   
-                        swBuyUnder = true; processSplitBuy(RATIO_BUY_UNDERVALUED, 'rgb(0, 192, 255)');
+                        swBuyUnder = true; processSplitBuy(RATIO_BUY_UNDERVALUED, 'rgb(255, 192, 0)');
                     }
 
-                    // 마커 Y축 위치는 해당 시점의 포트폴리오 가치에 매칭
                     let curOrigVal = origCash + origShares * price;
                     let curSplitVal = splitCash + splitShares * price;
 
@@ -1161,19 +1160,19 @@
                     }
                 });
 
-                // 2. 하단 차트: 주가 + 밴드 + 연준 금리 마커
+                // 2. 하단 차트: 주가 + 밴드 + 연준 금리 마커 (밴드 색상 Swap 적용)
                 priceChartInstance = new Chart(ctxBottom, {
                     type: 'line',
                     data: {
                         labels: dates,
                         datasets: [
                             { label: '주가 (Price)', data: priceVals, borderColor: '#ffffff', borderWidth: 2.5, pointRadius: 0, order: 2 },
-                            { label: '심한 과열 끝', data: boundSellEnd, borderColor: 'rgba(255, 64, 0, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 3 },
-                            { label: '심한 과열 (Sell)', data: boundSell, borderColor: 'rgba(255, 128, 0, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 4 },
-                            { label: '과열', data: boundSemiSell, borderColor: 'rgba(255, 192, 0, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4], order: 5 },
-                            { label: '저평가', data: boundSemiBuy, borderColor: 'rgba(0, 192, 255, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4], order: 6 },
-                            { label: '심한 저평가 (Buy)', data: boundBuy, borderColor: 'rgba(0, 128, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 7 },
-                            { label: '심한 저평가 끝', data: boundBuyEnd, borderColor: 'rgba(0, 64, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 8 },
+                            { label: '심한 과열 끝', data: boundSellEnd, borderColor: 'rgba(0, 64, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 3 },
+                            { label: '심한 과열 (Sell)', data: boundSell, borderColor: 'rgba(0, 128, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 4 },
+                            { label: '과열', data: boundSemiSell, borderColor: 'rgba(0, 192, 255, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4], order: 5 },
+                            { label: '저평가', data: boundSemiBuy, borderColor: 'rgba(255, 192, 0, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4], order: 6 },
+                            { label: '심한 저평가 (Buy)', data: boundBuy, borderColor: 'rgba(255, 128, 0, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 7 },
+                            { label: '심한 저평가 끝', data: boundBuyEnd, borderColor: 'rgba(255, 64, 0, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 8 },
                             // 금리 인상: 파란 하락 화살표
                             { label: '금리 인상 (▼)', data: hikePoints, borderColor: 'transparent', backgroundColor: '#3498db', pointStyle: 'triangle', rotation: 180, pointRadius: 7, pointHoverRadius: 9, showLine: false, order: 1 },
                             // 금리 인하: 빨간 상승 화살표
