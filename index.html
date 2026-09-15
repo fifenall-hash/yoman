@@ -136,7 +136,7 @@
         .modal-content-box hr { border: 0; border-top: 1px solid #333; margin: 15px 0; }
         
         /* 다크모드 차트 가시성을 위한 캔버스 배경 설정 */
-        #chartContainer { position: relative; height: 350px; width: 100%; border: 1px solid #444; border-radius: 6px; background-color: #121212; transition: 0.3s; }
+        #chartsWrapper { transition: 0.3s; }
         
         /* 전체화면 모드 CSS */
         .fullscreen-chart {
@@ -398,7 +398,7 @@
         let priceChartInstance = null;
         let currentAnalysisTicker = null;
 
-        // 차트 전체화면 토글 함수 (차트 2개 지원)
+        // 차트 전체화면 토글 함수 (차트 2개 동시 확대 지원)
         function toggleFullscreen(containerId) {
             const container = document.getElementById(containerId);
             container.classList.toggle('fullscreen-chart');
@@ -816,13 +816,19 @@
             const boundBuy = [];
             const boundBuyEnd = [];
 
-            // 전략 화살표 마커용 배열
+            // 전략 화살표 마커용 배열 (상단 차트)
             const origBuyPoints = [];
             const origSellPoints = [];
             const splitBuyPoints = [];
             const splitSellPoints = [];
             const splitBuyColors = [];
             const splitSellColors = [];
+
+            // 구간 점선 터치 마커용 배열 (하단 주가 차트)
+            const priceBandBuyPoints = [];
+            const priceBandSellPoints = [];
+            const priceBandBuyColors = [];
+            const priceBandSellColors = [];
 
             // 연준 금리 마커 배열
             const hikePoints = [];
@@ -885,6 +891,8 @@
 
                 let oBuyPt = null, oSellPt = null, sBuyPt = null, sSellPt = null;
                 let sBuyColor = 'transparent', sSellColor = 'transparent';
+                let bBuyPt = null, bSellPt = null;
+                let bBuyColor = 'transparent', bSellColor = 'transparent';
 
                 if (i === startIdx) {
                     totalInvested = initCap;
@@ -1024,14 +1032,18 @@
                         }
                     };
 
+                    // 하단 주가 밴드 터치 표시 로직 추가 (비율이 0%여도 해당 선을 돌파한 시점을 마커로 남김)
                     if (!swSellEnd && disp >= extreme_sell_end) {            
                         swSellEnd = true; processSplitSell(RATIO_SELL_EXTREME_OVER_END, 'rgb(0, 64, 255)');
+                        bSellPt = price; bSellColor = 'rgb(0, 64, 255)';
                     }
                     if (!swSellExtreme && disp >= t.sell) {                      
                         swSellExtreme = true; processSplitSell(RATIO_SELL_EXTREME_OVER, 'rgb(0, 128, 255)');
+                        if (!bSellPt) { bSellPt = price; bSellColor = 'rgb(0, 128, 255)'; }
                     }
                     if (!swSellOver && disp >= t.semiSell) {                   
                         swSellOver = true; processSplitSell(RATIO_SELL_OVERVALUED, 'rgb(0, 192, 255)');
+                        if (!bSellPt) { bSellPt = price; bSellColor = 'rgb(0, 192, 255)'; }
                     }
 
                     const processSplitBuy = (ratio, color) => {
@@ -1046,12 +1058,15 @@
 
                     if (!swBuyEnd && disp <= extreme_buy_end) {            
                         swBuyEnd = true; processSplitBuy(RATIO_BUY_EXTREME_UNDER_END, 'rgb(255, 64, 0)');
+                        bBuyPt = price; bBuyColor = 'rgb(255, 64, 0)';
                     }
                     if (!swBuyExtreme && disp <= t.buy) {                      
                         swBuyExtreme = true; processSplitBuy(RATIO_BUY_EXTREME_UNDER, 'rgb(255, 128, 0)');
+                        if (!bBuyPt) { bBuyPt = price; bBuyColor = 'rgb(255, 128, 0)'; }
                     }
                     if (!swBuyUnder && disp <= t.semiBuy) {                   
                         swBuyUnder = true; processSplitBuy(RATIO_BUY_UNDERVALUED, 'rgb(255, 192, 0)');
+                        if (!bBuyPt) { bBuyPt = price; bBuyColor = 'rgb(255, 192, 0)'; }
                     }
 
                     let curOrigVal = origCash + origShares * price;
@@ -1094,6 +1109,11 @@
                 splitSellPoints.push(sSellPt);
                 splitBuyColors.push(sBuyColor);
                 splitSellColors.push(sSellColor);
+
+                priceBandBuyPoints.push(bBuyPt);
+                priceBandSellPoints.push(bSellPt);
+                priceBandBuyColors.push(bBuyColor);
+                priceBandSellColors.push(bSellColor);
             }
 
             const totalYearsView = Math.max(0.001, (new Date(asset.historyLog[endIdx - 1].date).getTime() - new Date(asset.historyLog[startIdx].date).getTime()) / (1000 * 3600 * 24 * 365.2425));
@@ -1115,14 +1135,25 @@
             document.getElementById('analysisModal').style.display = 'flex';
 
             if (isUpdate && strategyChartInstance && priceChartInstance) {
-                // 슬라이더 갱신 시 분할 전략 데이터와 마커만 교체
+                // 상단 차트 업데이트
                 strategyChartInstance.data.datasets[1].data = splitVals;
                 strategyChartInstance.data.datasets[2].data = origVals;
                 strategyChartInstance.data.datasets[5].data = splitBuyPoints;
                 strategyChartInstance.data.datasets[5].pointBackgroundColor = splitBuyColors;
+                strategyChartInstance.data.datasets[5].backgroundColor = splitBuyColors;
                 strategyChartInstance.data.datasets[6].data = splitSellPoints;
                 strategyChartInstance.data.datasets[6].pointBackgroundColor = splitSellColors;
+                strategyChartInstance.data.datasets[6].backgroundColor = splitSellColors;
                 strategyChartInstance.update('none'); 
+
+                // 하단 차트 업데이트 (구간 도달 마커 갱신)
+                priceChartInstance.data.datasets[9].data = priceBandBuyPoints;
+                priceChartInstance.data.datasets[9].pointBackgroundColor = priceBandBuyColors;
+                priceChartInstance.data.datasets[9].backgroundColor = priceBandBuyColors;
+                priceChartInstance.data.datasets[10].data = priceBandSellPoints;
+                priceChartInstance.data.datasets[10].pointBackgroundColor = priceBandSellColors;
+                priceChartInstance.data.datasets[10].backgroundColor = priceBandSellColors;
+                priceChartInstance.update('none');
             } else {
                 if (strategyChartInstance) strategyChartInstance.destroy();
                 if (priceChartInstance) priceChartInstance.destroy();
@@ -1156,7 +1187,6 @@
                         plugins: { 
                             legend: { 
                                 labels: { color: '#fff', boxWidth: 15 },
-                                // ⭐ 범례 클릭 시 선과 묶여있는 마커를 한 몸처럼 동시에 토글하는 로직
                                 onClick: function(e, legendItem, legend) {
                                     const index = legendItem.datasetIndex;
                                     const ci = legend.chart;
@@ -1165,9 +1195,9 @@
 
                                     let group = [index];
                                     if (label.includes('기존')) {
-                                        group = [2, 3, 4]; // 기존 전략 선과 해당 매수/매도 화살표
+                                        group = [2, 3, 4]; 
                                     } else if (label.includes('분할')) {
-                                        group = [1, 5, 6]; // 분할 전략 선과 해당 매수/매도 화살표
+                                        group = [1, 5, 6]; 
                                     }
 
                                     group.forEach(i => {
@@ -1183,7 +1213,7 @@
                     }
                 });
 
-                // 2. 하단 차트: 주가 + 밴드 + 연준 금리 마커
+                // 2. 하단 차트: 주가 + 밴드 + 연준 금리 마커 + 밴드 터치 지점 마커
                 priceChartInstance = new Chart(ctxBottom, {
                     type: 'line',
                     data: {
@@ -1196,10 +1226,10 @@
                             { label: '저평가', data: boundSemiBuy, borderColor: 'rgba(255, 192, 0, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4], order: 6 },
                             { label: '심한 저평가 (Buy)', data: boundBuy, borderColor: 'rgba(255, 128, 0, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 7 },
                             { label: '심한 저평가 끝', data: boundBuyEnd, borderColor: 'rgba(255, 64, 0, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 8 },
-                            // 금리 인상: 파란 하락 화살표
                             { label: '금리 인상 (▼)', data: hikePoints, borderColor: 'transparent', backgroundColor: '#3498db', pointStyle: 'triangle', rotation: 180, pointRadius: 7, pointHoverRadius: 9, showLine: false, order: 1 },
-                            // 금리 인하: 빨간 상승 화살표
-                            { label: '금리 인하 (▲)', data: cutPoints, borderColor: 'transparent', backgroundColor: '#e74c3c', pointStyle: 'triangle', rotation: 0, pointRadius: 7, pointHoverRadius: 9, showLine: false, order: 1 }
+                            { label: '금리 인하 (▲)', data: cutPoints, borderColor: 'transparent', backgroundColor: '#e74c3c', pointStyle: 'triangle', rotation: 0, pointRadius: 7, pointHoverRadius: 9, showLine: false, order: 1 },
+                            { label: '구간 터치 매수 (▲)', data: priceBandBuyPoints, borderColor: 'transparent', pointBackgroundColor: priceBandBuyColors, backgroundColor: priceBandBuyColors, pointStyle: 'triangle', rotation: 0, pointRadius: 7, pointHoverRadius: 9, showLine: false, order: 1 },
+                            { label: '구간 터치 매도 (▼)', data: priceBandSellPoints, borderColor: 'transparent', pointBackgroundColor: priceBandSellColors, backgroundColor: priceBandSellColors, pointStyle: 'triangle', rotation: 180, pointRadius: 7, pointHoverRadius: 9, showLine: false, order: 1 }
                         ]
                     },
                     options: {
