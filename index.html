@@ -764,7 +764,7 @@
             return 'e';
         }
 
-        // 전략 분석 실행 함수 (화살표 마커 및 구간 기능 포함, 밴드 색상 Swap 적용)
+        // 전략 분석 실행 함수 (화살표 마커 및 구간 기능 포함, 밴드 색상 Swap, 범례 토글 동기화 적용)
         function runAnalysis(ticker, isUpdate = false) {
             // 종목을 바꾸면 셀렉터 기본값(실전 구간)으로 리셋
             if (!isUpdate && currentAnalysisTicker !== ticker) {
@@ -1154,13 +1154,36 @@
                             x: { grid: { display: false }, ticks: { maxTicksLimit: 8, color: '#aaa' } }
                         },
                         plugins: { 
-                            legend: { labels: { color: '#fff', boxWidth: 15 } },
+                            legend: { 
+                                labels: { color: '#fff', boxWidth: 15 },
+                                // ⭐ 범례 클릭 시 선과 묶여있는 마커를 한 몸처럼 동시에 토글하는 로직
+                                onClick: function(e, legendItem, legend) {
+                                    const index = legendItem.datasetIndex;
+                                    const ci = legend.chart;
+                                    const isVisible = ci.isDatasetVisible(index);
+                                    const label = ci.data.datasets[index].label;
+
+                                    let group = [index];
+                                    if (label.includes('기존')) {
+                                        group = [2, 3, 4]; // 기존 전략 선과 해당 매수/매도 화살표
+                                    } else if (label.includes('분할')) {
+                                        group = [1, 5, 6]; // 분할 전략 선과 해당 매수/매도 화살표
+                                    }
+
+                                    group.forEach(i => {
+                                        if (ci.data.datasets[i]) {
+                                            ci.setDatasetVisibility(i, !isVisible);
+                                        }
+                                    });
+                                    ci.update();
+                                }
+                            },
                             tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ` + new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(ctx.parsed.y) } }
                         }
                     }
                 });
 
-                // 2. 하단 차트: 주가 + 밴드 + 연준 금리 마커 (밴드 색상 Swap 적용)
+                // 2. 하단 차트: 주가 + 밴드 + 연준 금리 마커
                 priceChartInstance = new Chart(ctxBottom, {
                     type: 'line',
                     data: {
