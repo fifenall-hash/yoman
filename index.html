@@ -205,6 +205,15 @@
                 <h2 id="analysisTitle" style="color: #3498db; margin: 0;">전략별 수익률 & 구간 분석</h2>
             </div>
             
+            <!-- 구간 선택 UI (모든 종목에 적용) -->
+            <div id="periodSelector" style="margin-bottom: 10px; margin-top: 5px; text-align: right;">
+                <select id="simPeriod" onchange="runAnalysis(currentAnalysisTicker, false)" style="background: #1e1e1e; color: #ffd740; border: 1px solid #3498db; border-radius: 4px; padding: 4px 8px; font-size: 12px; font-weight: bold; cursor: pointer; outline: none;">
+                    <option value="second" selected>절반~최신 (실전 구간)</option>
+                    <option value="first">최초~절반 (학습 구간)</option>
+                    <option value="full">최초~최신 (전체 구간)</option>
+                </select>
+            </div>
+
             <div id="analysisResult" style="margin-top: 10px; font-size: 14px; text-align: center;"></div>
 
             <!-- 두 차트를 묶는 통합 래퍼 (전체화면 시 이 영역 전체가 꽉 차게 확대됨) -->
@@ -755,14 +764,31 @@
             return 'e';
         }
 
-        // 전략 분석 실행 함수 (차트 2개 분리 및 Z-index 최적화)
+        // 전략 분석 실행 함수 (화살표 마커 및 구간 기능 포함)
         function runAnalysis(ticker, isUpdate = false) {
+            // 종목을 바꾸면 셀렉터 기본값(실전 구간)으로 리셋
+            if (!isUpdate && currentAnalysisTicker !== ticker) {
+                document.getElementById('simPeriod').value = 'second';
+            }
+            
             currentAnalysisTicker = ticker;
             const asset = globalStockResults.find(a => a.symbol === ticker);
             
             if (!asset || !asset.historyLog || asset.historyLog.length === 0) {
                 alert('아직 데이터가 준비되지 않았습니다.');
                 return;
+            }
+
+            // 모든 종목 공통: 선택된 구간 읽기
+            let pSelect = document.getElementById('simPeriod').value;
+            let startIdx = 0;
+            let endIdx = asset.historyLog.length;
+            let midLogIdx = asset.midLogIdx;
+
+            if (pSelect === 'first') {
+                endIdx = midLogIdx;
+            } else if (pSelect === 'second') {
+                startIdx = midLogIdx;
             }
 
             const RATIO_BUY_UNDERVALUED = parseInt(document.getElementById('buyUnderValued').value) / 100;
@@ -777,17 +803,26 @@
             
             // 데이터 배열
             const dates = [];
-            const priceVals = [];   // 주가 자체 곡선
-            const bnhVals = [];     // Buy & Hold (적립/세금 반영 곡선)
-            const origVals = [];    // 기존 전략
-            const splitVals = [];   // 분할 전략
+            const priceVals = [];   
+            const bnhVals = [];     
+            const origVals = [];    
+            const splitVals = [];   
             
+            // 밴드 배열
             const boundSellEnd = [];
             const boundSell = [];
             const boundSemiSell = [];
             const boundSemiBuy = [];
             const boundBuy = [];
             const boundBuyEnd = [];
+
+            // 전략 화살표 마커용 배열
+            const origBuyPoints = [];
+            const origSellPoints = [];
+            const splitBuyPoints = [];
+            const splitSellPoints = [];
+            const splitBuyColors = [];
+            const splitSellColors = [];
 
             // 연준 금리 마커 배열
             const hikePoints = [];
@@ -811,14 +846,14 @@
 
             const EXEMPTION_USD = 1923; 
             const TAX_RATE = 0.22;
-            const startDateMs = new Date(asset.historyLog[0].date).getTime();
-            const endDateMs = new Date(asset.historyLog[N-1].date).getTime();
+            const absoluteEndMs = new Date(asset.historyLog[N-1].date).getTime();
+            const currentStartMs = new Date(asset.historyLog[startIdx].date).getTime();
             
-            // 75,000달러를 물가상승률로 역산한 진짜 초기 자본
-            const totalYearsFull = Math.max(0.001, (endDateMs - startDateMs) / (1000 * 3600 * 24 * 365.2425));
-            const initCap = 75000 / Math.pow(1.025, totalYearsFull);
+            // 해당 구간 시작일에 맞춰 75,000달러를 물가상승률(2.5%)로 역산한 정확한 초기 자본
+            const diffYearsStart = Math.max(0, (absoluteEndMs - currentStartMs) / (1000 * 3600 * 24 * 365.2425));
+            const initCap = 75000 / Math.pow(1.025, diffYearsStart);
 
-            for (let i = 0; i < N; i++) {
+            for (let i = startIdx; i < endIdx; i++) {
                 let rec = asset.historyLog[i];
                 let price = rec.close;
                 let disp = rec.disp;
@@ -842,18 +877,16 @@
                 boundBuy.push(ma * t.buy);
                 boundBuyEnd.push(ma * extreme_buy_end);
 
-                // 금리 마커 체크
                 let hPoint = null, cPoint = null;
-                if (hikeIdx < fedHikes.length && dateStr >= fedHikes[hikeIdx]) {
-                    hPoint = price; hikeIdx++;
-                }
-                if (cutIdx < fedCuts.length && dateStr >= fedCuts[cutIdx]) {
-                    cPoint = price; cutIdx++;
-                }
+                if (hikeIdx < fedHikes.length && dateStr >= fedHikes[hikeIdx]) { hPoint = price; hikeIdx++; }
+                if (cutIdx < fedCuts.length && dateStr >= fedCuts[cutIdx]) { cPoint = price; cutIdx++; }
                 hikePoints.push(hPoint);
                 cutPoints.push(cPoint);
 
-                if (i === 0) {
+                let oBuyPt = null, oSellPt = null, sBuyPt = null, sSellPt = null;
+                let sBuyColor = 'transparent', sSellColor = 'transparent';
+
+                if (i === startIdx) {
                     totalInvested = initCap;
                     bnhShares = initCap / price; bnhCost = initCap;
                     origShares = initCap / price; origCash = 0; origCost = initCap;
@@ -908,9 +941,11 @@
                         lastYear = currentYear;
                     }
 
+                    let splitBuyTriggered = false;
+
                     if (currentMonth !== lastMonth) {
                         lastMonth = currentMonth;
-                        let diffYears = (endDateMs - new Date(dateStr).getTime()) / (1000 * 3600 * 24 * 365.25);
+                        let diffYears = (absoluteEndMs - new Date(dateStr).getTime()) / (1000 * 3600 * 24 * 365.25);
                         let add_amount = 1400 / Math.pow(1.025, diffYears);
                         totalInvested += add_amount;
 
@@ -924,14 +959,17 @@
                             origCash += add_amount;
                         }
 
-                        // ⭐ [분할 전략] 월급 분에 한해서 예외적으로 현재 구간에 맞춰 즉시 매수
                         let salaryInvestRatio = 0;
+                        let salaryColor = 'transparent';
                         if (disp <= extreme_buy_end) {
                             salaryInvestRatio = RATIO_BUY_EXTREME_UNDER_END;
+                            salaryColor = 'rgb(0, 64, 255)';
                         } else if (disp <= t.buy) {
                             salaryInvestRatio = RATIO_BUY_EXTREME_UNDER;
+                            salaryColor = 'rgb(0, 128, 255)';
                         } else if (disp <= t.semiBuy) {
                             salaryInvestRatio = RATIO_BUY_UNDERVALUED;
+                            salaryColor = 'rgb(0, 192, 255)';
                         }
 
                         let investAmt = add_amount * salaryInvestRatio;
@@ -940,11 +978,14 @@
                         if (investAmt > 0) {
                             splitShares += investAmt / price;
                             splitCost += investAmt;
+                            sBuyColor = salaryColor;
+                            splitBuyTriggered = true;
                         }
-                        splitCash += saveAmt; // 남은 금액만 현금 풀에 적립
+                        splitCash += saveAmt; 
                     }
 
                     if (origIsHolding && disp >= t.sell) {
+                        oSellPt = true; // 플래그 켜기
                         let sellVal = origShares * price;
                         let gain = sellVal - origCost;
                         if (currentYear >= 2001) origRealizedYear += gain;
@@ -953,6 +994,7 @@
                         origCost = 0;
                         origIsHolding = false;
                     } else if (!origIsHolding && disp <= t.buy) {
+                        oBuyPt = true; // 플래그 켜기
                         origShares = origCash / price;
                         origCost += origCash;
                         origCash = 0;
@@ -967,7 +1009,8 @@
                     if (swBuyExtreme && disp > t.semiBuy) swBuyExtreme = false;
                     if (swBuyUnder && disp > t.sell) swBuyUnder = false;
 
-                    const processSplitSell = (ratio) => {
+                    let splitSellTriggered = false;
+                    const processSplitSell = (ratio, color) => {
                         let toSellShares = splitShares * ratio;
                         if (toSellShares > 0) {
                             let sellVal = toSellShares * price;
@@ -977,42 +1020,51 @@
                             splitCash += sellVal;
                             splitShares -= toSellShares;
                             splitCost -= costSold;
+                            if (!splitSellTriggered) { sSellColor = color; splitSellTriggered = true; }
                         }
                     };
 
-                    // 분할 매도는 기존 스위치 로직 그대로 유지
                     if (!swSellEnd && disp >= extreme_sell_end) {            
-                        swSellEnd = true; processSplitSell(RATIO_SELL_EXTREME_OVER_END);
+                        swSellEnd = true; processSplitSell(RATIO_SELL_EXTREME_OVER_END, 'rgb(255, 64, 0)');
                     }
                     if (!swSellExtreme && disp >= t.sell) {                      
-                        swSellExtreme = true; processSplitSell(RATIO_SELL_EXTREME_OVER);
+                        swSellExtreme = true; processSplitSell(RATIO_SELL_EXTREME_OVER, 'rgb(255, 128, 0)');
                     }
                     if (!swSellOver && disp >= t.semiSell) {                   
-                        swSellOver = true; processSplitSell(RATIO_SELL_OVERVALUED);
+                        swSellOver = true; processSplitSell(RATIO_SELL_OVERVALUED, 'rgb(255, 192, 0)');
                     }
 
-                    const processSplitBuy = (ratio) => {
+                    const processSplitBuy = (ratio, color) => {
                         let toSpend = splitCash * ratio;
                         if (toSpend > 0) {
                             splitShares += toSpend / price;
                             splitCost += toSpend;
                             splitCash -= toSpend;
+                            if (!splitBuyTriggered) { sBuyColor = color; splitBuyTriggered = true; }
                         }
                     };
 
-                    // 기존 현금 풀은 여전히 '선을 돌파할 때(스위치 ON)'만 매수
                     if (!swBuyEnd && disp <= extreme_buy_end) {            
-                        swBuyEnd = true; processSplitBuy(RATIO_BUY_EXTREME_UNDER_END);
+                        swBuyEnd = true; processSplitBuy(RATIO_BUY_EXTREME_UNDER_END, 'rgb(0, 64, 255)');
                     }
                     if (!swBuyExtreme && disp <= t.buy) {                      
-                        swBuyExtreme = true; processSplitBuy(RATIO_BUY_EXTREME_UNDER);
+                        swBuyExtreme = true; processSplitBuy(RATIO_BUY_EXTREME_UNDER, 'rgb(0, 128, 255)');
                     }
                     if (!swBuyUnder && disp <= t.semiBuy) {                   
-                        swBuyUnder = true; processSplitBuy(RATIO_BUY_UNDERVALUED);
+                        swBuyUnder = true; processSplitBuy(RATIO_BUY_UNDERVALUED, 'rgb(0, 192, 255)');
                     }
+
+                    // 마커 Y축 위치는 해당 시점의 포트폴리오 가치에 매칭
+                    let curOrigVal = origCash + origShares * price;
+                    let curSplitVal = splitCash + splitShares * price;
+
+                    if (oBuyPt) oBuyPt = curOrigVal;
+                    if (oSellPt) oSellPt = curOrigVal;
+                    if (splitBuyTriggered) sBuyPt = curSplitVal;
+                    if (splitSellTriggered) sSellPt = curSplitVal;
                 }
 
-                if (i === N - 1 && currentYear >= 2001) {
+                if (i === endIdx - 1 && currentYear >= 2001) {
                     let bnhFinalGain = (bnhShares * price) - bnhCost;
                     bnhRealizedYear += bnhFinalGain;
                     if (bnhRealizedYear > EXEMPTION_USD) {
@@ -1036,15 +1088,23 @@
                 bnhVals.push(bnhShares * price);
                 origVals.push(origCash + origShares * price);
                 splitVals.push(splitCash + splitShares * price);
+                
+                origBuyPoints.push(oBuyPt);
+                origSellPoints.push(oSellPt);
+                splitBuyPoints.push(sBuyPt);
+                splitSellPoints.push(sSellPt);
+                splitBuyColors.push(sBuyColor);
+                splitSellColors.push(sSellColor);
             }
 
-            const calcCAGR = (finalVal) => ((Math.pow(finalVal / totalInvested, 1 / totalYearsFull) - 1) * 100).toFixed(2);
+            const totalYearsView = Math.max(0.001, (new Date(asset.historyLog[endIdx - 1].date).getTime() - new Date(asset.historyLog[startIdx].date).getTime()) / (1000 * 3600 * 24 * 365.2425));
+            const calcCAGR = (finalVal) => ((Math.pow(finalVal / totalInvested, 1 / totalYearsView) - 1) * 100).toFixed(2);
 
             const cagrBnH = calcCAGR(bnhVals[bnhVals.length - 1]);
             const cagrOrig = calcCAGR(origVals[origVals.length - 1]);
             const cagrSplit = calcCAGR(splitVals[splitVals.length - 1]);
 
-            // 결과 텍스트 순서 변경 (Buy&Hold -> 분할 전략 -> 기존 전략) 및 색상 반영
+            // 결과 텍스트 순서: BnH -> 분할 -> 기존
             document.getElementById('analysisResult').innerHTML = `
                 <div style="display:flex; justify-content:space-around; padding: 12px; background: #2a2a2a; border-radius: 8px;">
                     <div><strong style="color:rgb(64, 255, 64);">Buy & Hold</strong><br><span style="color:#fff; font-size: 16px;">${cagrBnH}%</span></div>
@@ -1056,9 +1116,13 @@
             document.getElementById('analysisModal').style.display = 'flex';
 
             if (isUpdate && strategyChartInstance && priceChartInstance) {
-                // 슬라이더 변경 시 상단 전략 차트만 데이터 갱신 (순서: BnH(0), 분할(1), 기존(2))
+                // 슬라이더 갱신 시 분할 전략 데이터와 마커만 교체
                 strategyChartInstance.data.datasets[1].data = splitVals;
                 strategyChartInstance.data.datasets[2].data = origVals;
+                strategyChartInstance.data.datasets[5].data = splitBuyPoints;
+                strategyChartInstance.data.datasets[5].pointBackgroundColor = splitBuyColors;
+                strategyChartInstance.data.datasets[6].data = splitSellPoints;
+                strategyChartInstance.data.datasets[6].pointBackgroundColor = splitSellColors;
                 strategyChartInstance.update('none'); 
             } else {
                 if (strategyChartInstance) strategyChartInstance.destroy();
@@ -1067,15 +1131,19 @@
                 const ctxTop = document.getElementById('strategyChart').getContext('2d');
                 const ctxBottom = document.getElementById('priceChart').getContext('2d');
 
-                // 1. 상단 차트: 3가지 전략 비교 (순서 및 색상 업데이트)
+                // 1. 상단 차트: 전략선 + 화살표 마커 (마커의 order: 1 로 최상위 노출)
                 strategyChartInstance = new Chart(ctxTop, {
                     type: 'line',
                     data: {
                         labels: dates,
                         datasets: [
-                            { label: 'Buy & Hold', data: bnhVals, borderColor: 'rgb(64, 255, 64)', borderWidth: 2, pointRadius: 0 },
-                            { label: '분할 전략', data: splitVals, borderColor: 'rgb(128, 191, 128)', borderWidth: 2.5, pointRadius: 0 },
-                            { label: '기존 전략', data: origVals, borderColor: 'rgb(192, 127, 192)', borderWidth: 2.5, pointRadius: 0 }
+                            { label: 'Buy & Hold', data: bnhVals, borderColor: 'rgb(64, 255, 64)', borderWidth: 2, pointRadius: 0, order: 3 },
+                            { label: '분할 전략', data: splitVals, borderColor: 'rgb(128, 191, 128)', borderWidth: 2.5, pointRadius: 0, order: 3 },
+                            { label: '기존 전략', data: origVals, borderColor: 'rgb(192, 127, 192)', borderWidth: 2.5, pointRadius: 0, order: 3 },
+                            { label: '기존 매수 (▲)', data: origBuyPoints, borderColor: 'transparent', backgroundColor: 'rgb(255, 0, 0)', pointStyle: 'triangle', rotation: 0, pointRadius: 7, pointHoverRadius: 9, showLine: false, order: 1 },
+                            { label: '기존 매도 (▼)', data: origSellPoints, borderColor: 'transparent', backgroundColor: 'rgb(0, 128, 255)', pointStyle: 'triangle', rotation: 180, pointRadius: 7, pointHoverRadius: 9, showLine: false, order: 1 },
+                            { label: '분할 매수 (▲)', data: splitBuyPoints, borderColor: 'transparent', pointBackgroundColor: splitBuyColors, backgroundColor: splitBuyColors, pointStyle: 'triangle', rotation: 0, pointRadius: 7, pointHoverRadius: 9, showLine: false, order: 1 },
+                            { label: '분할 매도 (▼)', data: splitSellPoints, borderColor: 'transparent', pointBackgroundColor: splitSellColors, backgroundColor: splitSellColors, pointStyle: 'triangle', rotation: 180, pointRadius: 7, pointHoverRadius: 9, showLine: false, order: 1 }
                         ]
                     },
                     options: {
@@ -1093,7 +1161,7 @@
                     }
                 });
 
-                // 2. 하단 차트: 주가, 경계선 밴드, 그리고 금리 마커 (order 속성으로 마커를 최상단에 배치)
+                // 2. 하단 차트: 주가 + 밴드 + 연준 금리 마커
                 priceChartInstance = new Chart(ctxBottom, {
                     type: 'line',
                     data: {
@@ -1106,9 +1174,9 @@
                             { label: '저평가', data: boundSemiBuy, borderColor: 'rgba(0, 192, 255, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4], order: 6 },
                             { label: '심한 저평가 (Buy)', data: boundBuy, borderColor: 'rgba(0, 128, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 7 },
                             { label: '심한 저평가 끝', data: boundBuyEnd, borderColor: 'rgba(0, 64, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 8 },
-                            // 금리 인상: 파란색 하락 화살표(▼, rotation 180)
+                            // 금리 인상: 파란 하락 화살표
                             { label: '금리 인상 (▼)', data: hikePoints, borderColor: 'transparent', backgroundColor: '#3498db', pointStyle: 'triangle', rotation: 180, pointRadius: 7, pointHoverRadius: 9, showLine: false, order: 1 },
-                            // 금리 인하: 빨간색 상승 화살표(▲, rotation 0)
+                            // 금리 인하: 빨간 상승 화살표
                             { label: '금리 인하 (▲)', data: cutPoints, borderColor: 'transparent', backgroundColor: '#e74c3c', pointStyle: 'triangle', rotation: 0, pointRadius: 7, pointHoverRadius: 9, showLine: false, order: 1 }
                         ]
                     },
@@ -1134,13 +1202,113 @@
             const N = prices.length;
             if (N < 100) return { symbol: ticker, state: '데이터 부족', historyLog: [] };
 
-            let period = 1500; // 초기 학습을 위한 최소 필요 데이터 길이
+            let period = 1500; 
             const fullDispObj = calculateDisparities(prices, period);
             const disparities = fullDispObj.disparities;
 
-            let startIndex = period - 1; // 1500일째(이격도가 최초로 생성되는 시점)
+            let startIndex = period - 1; 
             let mid = startIndex + Math.floor((N - startIndex) / 2);
             if (mid <= period) mid = period + 1;
+            
+            // UI의 구간 선택기에서 활용할 정확한 절반 지점 인덱스 추출
+            let midLogIdx = mid - startIndex;
+
+            function getStrategyForSlice(sliceEnd) {
+                let trainPrices = prices.slice(0, sliceEnd);
+                if (isExchange) {
+                    let rawMulrimData = new Array(sliceEnd).fill(0);
+                    let maxMulrim = 0;
+                    for (let i = 0; i < sliceEnd; i++) {
+                        let count = 0; let currentPrice = trainPrices[i];
+                        for (let j = i + 1; j < sliceEnd; j++) { if (trainPrices[j] < currentPrice) count++; }
+                        rawMulrimData[i] = count;
+                        if (count > maxMulrim) maxMulrim = count;
+                    }
+                    const maxTestPeriod = Math.min(3000, sliceEnd - maxMulrim - 30);
+                    let bestR2 = -1; let localPeriod = 20; 
+                    for (let p = 1; p <= maxTestPeriod; p++) {
+                        let r2 = getFastR2ForPeriod(trainPrices, rawMulrimData, maxMulrim, p);
+                        if (r2 > bestR2) { bestR2 = r2; localPeriod = p; }
+                    }
+                    return findThresholdsByQuantileSymmetry(trainPrices, localPeriod).t;
+                } else if (ticker === 'SOXL') {
+                    return findThresholdsByTradeOptimization(trainPrices, period).t;
+                } else {
+                    return findThresholdsByQuantileSymmetry(trainPrices, period).t;
+                }
+            }
+
+            let currentT = getStrategyForSlice(mid);
+            let nextUpdateIdx = mid + 21; 
+
+            let historyLog = [];
+            let isHolding = true; 
+
+            let lastActionDateObj = new Date(dates[startIndex]);
+            let lastActionType = isExchange ? "달러 보유" : "매수";
+            let currentStateStr = isExchange ? "관망" : "초기 보유 시작";
+
+            for (let i = startIndex; i < N; i++) {
+                if (i >= nextUpdateIdx) {
+                    currentT = getStrategyForSlice(i); 
+                    nextUpdateIdx += 21; 
+                }
+
+                let d = disparities[i];
+                let t = currentT; 
+                let zone = determineZone(d, t);
+                let actionStr = '', evalStr = '';
+
+                if (isExchange) {
+                    if (zone === 'a') { actionStr = '관망'; evalStr = '심한 고환율'; }
+                    else if (zone === 'b') { actionStr = '달러 환전 고려'; evalStr = '고환율'; }
+                    else if (zone === 'c') { actionStr = '달러 환전 장려'; evalStr = '적정'; }
+                    else if (zone === 'd') { actionStr = '달러 환전 권장'; evalStr = '저환율'; }
+                    else if (zone === 'e') { actionStr = '달러 환전 적극 권장!'; evalStr = '심한 저환율'; }
+                } else {
+                    let actionOccurred = false;
+                    if (i === startIndex) {
+                        actionOccurred = true;
+                        currentStateStr = "초기 보유 시작";
+                        lastActionDateObj = new Date(dates[i]);
+                    } else {
+                        if (isHolding && d >= t.sell) {
+                            isHolding = false;
+                            lastActionType = "매도";
+                            lastActionDateObj = new Date(dates[i]);
+                            currentStateStr = "매도 (Sell)";
+                            actionOccurred = true;
+                        } else if (!isHolding && d <= t.buy) {
+                            isHolding = true;
+                            lastActionType = "매수";
+                            lastActionDateObj = new Date(dates[i]);
+                            currentStateStr = "매수 (Buy)";
+                            actionOccurred = true;
+                        }
+                    }
+
+                    if (!actionOccurred) {
+                        const currentDt = new Date(dates[i]);
+                        const diffTime = Math.abs(currentDt - lastActionDateObj);
+                        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+                        if (diffDays >= 365) currentStateStr = `${lastActionType} 후 관망 (${(diffDays / 365.2425).toFixed(2)}년차)`;
+                        else currentStateStr = `${lastActionType} 후 관망 (${diffDays}일차)`;
+                    }
+                    actionStr = currentStateStr;
+
+                    if (zone === 'a') evalStr = '심한 과열';
+                    else if (zone === 'b') evalStr = '과열';
+                    else if (zone === 'c') evalStr = '적정';
+                    else if (zone === 'd') evalStr = '저평가';
+                    else if (zone === 'e') evalStr = '심한 저평가';
+                }
+
+                historyLog.push({ date: dates[i], close: prices[i], disp: d, action: actionStr, eval: evalStr, zone: zone, t: currentT });
+            }
+
+            const lastLog = historyLog[historyLog.length - 1];
+            return { symbol: ticker, status: lastLog.action, evalState: lastLog.eval, currentPrice: lastLog.close, zone: lastLog.zone, historyLog, t: lastLog.t, currentDisp: lastLog.disp, midLogIdx: midLogIdx };
+        }
 
             // 특정 시점(sliceEnd)까지의 과거 데이터를 바탕으로 전략을 계산하는 내부 헬퍼 함수
             function getStrategyForSlice(sliceEnd) {
