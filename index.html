@@ -1295,9 +1295,12 @@
             document.getElementById('analysisModal').style.display = 'flex';
 
             if (isUpdate && strategyChartInstance && priceChartInstance) {
-                // 상단 차트 업데이트
+                // 상단 차트 업데이트 (0~6 인덱스 모두 완벽하게 갱신)
+                strategyChartInstance.data.datasets[0].data = bnhVals;
                 strategyChartInstance.data.datasets[1].data = splitVals;
                 strategyChartInstance.data.datasets[2].data = origVals;
+                strategyChartInstance.data.datasets[3].data = origBuyPoints;
+                strategyChartInstance.data.datasets[4].data = origSellPoints;
                 strategyChartInstance.data.datasets[5].data = splitBuyPoints;
                 strategyChartInstance.data.datasets[5].pointBackgroundColor = splitBuyColors;
                 strategyChartInstance.data.datasets[5].backgroundColor = splitBuyColors;
@@ -1306,7 +1309,13 @@
                 strategyChartInstance.data.datasets[6].backgroundColor = splitSellColors;
                 strategyChartInstance.update('none'); 
 
-                // 하단 차트 업데이트 (구간 도달 마커 갱신, 금리 화살표 인덱스가 삭제되었으므로 순서 조정)
+                // 하단 차트 업데이트 (1~8 인덱스 밴드선 및 터치 마커 모두 완벽하게 갱신)
+                priceChartInstance.data.datasets[1].data = boundSellEnd;
+                priceChartInstance.data.datasets[2].data = boundSell;
+                priceChartInstance.data.datasets[3].data = boundSemiSell;
+                priceChartInstance.data.datasets[4].data = boundSemiBuy;
+                priceChartInstance.data.datasets[5].data = boundBuy;
+                priceChartInstance.data.datasets[6].data = boundBuyEnd;
                 priceChartInstance.data.datasets[7].data = priceBandBuyPoints;
                 priceChartInstance.data.datasets[7].pointBackgroundColor = priceBandBuyColors;
                 priceChartInstance.data.datasets[7].backgroundColor = priceBandBuyColors;
