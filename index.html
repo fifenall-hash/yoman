@@ -141,8 +141,9 @@
         .modal-content-box strong { color: #fff; }
         .modal-content-box hr { border: 0; border-top: 1px solid #333; margin: 15px 0; }
         
-        /* 다크모드 차트 가시성을 위한 캔버스 배경 설정 */
+        /* 다크모드 차트 가시성을 위한 캔버스 배경 설정 및 트랜지션 추가 */
         #chartsWrapper { transition: 0.3s; }
+        #chartContainerTop, #chartContainerBottom { transition: all 0.3s ease; }
         
         /* 전체화면 모드 CSS */
         .fullscreen-chart {
@@ -212,13 +213,26 @@
                 <h2 id="analysisTitle" style="color: #3498db; margin: 0;">전략별 수익률 & 구간 분석</h2>
             </div>
             
-            <!-- 구간 선택 UI (모든 종목에 적용) -->
-            <div id="periodSelector" style="margin-bottom: 10px; margin-top: 5px; text-align: right;">
-                <select id="simPeriod" onchange="runAnalysis(currentAnalysisTicker, false)" style="background: #1e1e1e; color: #ffd740; border: 1px solid #3498db; border-radius: 4px; padding: 4px 8px; font-size: 12px; font-weight: bold; cursor: pointer; outline: none;">
-                    <option value="second" selected>절반~최신 (실전 구간)</option>
-                    <option value="first">최초~절반 (학습 구간)</option>
-                    <option value="full">최초~최신 (전체 구간)</option>
-                </select>
+            <!-- 옵션 선택 UI (모든 종목에 적용) -->
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; margin-top: 5px;">
+                <div style="display: flex; gap: 6px;">
+                    <select id="layoutSelector" onchange="updateChartLayout()" style="background: #1e1e1e; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 4px 8px; font-size: 12px; cursor: pointer; outline: none;">
+                        <option value="both" selected>분할 보기</option>
+                        <option value="top">전략 차트만</option>
+                        <option value="bottom">주가/이격도 차트만</option>
+                    </select>
+                    <select id="priceModeSelector" onchange="runAnalysis(currentAnalysisTicker, true)" style="background: #1e1e1e; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 4px 8px; font-size: 12px; cursor: pointer; outline: none;">
+                        <option value="price" selected>주가(금액) 중심</option>
+                        <option value="disp">이격도(배수) 중심</option>
+                    </select>
+                </div>
+                <div id="periodSelector" style="text-align: right;">
+                    <select id="simPeriod" onchange="runAnalysis(currentAnalysisTicker, false)" style="background: #1e1e1e; color: #ffd740; border: 1px solid #3498db; border-radius: 4px; padding: 4px 8px; font-size: 12px; font-weight: bold; cursor: pointer; outline: none;">
+                        <option value="second" selected>절반~최신 (실전 구간)</option>
+                        <option value="first">최초~절반 (학습 구간)</option>
+                        <option value="full">최초~최신 (전체 구간)</option>
+                    </select>
+                </div>
             </div>
 
             <div id="analysisResult" style="margin-top: 10px; font-size: 14px; text-align: center;"></div>
@@ -409,6 +423,30 @@
         let useSimpleOptimization = false;
         let rawExPrices = [], rawExDates = [];
         let rawStPrices = [], rawStDates = [];
+
+        // 차트 레이아웃 동적 변경 (상/하단, 단일)
+        function updateChartLayout() {
+            const layout = document.getElementById('layoutSelector').value;
+            const topChart = document.getElementById('chartContainerTop');
+            const bottomChart = document.getElementById('chartContainerBottom');
+            
+            if (layout === 'both') {
+                topChart.style.display = 'block';
+                bottomChart.style.display = 'block';
+                topChart.style.minHeight = '230px';
+                bottomChart.style.minHeight = '230px';
+            } else if (layout === 'top') {
+                topChart.style.display = 'block';
+                bottomChart.style.display = 'none';
+                topChart.style.minHeight = '480px';
+            } else if (layout === 'bottom') {
+                topChart.style.display = 'none';
+                bottomChart.style.display = 'block';
+                bottomChart.style.minHeight = '480px';
+            }
+            if (strategyChartInstance) strategyChartInstance.resize();
+            if (priceChartInstance) priceChartInstance.resize();
+        }
 
         // 차트 전체화면 토글 함수 (차트 2개 동시 확대 지원)
         function toggleFullscreen(containerId) {
@@ -864,11 +902,9 @@
             let nextUpdateIdx;
 
             if (useSimpleOptimization) {
-                // 단순 최적화 기능: 처음부터 끝까지 전체 구간을 한 번에 스캔
                 currentT = findSimpleOptimumThresholds(prices, disparities, startIndex);
-                nextUpdateIdx = Infinity; // 한 달 단위 업데이트(롤링) 미사용
+                nextUpdateIdx = Infinity; 
             } else {
-                // 기존 안전 반경 기능: 초기엔 절반까지만 학습하고 실전구간에서 21일마다 업데이트
                 currentT = getStrategyForSlice(mid);
                 nextUpdateIdx = mid + 21; 
             }
@@ -980,17 +1016,18 @@
             // 데이터 배열
             const dates = [];
             const priceVals = [];   
+            const dispVals = [];
             const bnhVals = [];     
             const origVals = [];    
             const splitVals = [];   
             
-            // 밴드 배열
-            const boundSellEnd = [];
-            const boundSell = [];
-            const boundSemiSell = [];
-            const boundSemiBuy = [];
-            const boundBuy = [];
-            const boundBuyEnd = [];
+            // 밴드 배열 (금액 중심 _P, 이격도 중심 _D)
+            const boundSellEnd_P = []; const boundSellEnd_D = [];
+            const boundSell_P = [];    const boundSell_D = [];
+            const boundSemiSell_P = []; const boundSemiSell_D = [];
+            const boundSemiBuy_P = [];  const boundSemiBuy_D = [];
+            const boundBuy_P = [];      const boundBuy_D = [];
+            const boundBuyEnd_P = [];   const boundBuyEnd_D = [];
 
             // 전략 화살표 마커용 배열 (상단 차트)
             const origBuyPoints = [];
@@ -1000,18 +1037,15 @@
             const splitBuyColors = [];
             const splitSellColors = [];
 
-            // 구간 점선 터치 마커용 배열 (하단 주가 차트)
-            const priceBandBuyPoints = [];
-            const priceBandSellPoints = [];
+            // 구간 점선 터치 마커용 배열 (하단 차트: _P 금액 중심, _D 이격도 중심)
+            const priceBandBuyPoints_P = [];  const priceBandBuyPoints_D = [];
+            const priceBandSellPoints_P = []; const priceBandSellPoints_D = [];
             const priceBandBuyColors = [];
             const priceBandSellColors = [];
 
             let bnhShares = 0, bnhCost = 0;
             let origShares = 0, origCash = 0, origCost = 0, origIsHolding = true;
             let splitShares = 0, splitCash = 0, splitCost = 0;
-            
-            // 분할 전략의 보유 비중 트래킹 (1.0 = 100% 주식보유, 0.0 = 100% 현금관망)
-            let splitHoldingRatio = 1.0; 
             
             let bnhRealizedYear = 0, origRealizedYear = 0, splitRealizedYear = 0;
             
@@ -1045,18 +1079,21 @@
 
                 dates.push(dateStr);
                 priceVals.push(price);
+                dispVals.push(disp);
                 
                 let ma = price / disp;
-                boundSellEnd.push(ma * extreme_sell_end);
-                boundSell.push(ma * t.sell);
-                boundSemiSell.push(ma * t.semiSell);
-                boundSemiBuy.push(ma * t.semiBuy);
-                boundBuy.push(ma * t.buy);
-                boundBuyEnd.push(ma * extreme_buy_end);
+                boundSellEnd_P.push(ma * extreme_sell_end); boundSellEnd_D.push(extreme_sell_end);
+                boundSell_P.push(ma * t.sell);              boundSell_D.push(t.sell);
+                boundSemiSell_P.push(ma * t.semiSell);      boundSemiSell_D.push(t.semiSell);
+                boundSemiBuy_P.push(ma * t.semiBuy);        boundSemiBuy_D.push(t.semiBuy);
+                boundBuy_P.push(ma * t.buy);                boundBuy_D.push(t.buy);
+                boundBuyEnd_P.push(ma * extreme_buy_end);   boundBuyEnd_D.push(extreme_buy_end);
 
                 let oBuyPt = null, oSellPt = null, sBuyPt = null, sSellPt = null;
                 let sBuyColor = 'transparent', sSellColor = 'transparent';
-                let bBuyPt = null, bSellPt = null;
+                
+                let bBuyPt_P = null, bSellPt_P = null;
+                let bBuyPt_D = null, bSellPt_D = null;
                 let bBuyColor = 'transparent', bSellColor = 'transparent';
 
                 if (i === startIdx) {
@@ -1064,12 +1101,10 @@
                     bnhShares = initCap / price; bnhCost = initCap;
                     origShares = initCap / price; origCash = 0; origCost = initCap;
                     splitShares = initCap / price; splitCash = 0; splitCost = initCap;
-                    splitHoldingRatio = 1.0;
                     lastMonth = currentMonth;
                     lastYear = currentYear;
                 } else {
                     if (currentYear !== lastYear) {
-                        // 세금 처리는 세 전략 모두 완벽히 동일한 수식 적용
                         if (lastYear >= 2001) {
                             if (bnhRealizedYear > EXEMPTION_USD) {
                                 let tax = (bnhRealizedYear - EXEMPTION_USD) * TAX_RATE;
@@ -1134,15 +1169,27 @@
                             origCash += add_amount;
                         }
 
-                        // [핵심 변경점] 
-                        // 분할 전략의 월 적립금 투입 비율을 현재 계좌의 '주식 보유 비중'과 일치시킵니다.
-                        // (기존 전략처럼 100% 매도했으면 100% 현금 저축, 50% 매도했으면 50% 저축 50% 주식매수)
-                        let investAmt = add_amount * splitHoldingRatio;
+                        let salaryInvestRatio = 0;
+                        let salaryColor = 'transparent';
+                        if (disp <= extreme_buy_end) {
+                            salaryInvestRatio = RATIO_BUY_EXTREME_UNDER_END;
+                            salaryColor = 'rgb(255, 64, 0)';
+                        } else if (disp <= t.buy) {
+                            salaryInvestRatio = RATIO_BUY_EXTREME_UNDER;
+                            salaryColor = 'rgb(255, 128, 0)';
+                        } else if (disp <= t.semiBuy) {
+                            salaryInvestRatio = RATIO_BUY_UNDERVALUED;
+                            salaryColor = 'rgb(255, 192, 0)';
+                        }
+
+                        let investAmt = add_amount * salaryInvestRatio;
                         let saveAmt = add_amount - investAmt;
 
                         if (investAmt > 0) {
                             splitShares += investAmt / price;
                             splitCost += investAmt;
+                            sBuyColor = salaryColor;
+                            splitBuyTriggered = true;
                         }
                         splitCash += saveAmt; 
                     }
@@ -1183,26 +1230,22 @@
                             splitCash += sellVal;
                             splitShares -= toSellShares;
                             splitCost -= costSold;
-                            
-                            // 포트폴리오 비중 업데이트
-                            splitHoldingRatio -= splitHoldingRatio * ratio;
-                            if (splitHoldingRatio < 0.0001) splitHoldingRatio = 0;
-                            
                             if (!splitSellTriggered) { sSellColor = color; splitSellTriggered = true; }
                         }
                     };
 
+                    // 하단 차트 터치 마커 로직
                     if (!swSellEnd && disp >= extreme_sell_end) {            
                         swSellEnd = true; processSplitSell(RATIO_SELL_EXTREME_OVER_END, 'rgb(0, 64, 255)');
-                        bSellPt = price; bSellColor = 'rgb(0, 64, 255)';
+                        bSellPt_P = price; bSellPt_D = disp; bSellColor = 'rgb(0, 64, 255)';
                     }
                     if (!swSellExtreme && disp >= t.sell) {                      
                         swSellExtreme = true; processSplitSell(RATIO_SELL_EXTREME_OVER, 'rgb(0, 128, 255)');
-                        if (!bSellPt) { bSellPt = price; bSellColor = 'rgb(0, 128, 255)'; }
+                        if (!bSellPt_P) { bSellPt_P = price; bSellPt_D = disp; bSellColor = 'rgb(0, 128, 255)'; }
                     }
                     if (!swSellOver && disp >= t.semiSell) {                   
                         swSellOver = true; processSplitSell(RATIO_SELL_OVERVALUED, 'rgb(0, 192, 255)');
-                        if (!bSellPt) { bSellPt = price; bSellColor = 'rgb(0, 192, 255)'; }
+                        if (!bSellPt_P) { bSellPt_P = price; bSellPt_D = disp; bSellColor = 'rgb(0, 192, 255)'; }
                     }
 
                     const processSplitBuy = (ratio, color) => {
@@ -1211,26 +1254,21 @@
                             splitShares += toSpend / price;
                             splitCost += toSpend;
                             splitCash -= toSpend;
-                            
-                            // 포트폴리오 비중 업데이트
-                            splitHoldingRatio += (1.0 - splitHoldingRatio) * ratio;
-                            if (splitHoldingRatio > 0.9999) splitHoldingRatio = 1.0;
-                            
                             if (!splitBuyTriggered) { sBuyColor = color; splitBuyTriggered = true; }
                         }
                     };
 
                     if (!swBuyEnd && disp <= extreme_buy_end) {            
                         swBuyEnd = true; processSplitBuy(RATIO_BUY_EXTREME_UNDER_END, 'rgb(255, 64, 0)');
-                        bBuyPt = price; bBuyColor = 'rgb(255, 64, 0)';
+                        bBuyPt_P = price; bBuyPt_D = disp; bBuyColor = 'rgb(255, 64, 0)';
                     }
                     if (!swBuyExtreme && disp <= t.buy) {                      
                         swBuyExtreme = true; processSplitBuy(RATIO_BUY_EXTREME_UNDER, 'rgb(255, 128, 0)');
-                        if (!bBuyPt) { bBuyPt = price; bBuyColor = 'rgb(255, 128, 0)'; }
+                        if (!bBuyPt_P) { bBuyPt_P = price; bBuyPt_D = disp; bBuyColor = 'rgb(255, 128, 0)'; }
                     }
                     if (!swBuyUnder && disp <= t.semiBuy) {                   
                         swBuyUnder = true; processSplitBuy(RATIO_BUY_UNDERVALUED, 'rgb(255, 192, 0)');
-                        if (!bBuyPt) { bBuyPt = price; bBuyColor = 'rgb(255, 192, 0)'; }
+                        if (!bBuyPt_P) { bBuyPt_P = price; bBuyPt_D = disp; bBuyColor = 'rgb(255, 192, 0)'; }
                     }
 
                     let curOrigVal = origCash + origShares * price;
@@ -1274,8 +1312,10 @@
                 splitBuyColors.push(sBuyColor);
                 splitSellColors.push(sSellColor);
 
-                priceBandBuyPoints.push(bBuyPt);
-                priceBandSellPoints.push(bSellPt);
+                priceBandBuyPoints_P.push(bBuyPt_P);
+                priceBandSellPoints_P.push(bSellPt_P);
+                priceBandBuyPoints_D.push(bBuyPt_D);
+                priceBandSellPoints_D.push(bSellPt_D);
                 priceBandBuyColors.push(bBuyColor);
                 priceBandSellColors.push(bSellColor);
             }
@@ -1297,8 +1337,21 @@
 
             document.getElementById('analysisModal').style.display = 'flex';
 
+            // 모드 선택 값 반영을 위한 분기
+            let isPriceMode = document.getElementById('priceModeSelector').value === 'price';
+            
+            let bottomMainData = isPriceMode ? priceVals : dispVals;
+            let bottomSellEnd = isPriceMode ? boundSellEnd_P : boundSellEnd_D;
+            let bottomSell = isPriceMode ? boundSell_P : boundSell_D;
+            let bottomSemiSell = isPriceMode ? boundSemiSell_P : boundSemiSell_D;
+            let bottomSemiBuy = isPriceMode ? boundSemiBuy_P : boundSemiBuy_D;
+            let bottomBuy = isPriceMode ? boundBuy_P : boundBuy_D;
+            let bottomBuyEnd = isPriceMode ? boundBuyEnd_P : boundBuyEnd_D;
+            let bottomBuyPoints = isPriceMode ? priceBandBuyPoints_P : priceBandBuyPoints_D;
+            let bottomSellPoints = isPriceMode ? priceBandSellPoints_P : priceBandSellPoints_D;
+
             if (isUpdate && strategyChartInstance && priceChartInstance) {
-                // 상단 차트 업데이트 (0~6 인덱스 모두 완벽하게 갱신)
+                // 상단 차트 업데이트
                 strategyChartInstance.data.datasets[0].data = bnhVals;
                 strategyChartInstance.data.datasets[1].data = splitVals;
                 strategyChartInstance.data.datasets[2].data = origVals;
@@ -1312,19 +1365,23 @@
                 strategyChartInstance.data.datasets[6].backgroundColor = splitSellColors;
                 strategyChartInstance.update('none'); 
 
-                // 하단 차트 업데이트 (1~8 인덱스 밴드선 및 터치 마커 모두 완벽하게 갱신)
-                priceChartInstance.data.datasets[1].data = boundSellEnd;
-                priceChartInstance.data.datasets[2].data = boundSell;
-                priceChartInstance.data.datasets[3].data = boundSemiSell;
-                priceChartInstance.data.datasets[4].data = boundSemiBuy;
-                priceChartInstance.data.datasets[5].data = boundBuy;
-                priceChartInstance.data.datasets[6].data = boundBuyEnd;
-                priceChartInstance.data.datasets[7].data = priceBandBuyPoints;
+                // 하단 차트 업데이트 (모드 변경 시 y축 라벨, 스케일 타입 동적 갱신 포함)
+                priceChartInstance.data.datasets[0].label = isPriceMode ? '주가 (Price)' : '이격도 (Disparity)';
+                priceChartInstance.data.datasets[0].data = bottomMainData;
+                priceChartInstance.data.datasets[1].data = bottomSellEnd;
+                priceChartInstance.data.datasets[2].data = bottomSell;
+                priceChartInstance.data.datasets[3].data = bottomSemiSell;
+                priceChartInstance.data.datasets[4].data = bottomSemiBuy;
+                priceChartInstance.data.datasets[5].data = bottomBuy;
+                priceChartInstance.data.datasets[6].data = bottomBuyEnd;
+                priceChartInstance.data.datasets[7].data = bottomBuyPoints;
                 priceChartInstance.data.datasets[7].pointBackgroundColor = priceBandBuyColors;
                 priceChartInstance.data.datasets[7].backgroundColor = priceBandBuyColors;
-                priceChartInstance.data.datasets[8].data = priceBandSellPoints;
+                priceChartInstance.data.datasets[8].data = bottomSellPoints;
                 priceChartInstance.data.datasets[8].pointBackgroundColor = priceBandSellColors;
                 priceChartInstance.data.datasets[8].backgroundColor = priceBandSellColors;
+                
+                priceChartInstance.options.scales.y.type = isPriceMode ? 'logarithmic' : 'linear';
                 priceChartInstance.update('none');
             } else {
                 if (strategyChartInstance) strategyChartInstance.destroy();
@@ -1380,26 +1437,34 @@
                                     ci.update();
                                 }
                             },
-                            tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ` + new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(ctx.parsed.y) } }
+                            tooltip: { 
+                                callbacks: { 
+                                    label: (ctx) => {
+                                        let val = ctx.parsed.y;
+                                        if (currentAnalysisTicker === 'USDKRW=X') return `${ctx.dataset.label}: ${Math.round(val).toLocaleString('ko-KR')}원`;
+                                        return `${ctx.dataset.label}: ` + new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+                                    } 
+                                } 
+                            }
                         }
                     }
                 });
 
-                // 2. 하단 차트: 주가 + 밴드 + 밴드 터치 지점 마커 (금리 화살표 삭제 완료)
+                // 2. 하단 차트: 주가/이격도 + 밴드 + 밴드 터치 지점 마커
                 priceChartInstance = new Chart(ctxBottom, {
                     type: 'line',
                     data: {
                         labels: dates,
                         datasets: [
-                            { label: '주가 (Price)', data: priceVals, borderColor: '#ffffff', borderWidth: 2.5, pointRadius: 0, order: 2 },
-                            { label: '심한 과열 끝', data: boundSellEnd, borderColor: 'rgba(0, 64, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 3 },
-                            { label: '심한 과열 (Sell)', data: boundSell, borderColor: 'rgba(0, 128, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 4 },
-                            { label: '과열', data: boundSemiSell, borderColor: 'rgba(0, 192, 255, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4], order: 5 },
-                            { label: '저평가', data: boundSemiBuy, borderColor: 'rgba(255, 192, 0, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4], order: 6 },
-                            { label: '심한 저평가 (Buy)', data: boundBuy, borderColor: 'rgba(255, 128, 0, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 7 },
-                            { label: '심한 저평가 끝', data: boundBuyEnd, borderColor: 'rgba(255, 64, 0, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 8 },
-                            { label: '구간 터치 매수 (▲)', data: priceBandBuyPoints, borderColor: 'transparent', pointBackgroundColor: priceBandBuyColors, backgroundColor: priceBandBuyColors, pointStyle: 'triangle', rotation: 0, pointRadius: 7, pointHoverRadius: 9, showLine: false, order: 1 },
-                            { label: '구간 터치 매도 (▼)', data: priceBandSellPoints, borderColor: 'transparent', pointBackgroundColor: priceBandSellColors, backgroundColor: priceBandSellColors, pointStyle: 'triangle', rotation: 180, pointRadius: 7, pointHoverRadius: 9, showLine: false, order: 1 }
+                            { label: isPriceMode ? '주가 (Price)' : '이격도 (Disparity)', data: bottomMainData, borderColor: '#ffffff', borderWidth: 2.5, pointRadius: 0, order: 2 },
+                            { label: '심한 과열 끝', data: bottomSellEnd, borderColor: 'rgba(0, 64, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 3 },
+                            { label: '심한 과열 (Sell)', data: bottomSell, borderColor: 'rgba(0, 128, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 4 },
+                            { label: '과열', data: bottomSemiSell, borderColor: 'rgba(0, 192, 255, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4], order: 5 },
+                            { label: '저평가', data: bottomSemiBuy, borderColor: 'rgba(255, 192, 0, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4], order: 6 },
+                            { label: '심한 저평가 (Buy)', data: bottomBuy, borderColor: 'rgba(255, 128, 0, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 7 },
+                            { label: '심한 저평가 끝', data: bottomBuyEnd, borderColor: 'rgba(255, 64, 0, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 8 },
+                            { label: '구간 터치 매수 (▲)', data: bottomBuyPoints, borderColor: 'transparent', pointBackgroundColor: priceBandBuyColors, backgroundColor: priceBandBuyColors, pointStyle: 'triangle', rotation: 0, pointRadius: 7, pointHoverRadius: 9, showLine: false, order: 1 },
+                            { label: '구간 터치 매도 (▼)', data: bottomSellPoints, borderColor: 'transparent', pointBackgroundColor: priceBandSellColors, backgroundColor: priceBandSellColors, pointStyle: 'triangle', rotation: 180, pointRadius: 7, pointHoverRadius: 9, showLine: false, order: 1 }
                         ]
                     },
                     options: {
@@ -1407,12 +1472,21 @@
                         maintainAspectRatio: false,
                         interaction: { mode: 'index', intersect: false },
                         scales: {
-                            y: { type: 'logarithmic', grid: { color: '#333' }, ticks: { color: '#aaa' } },
+                            y: { type: isPriceMode ? 'logarithmic' : 'linear', grid: { color: '#333' }, ticks: { color: '#aaa' } },
                             x: { grid: { display: false }, ticks: { maxTicksLimit: 8, color: '#aaa' } }
                         },
                         plugins: { 
                             legend: { labels: { color: '#fff', boxWidth: 15 } },
-                            tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ` + new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(ctx.parsed.y) } }
+                            tooltip: { 
+                                callbacks: { 
+                                    label: (ctx) => {
+                                        let val = ctx.parsed.y;
+                                        if (ctx.dataset.label.includes('이격도')) return `${ctx.dataset.label}: ${val.toFixed(2)}x`;
+                                        if (currentAnalysisTicker === 'USDKRW=X') return `${ctx.dataset.label}: ${Math.round(val).toLocaleString('ko-KR')}원`;
+                                        return `${ctx.dataset.label}: ` + new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+                                    } 
+                                } 
+                            }
                         }
                     }
                 });
@@ -1480,7 +1554,6 @@
             document.body.removeChild(link);
         }
 
-        // 단순 최적화 활성화 시 자산 데이터를 일괄 재처리하는 함수
         function reprocessAllAssets() {
             document.getElementById('content').classList.add('loading');
             
@@ -1498,7 +1571,6 @@
                 document.getElementById('content').classList.remove('loading');
                 updateView();
                 
-                // 만약 분석 모달이 켜져있다면 차트도 같이 새로고침
                 if (document.getElementById('analysisModal').style.display === 'flex' && currentAnalysisTicker) {
                     runAnalysis(currentAnalysisTicker, true);
                 }
@@ -1795,7 +1867,7 @@
 
                 updateView();
 
-                // 새로 추가된 단순 최적화 버튼 로직
+                // 단순 최적화 버튼 로직
                 const simpleOptBtn = document.getElementById('simpleOptBtn');
                 simpleOptBtn.style.display = 'block';
                 simpleOptBtn.addEventListener('click', function() {
