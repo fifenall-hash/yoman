@@ -1010,6 +1010,9 @@
             let origShares = 0, origCash = 0, origCost = 0, origIsHolding = true;
             let splitShares = 0, splitCash = 0, splitCost = 0;
             
+            // 분할 전략의 보유 비중 트래킹 (1.0 = 100% 주식보유, 0.0 = 100% 현금관망)
+            let splitHoldingRatio = 1.0; 
+            
             let bnhRealizedYear = 0, origRealizedYear = 0, splitRealizedYear = 0;
             
             let swSellEnd = false, swSellExtreme = false, swSellOver = false;
@@ -1061,10 +1064,12 @@
                     bnhShares = initCap / price; bnhCost = initCap;
                     origShares = initCap / price; origCash = 0; origCost = initCap;
                     splitShares = initCap / price; splitCash = 0; splitCost = initCap;
+                    splitHoldingRatio = 1.0;
                     lastMonth = currentMonth;
                     lastYear = currentYear;
                 } else {
                     if (currentYear !== lastYear) {
+                        // 세금 처리는 세 전략 모두 완벽히 동일한 수식 적용
                         if (lastYear >= 2001) {
                             if (bnhRealizedYear > EXEMPTION_USD) {
                                 let tax = (bnhRealizedYear - EXEMPTION_USD) * TAX_RATE;
@@ -1129,27 +1134,15 @@
                             origCash += add_amount;
                         }
 
-                        let salaryInvestRatio = 0;
-                        let salaryColor = 'transparent';
-                        if (disp <= extreme_buy_end) {
-                            salaryInvestRatio = RATIO_BUY_EXTREME_UNDER_END;
-                            salaryColor = 'rgb(255, 64, 0)';
-                        } else if (disp <= t.buy) {
-                            salaryInvestRatio = RATIO_BUY_EXTREME_UNDER;
-                            salaryColor = 'rgb(255, 128, 0)';
-                        } else if (disp <= t.semiBuy) {
-                            salaryInvestRatio = RATIO_BUY_UNDERVALUED;
-                            salaryColor = 'rgb(255, 192, 0)';
-                        }
-
-                        let investAmt = add_amount * salaryInvestRatio;
+                        // [핵심 변경점] 
+                        // 분할 전략의 월 적립금 투입 비율을 현재 계좌의 '주식 보유 비중'과 일치시킵니다.
+                        // (기존 전략처럼 100% 매도했으면 100% 현금 저축, 50% 매도했으면 50% 저축 50% 주식매수)
+                        let investAmt = add_amount * splitHoldingRatio;
                         let saveAmt = add_amount - investAmt;
 
                         if (investAmt > 0) {
                             splitShares += investAmt / price;
                             splitCost += investAmt;
-                            sBuyColor = salaryColor;
-                            splitBuyTriggered = true;
                         }
                         splitCash += saveAmt; 
                     }
@@ -1190,6 +1183,11 @@
                             splitCash += sellVal;
                             splitShares -= toSellShares;
                             splitCost -= costSold;
+                            
+                            // 포트폴리오 비중 업데이트
+                            splitHoldingRatio -= splitHoldingRatio * ratio;
+                            if (splitHoldingRatio < 0.0001) splitHoldingRatio = 0;
+                            
                             if (!splitSellTriggered) { sSellColor = color; splitSellTriggered = true; }
                         }
                     };
@@ -1213,6 +1211,11 @@
                             splitShares += toSpend / price;
                             splitCost += toSpend;
                             splitCash -= toSpend;
+                            
+                            // 포트폴리오 비중 업데이트
+                            splitHoldingRatio += (1.0 - splitHoldingRatio) * ratio;
+                            if (splitHoldingRatio > 0.9999) splitHoldingRatio = 1.0;
+                            
                             if (!splitBuyTriggered) { sBuyColor = color; splitBuyTriggered = true; }
                         }
                     };
