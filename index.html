@@ -424,6 +424,42 @@
         let rawExPrices = [], rawExDates = [];
         let rawStPrices = [], rawStDates = [];
 
+        // 차트에 연도가 바뀌는 지점(12월 말~1월 초 사이)에 세로 점선을 그려주는 커스텀 플러그인
+        const yearLinePlugin = {
+            id: 'yearLinePlugin',
+            beforeDraw: (chart) => {
+                const ctx = chart.ctx;
+                const xAxis = chart.scales.x;
+                const yAxis = chart.scales.y;
+                const labels = chart.data.labels;
+
+                if (!labels) return;
+
+                ctx.save();
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)'; // 연도 구분선 색상 (연한 흰색)
+                ctx.lineWidth = 1;
+                ctx.setLineDash([4, 4]); // 점선 패턴
+
+                ctx.beginPath();
+                for (let i = 1; i < labels.length; i++) {
+                    const prevYear = labels[i-1].substring(0, 4);
+                    const currYear = labels[i].substring(0, 4);
+                    
+                    // 연도가 바뀌는 지점 포착
+                    if (prevYear !== currYear) {
+                        const xPrev = xAxis.getPixelForValue(i - 1);
+                        const xCurr = xAxis.getPixelForValue(i);
+                        const xMid = (xPrev + xCurr) / 2; // 두 거래일 사이의 정확한 중간 지점
+
+                        ctx.moveTo(xMid, yAxis.top);
+                        ctx.lineTo(xMid, yAxis.bottom);
+                    }
+                }
+                ctx.stroke();
+                ctx.restore();
+            }
+        };
+
         // 차트 레이아웃 동적 변경 (상/하단, 단일)
         function updateChartLayout() {
             const layout = document.getElementById('layoutSelector').value;
@@ -1390,7 +1426,7 @@
                 const ctxTop = document.getElementById('strategyChart').getContext('2d');
                 const ctxBottom = document.getElementById('priceChart').getContext('2d');
 
-                // 1. 상단 차트: 전략선 + 화살표 마커
+                // 1. 상단 차트: 전략선 + 화살표 마커 + yearLinePlugin
                 strategyChartInstance = new Chart(ctxTop, {
                     type: 'line',
                     data: {
@@ -1447,10 +1483,11 @@
                                 } 
                             }
                         }
-                    }
+                    },
+                    plugins: [yearLinePlugin] // 커스텀 플러그인 등록
                 });
 
-                // 2. 하단 차트: 주가/이격도 + 밴드 + 밴드 터치 지점 마커
+                // 2. 하단 차트: 주가/이격도 + 밴드 + yearLinePlugin
                 priceChartInstance = new Chart(ctxBottom, {
                     type: 'line',
                     data: {
@@ -1488,7 +1525,8 @@
                                 } 
                             }
                         }
-                    }
+                    },
+                    plugins: [yearLinePlugin] // 커스텀 플러그인 등록
                 });
             }
         }
