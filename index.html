@@ -183,7 +183,7 @@
         </header>
         <div id="content" class="loading">
             <div style="margin-bottom: 20px; font-size: 15px; font-weight: bold;">
-                주식 및 환율 데이터를 분석 중입니다...<br>
+                주식, 환율 및 거시경제 지표를 분석 중입니다...<br>
                 <span style="font-size: 12px; color: #666; font-weight: normal;">(야후 파이낸스 실시간 접속 및 타점 탐색 중)</span>
             </div>
             
@@ -215,7 +215,7 @@
             
             <!-- 옵션 선택 UI (모든 종목에 적용) -->
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; margin-top: 5px;">
-                <div style="display: flex; gap: 6px;">
+                <div style="display: flex; flex-wrap: wrap; gap: 6px;">
                     <select id="layoutSelector" onchange="updateChartLayout()" style="background: #1e1e1e; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 4px 8px; font-size: 12px; cursor: pointer; outline: none;">
                         <option value="both" selected>분할 보기</option>
                         <option value="top">전략 차트만</option>
@@ -224,6 +224,15 @@
                     <select id="priceModeSelector" onchange="runAnalysis(currentAnalysisTicker, true)" style="background: #1e1e1e; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 4px 8px; font-size: 12px; cursor: pointer; outline: none;">
                         <option value="price" selected>주가(금액) 중심</option>
                         <option value="disp">이격도(배수) 중심</option>
+                    </select>
+                    <select id="indicatorSelector" onchange="runAnalysis(currentAnalysisTicker, true)" style="background: #1e1e1e; color: #00ffff; border: 1px solid #00aaaa; border-radius: 4px; padding: 4px 8px; font-size: 12px; font-weight: bold; cursor: pointer; outline: none;">
+                        <option value="none" selected>보조 지표 끄기</option>
+                        <option value="^VIX">VIX (공포지수)</option>
+                        <option value="DX-Y.NYB">달러 인덱스</option>
+                        <option value="CL=F">WTI (원유)</option>
+                        <option value="HG=F">구리 (Copper)</option>
+                        <option value="^TNX">10년물 국채 금리</option>
+                        <option value="^IRX">13주물 국채 (기준금리)</option>
                     </select>
                 </div>
                 <div id="periodSelector" style="text-align: right;">
@@ -404,6 +413,8 @@
         }
 
         const STOCKS = ['SPXL', 'TQQQ', 'TECL', 'SOXL', 'SPY'];
+        const MACRO_TICKERS = ['^VIX', 'DX-Y.NYB', 'CL=F', 'HG=F', '^TNX', '^IRX'];
+        let globalMacroData = {}; 
 
         let globalExState = null;
         let globalStockResults = [];
@@ -1069,6 +1080,11 @@
             const origVals = [];    
             const splitVals = [];   
             
+            // 거시경제 보조 지표 배열
+            const macroVals = [];
+            const selectedMacro = document.getElementById('indicatorSelector').value;
+            let lastMacroVal = null;
+            
             // 평균선 배열
             const boundAvg_P = [];
             const boundAvg_D = [];
@@ -1132,6 +1148,17 @@
                 dates.push(dateStr);
                 priceVals.push(price);
                 dispVals.push(disp);
+                
+                // 보조 지표 데이터 매핑 (휴장일 등으로 빈 값이면 이전 값으로 채움)
+                if (selectedMacro !== 'none' && globalMacroData[selectedMacro]) {
+                    let mVal = globalMacroData[selectedMacro][dateStr];
+                    if (mVal !== undefined && mVal !== null) {
+                        lastMacroVal = mVal;
+                    }
+                    macroVals.push(lastMacroVal);
+                } else {
+                    macroVals.push(null);
+                }
                 
                 let ma = price / disp; // 1500일 이동평균선
                 boundAvg_P.push(ma * dispMean); // 주가 중심일 때: 1500일 이평선 * 이격도 평균값
@@ -1428,7 +1455,7 @@
                 priceChartInstance.data.datasets[2].data = bottomSell;
                 priceChartInstance.data.datasets[3].data = bottomSemiSell;
                 
-                priceChartInstance.data.datasets[4].label = isPriceMode ? '1500일 평균선' : '이격도 평균';
+                priceChartInstance.data.datasets[4].label = '이격도 평균';
                 priceChartInstance.data.datasets[4].data = bottomAvg;
 
                 priceChartInstance.data.datasets[5].data = bottomSemiBuy;
@@ -1441,6 +1468,17 @@
                 priceChartInstance.data.datasets[9].pointBackgroundColor = priceBandSellColors;
                 priceChartInstance.data.datasets[9].backgroundColor = priceBandSellColors;
                 
+                // 보조 지표 차트 업데이트
+                let macroLabel = document.getElementById('indicatorSelector').options[document.getElementById('indicatorSelector').selectedIndex].text;
+                priceChartInstance.data.datasets[10].label = macroLabel;
+                priceChartInstance.data.datasets[10].data = macroVals;
+                
+                if (selectedMacro !== 'none') {
+                    priceChartInstance.options.scales.y1.display = true;
+                } else {
+                    priceChartInstance.options.scales.y1.display = false;
+                }
+
                 priceChartInstance.options.scales.y.type = isPriceMode ? 'logarithmic' : 'linear';
                 priceChartInstance.update('none');
             } else {
@@ -1511,22 +1549,26 @@
                     plugins: [yearLinePlugin]
                 });
 
-                // 2. 하단 차트: 주가/이격도 + 밴드 + 평균선 + yearLinePlugin
+                // 2. 하단 차트: 주가/이격도 + 밴드 + 평균선 + 보조지표 + yearLinePlugin
+                let macroLabel = document.getElementById('indicatorSelector').options[document.getElementById('indicatorSelector').selectedIndex].text;
+                let showY1 = selectedMacro !== 'none';
+
                 priceChartInstance = new Chart(ctxBottom, {
                     type: 'line',
                     data: {
                         labels: dates,
                         datasets: [
-                            { label: isPriceMode ? '주가 (Price)' : '이격도 (Disparity)', data: bottomMainData, borderColor: '#ffffff', borderWidth: 2.5, pointRadius: 0, order: 2 },
-                            { label: '심한 과열 끝', data: bottomSellEnd, borderColor: 'rgba(0, 64, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 3 },
-                            { label: '심한 과열 (Sell)', data: bottomSell, borderColor: 'rgba(0, 128, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 4 },
-                            { label: '과열', data: bottomSemiSell, borderColor: 'rgba(0, 192, 255, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4], order: 5 },
-                            { label: isPriceMode ? '1500일 평균선' : '이격도 평균', data: bottomAvg, borderColor: 'rgba(200, 200, 200, 0.6)', borderWidth: 1.5, pointRadius: 0, borderDash: [2, 2], order: 6 },
-                            { label: '저평가', data: bottomSemiBuy, borderColor: 'rgba(255, 192, 0, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4], order: 7 },
-                            { label: '심한 저평가 (Buy)', data: bottomBuy, borderColor: 'rgba(255, 128, 0, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 8 },
-                            { label: '심한 저평가 끝', data: bottomBuyEnd, borderColor: 'rgba(255, 64, 0, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 9 },
-                            { label: '구간 터치 매수 (▲)', data: bottomBuyPoints, borderColor: 'transparent', pointBackgroundColor: priceBandBuyColors, backgroundColor: priceBandBuyColors, pointStyle: 'triangle', rotation: 0, pointRadius: 7, pointHoverRadius: 9, showLine: false, order: 1 },
-                            { label: '구간 터치 매도 (▼)', data: bottomSellPoints, borderColor: 'transparent', pointBackgroundColor: priceBandSellColors, backgroundColor: priceBandSellColors, pointStyle: 'triangle', rotation: 180, pointRadius: 7, pointHoverRadius: 9, showLine: false, order: 1 }
+                            { label: isPriceMode ? '주가 (Price)' : '이격도 (Disparity)', data: bottomMainData, borderColor: '#ffffff', borderWidth: 2.5, pointRadius: 0, order: 2, yAxisID: 'y' },
+                            { label: '심한 과열 끝', data: bottomSellEnd, borderColor: 'rgba(0, 64, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 3, yAxisID: 'y' },
+                            { label: '심한 과열 (Sell)', data: bottomSell, borderColor: 'rgba(0, 128, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 4, yAxisID: 'y' },
+                            { label: '과열', data: bottomSemiSell, borderColor: 'rgba(0, 192, 255, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4], order: 5, yAxisID: 'y' },
+                            { label: '이격도 평균', data: bottomAvg, borderColor: 'rgba(200, 200, 200, 0.6)', borderWidth: 1.5, pointRadius: 0, borderDash: [2, 2], order: 6, yAxisID: 'y' },
+                            { label: '저평가', data: bottomSemiBuy, borderColor: 'rgba(255, 192, 0, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4], order: 7, yAxisID: 'y' },
+                            { label: '심한 저평가 (Buy)', data: bottomBuy, borderColor: 'rgba(255, 128, 0, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 8, yAxisID: 'y' },
+                            { label: '심한 저평가 끝', data: bottomBuyEnd, borderColor: 'rgba(255, 64, 0, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 9, yAxisID: 'y' },
+                            { label: '구간 터치 매수 (▲)', data: bottomBuyPoints, borderColor: 'transparent', pointBackgroundColor: priceBandBuyColors, backgroundColor: priceBandBuyColors, pointStyle: 'triangle', rotation: 0, pointRadius: 7, pointHoverRadius: 9, showLine: false, order: 1, yAxisID: 'y' },
+                            { label: '구간 터치 매도 (▼)', data: bottomSellPoints, borderColor: 'transparent', pointBackgroundColor: priceBandSellColors, backgroundColor: priceBandSellColors, pointStyle: 'triangle', rotation: 180, pointRadius: 7, pointHoverRadius: 9, showLine: false, order: 1, yAxisID: 'y' },
+                            { label: macroLabel, data: macroVals, borderColor: 'rgba(0, 255, 255, 0.6)', backgroundColor: 'rgba(0, 255, 255, 0.05)', borderWidth: 1.5, pointRadius: 0, fill: true, yAxisID: 'y1', order: 10 }
                         ]
                     },
                     options: {
@@ -1535,6 +1577,7 @@
                         interaction: { mode: 'index', intersect: false },
                         scales: {
                             y: { type: isPriceMode ? 'logarithmic' : 'linear', grid: { color: '#333' }, ticks: { color: '#aaa' } },
+                            y1: { type: 'linear', position: 'right', display: showY1, grid: { drawOnChartArea: false }, ticks: { color: '#00ffff' } },
                             x: { grid: { display: false }, ticks: { maxTicksLimit: 8, color: '#aaa' } }
                         },
                         plugins: { 
@@ -1543,8 +1586,11 @@
                                 callbacks: { 
                                     label: (ctx) => {
                                         let val = ctx.parsed.y;
+                                        // 보조 지표인 경우 (datasetIndex === 10)
+                                        if (ctx.datasetIndex === 10) return `${ctx.dataset.label}: ${val.toFixed(2)}`;
+                                        
                                         let modeIsPrice = document.getElementById('priceModeSelector').value === 'price';
-                                        // 이격도 모드일 땐 항상 배수(x) 표시
+                                        // 이격도 모드일 땐 배수(x) 표시
                                         if (!modeIsPrice) {
                                             return `${ctx.dataset.label}: ${val.toFixed(2)}x`;
                                         } else {
@@ -1839,6 +1885,16 @@
                     rawStPrices.push(stPrices);
                     
                     stockResults.push(processAsset(s, stPrices, stDates, false));
+                }
+
+                // 거시경제 보조 지표 데이터 로드
+                document.querySelector('.loading div').innerHTML = "주식, 환율 및 거시경제 지표를 분석 중입니다...<br><span style='font-size: 12px; color: #666; font-weight: normal;'>(야후 파이낸스 실시간 접속 및 타점 탐색 중)</span>";
+                
+                for (let mt of MACRO_TICKERS) {
+                    const mRaw = await fetchHistory(mt);
+                    let mDict = {};
+                    mRaw.forEach(d => { mDict[d.date] = d.close; });
+                    globalMacroData[mt] = mDict;
                 }
 
                 globalExState = exState;
