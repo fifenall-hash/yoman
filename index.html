@@ -382,7 +382,7 @@
                 <li><strong>SPXL</strong>: 미국을 대표하는 500대 기업(S&P 500)에 3배 투자 (가장 안정적)</li>
                 <li><strong>TQQQ</strong>: 미국 나스닥 100대 기업(애플, 마이크로소프트 등)에 3배 투자</li>
                 <li><strong>TECL</strong>: 미국 최고 기술 기업들에만 집중적으로 3배 투자</li>
-                <li><strong>SOXL</strong>: 엔비디아 등 신 핵심 반도체 기업들에 3배 투자 (변동성 최상)</li>
+                <li><strong>SOXL</strong>: 엔비디아 등 미국 핵심 반도체 기업들에 3배 투자 (변동성 최상)</li>
             </ul>
 
             <hr>
@@ -1421,14 +1421,14 @@
                 strategyChartInstance.data.datasets[6].backgroundColor = splitSellColors;
                 strategyChartInstance.update('none'); 
 
-                // 하단 차트 업데이트 (모드 변경 시 y축 라벨, 스케일 타입 동적 갱신 포함)
+                // 하단 차트 업데이트
                 priceChartInstance.data.datasets[0].label = isPriceMode ? '주가 (Price)' : '이격도 (Disparity)';
                 priceChartInstance.data.datasets[0].data = bottomMainData;
                 priceChartInstance.data.datasets[1].data = bottomSellEnd;
                 priceChartInstance.data.datasets[2].data = bottomSell;
                 priceChartInstance.data.datasets[3].data = bottomSemiSell;
                 
-                priceChartInstance.data.datasets[4].label = '이격도 평균';
+                priceChartInstance.data.datasets[4].label = isPriceMode ? '1500일 평균선' : '이격도 평균';
                 priceChartInstance.data.datasets[4].data = bottomAvg;
 
                 priceChartInstance.data.datasets[5].data = bottomSemiBuy;
@@ -1508,7 +1508,7 @@
                             }
                         }
                     },
-                    plugins: [yearLinePlugin] // 커스텀 플러그인 등록
+                    plugins: [yearLinePlugin]
                 });
 
                 // 2. 하단 차트: 주가/이격도 + 밴드 + 평균선 + yearLinePlugin
@@ -1521,7 +1521,7 @@
                             { label: '심한 과열 끝', data: bottomSellEnd, borderColor: 'rgba(0, 64, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 3 },
                             { label: '심한 과열 (Sell)', data: bottomSell, borderColor: 'rgba(0, 128, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 4 },
                             { label: '과열', data: bottomSemiSell, borderColor: 'rgba(0, 192, 255, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4], order: 5 },
-                            { label: '이격도 평균', data: bottomAvg, borderColor: 'rgba(200, 200, 200, 0.6)', borderWidth: 1.5, pointRadius: 0, borderDash: [2, 2], order: 6 },
+                            { label: isPriceMode ? '1500일 평균선' : '이격도 평균', data: bottomAvg, borderColor: 'rgba(200, 200, 200, 0.6)', borderWidth: 1.5, pointRadius: 0, borderDash: [2, 2], order: 6 },
                             { label: '저평가', data: bottomSemiBuy, borderColor: 'rgba(255, 192, 0, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4], order: 7 },
                             { label: '심한 저평가 (Buy)', data: bottomBuy, borderColor: 'rgba(255, 128, 0, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 8 },
                             { label: '심한 저평가 끝', data: bottomBuyEnd, borderColor: 'rgba(255, 64, 0, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 9 },
@@ -1543,15 +1543,20 @@
                                 callbacks: { 
                                     label: (ctx) => {
                                         let val = ctx.parsed.y;
-                                        if (ctx.dataset.label.includes('이격도')) return `${ctx.dataset.label}: ${val.toFixed(2)}x`;
-                                        if (currentAnalysisTicker === 'USDKRW=X') return `${ctx.dataset.label}: ${Math.round(val).toLocaleString('ko-KR')}원`;
-                                        return `${ctx.dataset.label}: ` + new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+                                        let modeIsPrice = document.getElementById('priceModeSelector').value === 'price';
+                                        // 이격도 모드일 땐 항상 배수(x) 표시
+                                        if (!modeIsPrice) {
+                                            return `${ctx.dataset.label}: ${val.toFixed(2)}x`;
+                                        } else {
+                                            if (currentAnalysisTicker === 'USDKRW=X') return `${ctx.dataset.label}: ${Math.round(val).toLocaleString('ko-KR')}원`;
+                                            return `${ctx.dataset.label}: ` + new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+                                        }
                                     } 
                                 } 
                             }
                         }
                     },
-                    plugins: [yearLinePlugin] // 커스텀 플러그인 등록
+                    plugins: [yearLinePlugin]
                 });
             }
         }
