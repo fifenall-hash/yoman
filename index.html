@@ -247,7 +247,7 @@
                     <canvas id="strategyChart"></canvas>
                 </div>
 
-                <!-- 주가 및 밴드 차트 (하단 - 금리 화살표 제거됨) -->
+                <!-- 주가 및 밴드 차트 (하단 - 평균선 추가됨) -->
                 <div id="chartContainerBottom" style="position: relative; min-height: 230px; width: 100%; margin-top: 15px; border: 1px solid #444; border-radius: 6px; overflow: hidden; flex: 1;">
                     <canvas id="priceChart"></canvas>
                 </div>
@@ -382,7 +382,7 @@
                 <li><strong>SPXL</strong>: 미국을 대표하는 500대 기업(S&P 500)에 3배 투자 (가장 안정적)</li>
                 <li><strong>TQQQ</strong>: 미국 나스닥 100대 기업(애플, 마이크로소프트 등)에 3배 투자</li>
                 <li><strong>TECL</strong>: 미국 최고 기술 기업들에만 집중적으로 3배 투자</li>
-                <li><strong>SOXL</strong>: 엔비디아 등 미국 핵심 반도체 기업들에 3배 투자 (변동성 최상)</li>
+                <li><strong>SOXL</strong>: 엔비디아 등 신 핵심 반도체 기업들에 3배 투자 (변동성 최상)</li>
             </ul>
 
             <hr>
@@ -1049,6 +1049,18 @@
 
             const N = asset.historyLog.length;
             
+            // 데이터 범위 내에서 disp 평균값 미리 계산 (이평선 렌더링용)
+            let tempSumDisp = 0;
+            let tempCountDisp = 0;
+            for (let i = startIdx; i < endIdx; i++) {
+                let d = asset.historyLog[i].disp;
+                if (d !== null && Number.isFinite(d)) {
+                    tempSumDisp += d;
+                    tempCountDisp++;
+                }
+            }
+            let dispMean = tempCountDisp > 0 ? tempSumDisp / tempCountDisp : 1;
+
             // 데이터 배열
             const dates = [];
             const priceVals = [];   
@@ -1057,6 +1069,10 @@
             const origVals = [];    
             const splitVals = [];   
             
+            // 평균선 배열
+            const boundAvg_P = [];
+            const boundAvg_D = [];
+
             // 밴드 배열 (금액 중심 _P, 이격도 중심 _D)
             const boundSellEnd_P = []; const boundSellEnd_D = [];
             const boundSell_P = [];    const boundSell_D = [];
@@ -1117,7 +1133,10 @@
                 priceVals.push(price);
                 dispVals.push(disp);
                 
-                let ma = price / disp;
+                let ma = price / disp; // 1500일 이동평균선
+                boundAvg_P.push(ma * dispMean); // 주가 중심일 때: 1500일 이평선 * 이격도 평균값
+                boundAvg_D.push(dispMean);      // 이격도 중심일 때: 이격도 평균값
+
                 boundSellEnd_P.push(ma * extreme_sell_end); boundSellEnd_D.push(extreme_sell_end);
                 boundSell_P.push(ma * t.sell);              boundSell_D.push(t.sell);
                 boundSemiSell_P.push(ma * t.semiSell);      boundSemiSell_D.push(t.semiSell);
@@ -1380,6 +1399,7 @@
             let bottomSellEnd = isPriceMode ? boundSellEnd_P : boundSellEnd_D;
             let bottomSell = isPriceMode ? boundSell_P : boundSell_D;
             let bottomSemiSell = isPriceMode ? boundSemiSell_P : boundSemiSell_D;
+            let bottomAvg = isPriceMode ? boundAvg_P : boundAvg_D;
             let bottomSemiBuy = isPriceMode ? boundSemiBuy_P : boundSemiBuy_D;
             let bottomBuy = isPriceMode ? boundBuy_P : boundBuy_D;
             let bottomBuyEnd = isPriceMode ? boundBuyEnd_P : boundBuyEnd_D;
@@ -1407,15 +1427,19 @@
                 priceChartInstance.data.datasets[1].data = bottomSellEnd;
                 priceChartInstance.data.datasets[2].data = bottomSell;
                 priceChartInstance.data.datasets[3].data = bottomSemiSell;
-                priceChartInstance.data.datasets[4].data = bottomSemiBuy;
-                priceChartInstance.data.datasets[5].data = bottomBuy;
-                priceChartInstance.data.datasets[6].data = bottomBuyEnd;
-                priceChartInstance.data.datasets[7].data = bottomBuyPoints;
-                priceChartInstance.data.datasets[7].pointBackgroundColor = priceBandBuyColors;
-                priceChartInstance.data.datasets[7].backgroundColor = priceBandBuyColors;
-                priceChartInstance.data.datasets[8].data = bottomSellPoints;
-                priceChartInstance.data.datasets[8].pointBackgroundColor = priceBandSellColors;
-                priceChartInstance.data.datasets[8].backgroundColor = priceBandSellColors;
+                
+                priceChartInstance.data.datasets[4].label = '이격도 평균';
+                priceChartInstance.data.datasets[4].data = bottomAvg;
+
+                priceChartInstance.data.datasets[5].data = bottomSemiBuy;
+                priceChartInstance.data.datasets[6].data = bottomBuy;
+                priceChartInstance.data.datasets[7].data = bottomBuyEnd;
+                priceChartInstance.data.datasets[8].data = bottomBuyPoints;
+                priceChartInstance.data.datasets[8].pointBackgroundColor = priceBandBuyColors;
+                priceChartInstance.data.datasets[8].backgroundColor = priceBandBuyColors;
+                priceChartInstance.data.datasets[9].data = bottomSellPoints;
+                priceChartInstance.data.datasets[9].pointBackgroundColor = priceBandSellColors;
+                priceChartInstance.data.datasets[9].backgroundColor = priceBandSellColors;
                 
                 priceChartInstance.options.scales.y.type = isPriceMode ? 'logarithmic' : 'linear';
                 priceChartInstance.update('none');
@@ -1487,7 +1511,7 @@
                     plugins: [yearLinePlugin] // 커스텀 플러그인 등록
                 });
 
-                // 2. 하단 차트: 주가/이격도 + 밴드 + yearLinePlugin
+                // 2. 하단 차트: 주가/이격도 + 밴드 + 평균선 + yearLinePlugin
                 priceChartInstance = new Chart(ctxBottom, {
                     type: 'line',
                     data: {
@@ -1497,9 +1521,10 @@
                             { label: '심한 과열 끝', data: bottomSellEnd, borderColor: 'rgba(0, 64, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 3 },
                             { label: '심한 과열 (Sell)', data: bottomSell, borderColor: 'rgba(0, 128, 255, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 4 },
                             { label: '과열', data: bottomSemiSell, borderColor: 'rgba(0, 192, 255, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4], order: 5 },
-                            { label: '저평가', data: bottomSemiBuy, borderColor: 'rgba(255, 192, 0, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4], order: 6 },
-                            { label: '심한 저평가 (Buy)', data: bottomBuy, borderColor: 'rgba(255, 128, 0, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 7 },
-                            { label: '심한 저평가 끝', data: bottomBuyEnd, borderColor: 'rgba(255, 64, 0, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 8 },
+                            { label: '이격도 평균', data: bottomAvg, borderColor: 'rgba(200, 200, 200, 0.6)', borderWidth: 1.5, pointRadius: 0, borderDash: [2, 2], order: 6 },
+                            { label: '저평가', data: bottomSemiBuy, borderColor: 'rgba(255, 192, 0, 0.8)', borderWidth: 1.5, pointRadius: 0, borderDash: [4, 4], order: 7 },
+                            { label: '심한 저평가 (Buy)', data: bottomBuy, borderColor: 'rgba(255, 128, 0, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 8 },
+                            { label: '심한 저평가 끝', data: bottomBuyEnd, borderColor: 'rgba(255, 64, 0, 0.9)', borderWidth: 1.5, pointRadius: 0, borderDash: [5, 5], order: 9 },
                             { label: '구간 터치 매수 (▲)', data: bottomBuyPoints, borderColor: 'transparent', pointBackgroundColor: priceBandBuyColors, backgroundColor: priceBandBuyColors, pointStyle: 'triangle', rotation: 0, pointRadius: 7, pointHoverRadius: 9, showLine: false, order: 1 },
                             { label: '구간 터치 매도 (▼)', data: bottomSellPoints, borderColor: 'transparent', pointBackgroundColor: priceBandSellColors, backgroundColor: priceBandSellColors, pointStyle: 'triangle', rotation: 180, pointRadius: 7, pointHoverRadius: 9, showLine: false, order: 1 }
                         ]
